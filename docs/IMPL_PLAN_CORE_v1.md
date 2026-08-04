@@ -44,6 +44,7 @@
 │   └── install_deps.sh                # 시스템 의존성
 ├── ssat/                              # /workspace PYTHONPATH에서 직접 import
 │   ├── __init__.py
+│   ├── utils/                         # 공통 logging·파일 I/O
 │   └── core/                          # ← v1 구현 범위
 │       ├── config/                    # M0  설정 스키마·Resolver
 │       ├── plan/                      # M1  작업 타입·해싱·PlanBuilder
@@ -81,7 +82,8 @@
 
 ```
 types  → (없음)
-config → types
+utils  → (없음)
+config → types, adapter(contracts), source(contracts), utils
 region → types
 plan   → types, region
 source → (없음, 독립)
@@ -114,6 +116,10 @@ docker compose exec region-sensitivity-workspace pytest -q
 ```
 
 현재 Compose 파일은 개발·테스트용이다. 읽기 전용 데이터와 별도 dump 볼륨을 갖는 배포용 이미지·Compose는 CLI가 완성되는 단계 10에서 별도 산출물로 추가한다.
+
+### 3.3 로깅
+
+라이브러리는 기본적으로 로그를 출력하지 않고, 애플리케이션 경계에서 `logger_factory.configure_logging()`으로 UTC 콘솔과 선택적 파일 로그를 활성화한다. 레벨·민감 정보·중복 기록 기준은 [LOGGING_POLICY.md](LOGGING_POLICY.md)를 따른다.
 
 ---
 
@@ -165,18 +171,23 @@ docker compose exec region-sensitivity-workspace pytest -q
 
 ### 단계 2. ConfigResolver (M0)
 
-**작업.** 설정 로드·검증, 경로 정규화, 기본값 채움, DatasetStats 사전 계산, 어댑터 `describe()` 호출 및 결정론 검증, `ResolvedConfig` 산출.
+**작업.** 설정 로드·검증, 경로·explicit mask hash 확정, v1 perturbation params 검증, 필요한 경우 DatasetStats 사전 계산, 어댑터 `describe()` 호출 및 결정론 검증, manifest-ready `ResolvedConfig` 산출. 이 단계에서 공통 `logger_factory`, YAML/JSON·atomic write·파일 hash 유틸과 최소 Adapter/SampleSource Protocol도 함께 구현한다.
 
 **테스트.**
 - 비결정론 어댑터 → 기본 거부, `allow_nondeterministic: true`면 경고 후 통과
 - DatasetStats가 설정에 이미 있으면 재계산하지 않음
+- `mean_fill`을 사용할 때만 누락된 DatasetStats를 계산하고 `LoadError` 샘플은 경고 후 제외
 - 상대 경로가 절대 경로로 변환됨
+- explicit mask의 제공 hash와 실제 hash 불일치 거부
 - 유효하지 않은 op·region 조합 거부
 - `ResolvedConfig` 직렬화 → 역직렬화 일치
+- UTC logger 포맷, 선택적 파일 출력, 반복 설정 시 handler 중복 방지
+- YAML/JSON 로드, SHA-256, atomic JSON write 검증
 
 **성공 조건.**
 - 잘못된 설정이 실행 시작 전에 전부 걸러짐
 - `ResolvedConfig`가 manifest에 기록 가능한 형태로 직렬화됨
+- 라이브러리 import만으로 로그가 출력되지 않고 CLI가 명시적으로 로깅을 활성화할 수 있음
 
 ---
 

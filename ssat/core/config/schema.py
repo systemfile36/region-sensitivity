@@ -8,6 +8,7 @@ from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+from ssat.core.adapter.types import AdapterSpec
 from ssat.core.types import (
     PerturbationOp,
     RegionKind,
@@ -199,3 +200,91 @@ class AuditConfig(FrozenModel):
             names = ", ".join(sorted(unknown))
             raise ValueError(f"controls reference unknown region_id values: {names}")
         return self
+
+
+class ResolvedRegionConfig(FrozenModel):
+    """Describe a region after all filesystem references are resolved.
+
+    Attributes:
+        region_id: Stable name used by controls and dump records.
+        kind: Strategy used to materialize the region mask.
+        params: Strategy-specific JSON parameters.
+        ref: Absolute explicit-mask path, when applicable.
+        ref_hash: Verified SHA-256 digest of the explicit mask.
+    """
+
+    region_id: RegionId
+    kind: RegionKind
+    params: dict[str, Any] = Field(default_factory=dict)
+    ref: Path | None = None
+    ref_hash: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
+
+    @field_validator("params")
+    @classmethod
+    def validate_params(cls, value: dict[str, Any]) -> dict[str, Any]:
+        """Ensure resolved parameters remain canonical JSON-compatible values."""
+
+        validate_json_value(value)
+        return value
+
+    @model_validator(mode="after")
+    def validate_resolved_reference(self) -> ResolvedRegionConfig:
+        """Require complete absolute references for explicit regions."""
+
+        if self.kind is RegionKind.EXPLICIT:
+            if self.ref is None or not self.ref.is_absolute() or self.ref_hash is None:
+                raise ValueError(
+                    "resolved explicit regions require an absolute ref and ref_hash"
+                )
+        elif self.ref is not None or self.ref_hash is not None:
+            raise ValueError("procedural regions cannot define ref or ref_hash")
+        return self
+
+
+class ResolvedConfig(FrozenModel):
+    """Hold the fully resolved, manifest-ready audit configuration.
+
+    No downstream module should reinterpret paths, hashes, statistics, adapter
+    metadata, or perturbation defaults after this model is created.
+
+    Attributes:
+        schema_version: Version governing config, hashing, and dump contracts.
+        config_source: Absolute YAML path, or None for in-memory input.
+        config_base_dir: Absolute base used to resolve relative paths.
+        regions: Region definitions with verified filesystem references.
+        perturbations: Perturbations with complete runtime parameters.
+        controls: Area-matched control requests.
+        runtime: Worker, batching, retry, and determinism settings.
+        dump: Raw dump buffering settings.
+        dataset_stats: Optional resolved dataset statistics.
+        adapter_spec: Adapter metadata verified before execution.
+    """
+
+    schema_version: Literal["1.0.0"] = SCHEMA_VERSION
+    config_source: Path | None = None
+    config_base_dir: Path
+    regions: tuple[ResolvedRegionConfig, ...]
+    perturbations: tuple[PerturbationConfig, ...]
+    controls: tuple[ControlConfig, ...] = ()
+    runtime: RuntimeConfig
+    dump: DumpConfig
+    dataset_stats: DatasetStats | None = None
+    adapter_spec: AdapterSpec
+
+    @field_validator("config_source")
+    @classmethod
+    def validate_config_source(cls, value: Path | None) -> Path | None:
+        """Require the optional source path to be absolute."""
+
+        if value is not None and not value.is_absolute():
+            raise ValueError("config_source must be absolute")
+        return value
+
+    @field_validator("config_base_dir")
+    @classmethod
+    def validate_config_base_dir(cls, value: Path) -> Path:
+        """Require the path-resolution base directory to be absolute."""
+
+        if not value.is_absolute():
+            raise ValueError("config_base_dir must be absolute")
+        return value
