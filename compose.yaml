@@ -1,0 +1,23 @@
+services:
+  region-sensitivity-workspace:
+    build:
+      context: .
+      dockerfile: .devcontainer/Dockerfile
+    image: local/region-sensitivity-workspace:latest
+    container_name: region-sensitivity-workspace
+
+    # Sleep infinity for wating interactive shell
+    command: sleep infinity
+
+    restart: unless-stopped
+
+    gpus: all
+
+    shm_size: "32G"
+
+    environment:
+      PYTHONPATH: "${PYTHONPATH}:/workspace"
+
+    # Mount workspace directory
+    volumes:
+      - .:/workspace
