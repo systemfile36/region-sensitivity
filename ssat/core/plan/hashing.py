@@ -112,3 +112,43 @@ def compute_item_id(value: Any, *, schema_version: str = SCHEMA_VERSION) -> str:
         payload = value
     envelope = {"schema_version": schema_version, "work_item": payload}
     return hashlib.sha256(canonical_json_bytes(envelope)).hexdigest()
+
+
+def compute_chunk_id(
+    sample_id: str,
+    chunk_ordinal: int,
+    item_ids: tuple[str, ...],
+    *,
+    schema_version: str = SCHEMA_VERSION,
+) -> str:
+    """Compute the stable identifier for one ordered sample chunk.
+
+    Args:
+        sample_id: Source sample shared by every item in the chunk.
+        chunk_ordinal: Zero-based chunk position within the sample.
+        item_ids: Ordered item identifiers contained in the chunk.
+        schema_version: Namespace for the canonical chunk contract.
+
+    Returns:
+        A 64-character lowercase SHA-256 hexadecimal digest.
+
+    Raises:
+        ValueError: If the sample, ordinal, or item list is invalid.
+    """
+
+    if not sample_id:
+        raise ValueError("sample_id must not be empty")
+    if chunk_ordinal < 0:
+        raise ValueError("chunk_ordinal must be non-negative")
+    if not item_ids:
+        raise ValueError("item_ids must not be empty")
+
+    envelope = {
+        "schema_version": schema_version,
+        "work_chunk": {
+            "sample_id": sample_id,
+            "chunk_ordinal": chunk_ordinal,
+            "item_ids": item_ids,
+        },
+    }
+    return hashlib.sha256(canonical_json_bytes(envelope)).hexdigest()

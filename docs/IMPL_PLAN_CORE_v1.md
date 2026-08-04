@@ -193,18 +193,38 @@ docker compose exec region-sensitivity-workspace pytest -q
 
 ### 단계 3. PlanBuilder (M1)
 
-**작업.** `enumerate()`, `enumerate_clean()`, `materialize(chunk_id)`, 청킹 규칙, 대조군 열거(명시 요청 시).
+**작업.** `PlanBuilder`는 `SampleSource.list_samples()`를 최초 접근 시 한 번만
+호출하고, 픽셀을 로드하지 않은 채 `sample_id` 순으로 실행 계획을 고정한다.
+`enumerate()`는 가벼운 `WorkChunkMeta`만 반환하고, `enumerate_clean()`은 정렬된
+`SampleMeta`를 별도 반환한다. 일반 WorkItem은 각 샘플에서 설정의
+region → perturbation → seed salt 순서로 열거하며, 명시된 area-matched control은
+일반 항목 뒤에 control 요청 → control index → perturbation → seed salt 순서로
+추가한다.
+
+각 샘플의 항목은 `variants_per_chunk` 단위로 나눈다. chunk ID는 schema version,
+sample ID, 샘플 내 chunk ordinal, ordered item ID를 canonical JSON으로 묶은
+SHA-256 전체 hex로 계산한다. PlanBuilder는 immutable metadata와 chunk locator만
+캐시하고, `materialize(chunk_id)`에서 해당 샘플의 항목을 다시 열거한 뒤 metadata의
+item ID와 chunk ID가 모두 일치하는지 검증한다. Control의 `random_area_match`
+RegionSpec에는 target region의 전체 resolved JSON recipe와 control 요청·control
+index를 내장하여 다음 단계의 RegionResolver가 외부 registry 없이 이를 해석할
+수 있게 한다.
 
 **테스트.**
-- 동일 설정 → 동일 청크 목록 (순서 포함)
-- `enumerate()`의 item_id와 `materialize()`가 재계산한 item_id 일치 ← **핵심**
-- `variants_per_chunk`에 따른 분할 정확성, 마지막 청크 처리
-- 대조군 미요청 시 control 아이템 0개
-- clean이 perturbed 열거에 섞이지 않음
+- source 반환 순서가 달라도 sample·clean·chunk 순서와 ID가 동일함
+- region → perturbation → seed salt 순서와 전체 WorkItem 수가 정확함
+- `enumerate()`의 item ID 및 chunk ID와 `materialize()` 재계산 결과가 일치함 ← **핵심**
+- `variants_per_chunk`에 따른 정확한 분할, 짧은 마지막 chunk, 크기 1 처리
+- chunk ID 회귀값 및 item 순서·ordinal·sample·schema version 변화 감지
+- 빈 데이터셋, 중복 sample ID, source 예외, 알 수 없는 chunk ID 거부
+- 대조군 전체 곱집합, 일반 항목 뒤 배치, 고유 ID와 self-contained target recipe
+- 중복 control 요청이 request ordinal로 구분됨
+- clean과 perturbed 열거 모두 `SampleSource.load()`를 호출하지 않음
 
 **성공 조건.**
 - 메인·워커 재계산 일치 테스트 통과 (이것이 깨지면 전체 설계가 무너짐)
 - 열거 결과가 실행 없이 검증 가능
+- 동일한 ResolvedConfig와 sample 목록에서 순서까지 완전히 동일한 계획 산출
 
 ---
 

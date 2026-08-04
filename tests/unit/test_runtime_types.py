@@ -5,7 +5,7 @@ import pytest
 
 from ssat.core.adapter.types import AdapterSpec, RawOutput
 from ssat.core.plan.hashing import compute_item_id
-from ssat.core.plan.types import WorkChunk, WorkItem
+from ssat.core.plan.types import WorkChunk, WorkChunkMeta, WorkItem
 from ssat.core.region.types import RegionSpec
 from ssat.core.runtime.types import ItemMeta, PreparedChunk
 from ssat.core.source.types import LoadedSample
@@ -45,8 +45,13 @@ def test_work_item_params_are_immutable_and_hashable() -> None:
     with pytest.raises(FrozenInstanceError):
         item.sample_id = "changed"
 
-    chunk = WorkChunk("chunk-1", "sample", (item,))
+    chunk = WorkChunk("c" * 64, "sample", (item,))
     assert chunk.items == (item,)
+
+    with pytest.raises(ValueError, match="chunk_id"):
+        WorkChunk("chunk-1", "sample", (item,))
+    with pytest.raises(ValueError, match="item_id"):
+        WorkChunkMeta("c" * 64, "sample", ("item-1",))
 
 
 def test_prepared_chunk_aligns_arrays_and_metadata() -> None:

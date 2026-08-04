@@ -9,6 +9,17 @@ from ssat.core.region.types import RegionSpec
 from ssat.core.types import JsonValue, PerturbationOp, freeze_json_mapping
 
 
+def _validate_sha256_hex(value: str, *, field_name: str) -> None:
+    """Validate identifiers governed by the SHA-256 hex contract."""
+
+    if not isinstance(value, str) or len(value) != 64 or any(
+        character not in "0123456789abcdef" for character in value
+    ):
+        raise ValueError(
+            f"{field_name} must be a 64-character lowercase SHA-256 hex digest"
+        )
+
+
 @dataclass(frozen=True, slots=True)
 class WorkItem:
     """Define one deterministic sample-region-perturbation evaluation.
@@ -37,8 +48,7 @@ class WorkItem:
     is_control: bool = False
 
     def __post_init__(self) -> None:
-        if len(self.item_id) != 64 or any(c not in "0123456789abcdef" for c in self.item_id):
-            raise ValueError("item_id must be a 64-character lowercase SHA-256 hex digest")
+        _validate_sha256_hex(self.item_id, field_name="item_id")
         if not self.sample_id:
             raise ValueError("sample_id must not be empty")
         if self.seed_salt < 0:
@@ -81,6 +91,15 @@ class WorkChunkMeta:
     sample_id: str
     item_ids: tuple[str, ...]
 
+    def __post_init__(self) -> None:
+        _validate_sha256_hex(self.chunk_id, field_name="chunk_id")
+        if not self.sample_id:
+            raise ValueError("sample_id must not be empty")
+        if not self.item_ids:
+            raise ValueError("item_ids must not be empty")
+        for item_id in self.item_ids:
+            _validate_sha256_hex(item_id, field_name="item_id")
+
     @property
     def n_items(self) -> int:
         """Return the number of work items represented by the chunk."""
@@ -103,8 +122,9 @@ class WorkChunk:
     items: tuple[WorkItem, ...]
 
     def __post_init__(self) -> None:
-        if not self.chunk_id or not self.sample_id:
-            raise ValueError("chunk_id and sample_id must not be empty")
+        _validate_sha256_hex(self.chunk_id, field_name="chunk_id")
+        if not self.sample_id:
+            raise ValueError("sample_id must not be empty")
         if not self.items:
             raise ValueError("items must not be empty")
         if any(item.sample_id != self.sample_id for item in self.items):

@@ -2,7 +2,7 @@ import math
 
 import pytest
 
-from ssat.core.plan.hashing import canonical_json, compute_item_id
+from ssat.core.plan.hashing import canonical_json, compute_chunk_id, compute_item_id
 
 
 def identity(**overrides: object) -> dict[str, object]:
@@ -95,3 +95,19 @@ def test_schema_version_namespaces_item_ids() -> None:
     assert compute_item_id(identity(), schema_version="1") != compute_item_id(
         identity(), schema_version="2"
     )
+
+
+def test_chunk_id_regression_value() -> None:
+    assert compute_chunk_id("sample", 0, ("a" * 64, "b" * 64)) == (
+        "60cb82d57876b7d812edccbea442778047ad80649845300edfdc19473046099a"
+    )
+
+
+def test_chunk_id_covers_order_ordinal_sample_and_schema_version() -> None:
+    item_ids = ("a" * 64, "b" * 64)
+    base = compute_chunk_id("sample", 0, item_ids)
+
+    assert compute_chunk_id("sample", 0, tuple(reversed(item_ids))) != base
+    assert compute_chunk_id("sample", 1, item_ids) != base
+    assert compute_chunk_id("other", 0, item_ids) != base
+    assert compute_chunk_id("sample", 0, item_ids, schema_version="2") != base
