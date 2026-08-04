@@ -1,0 +1,33 @@
+#Python
+__pychache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+*.egg-info/
+.dist/
+.build/
+.cache/
+.venv/
+env/
+venv/
+
+# IDE/OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Data 
+raw/
+runs/
+outputs/
+checkpoints/
+logs/
+tensorboard/
+
+# etc 
+temp/
+*.log
+temp_*
+deprecated*

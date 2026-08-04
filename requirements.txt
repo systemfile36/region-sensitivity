@@ -1,0 +1,24 @@
+# PyTorch
+torch>=2.8.0
+torchvision>=0.23.0
+
+# Data
+numpy
+pandas
+pyarrow
+pydantic
+typer
+pyyaml
+timm
+
+# Image
+# Install headless OpenCV for non-GUI envitonment (like Dev container)
+opencv-python-headless
+pillow
+
+# Others
+tqdm
+matplotlib
+
+# Dev
+pytest

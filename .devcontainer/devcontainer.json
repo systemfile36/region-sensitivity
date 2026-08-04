@@ -1,0 +1,38 @@
+{
+    // https://code.visualstudio.com/docs/devcontainers/create-dev-container
+    "name": "Develop Environment",
+    "build": {
+        //Dockerfile in project root
+        "dockerfile": "Dockerfile", 
+        // Context set to project root to allow Dockerfile to reference files outside .devcontainer
+        "context": ".."
+    }, 
+    //Add GPU to dev container
+    "runArgs": [
+        "--gpus", "all", 
+        // Setting shared memory to prevent insufficient shared memory error.
+        "--shm-size=32G"
+    ],
+    
+    "customizations": {
+        //Setting of VS Code
+        "vscode": {
+            "extensions": [
+                "ms-python.python",
+                "mechatroner.rainbow-csv"
+            ]
+        }
+    }, 
+    //Set remote user for VS Code
+    "remoteUser": "root",
+
+    //Set binding path manually
+    //workSpaceMount option is `--mount` parameter for Docker CLI 
+    "workspaceMount": "source=${localWorkspaceFolder},target=/workspace,type=bind",
+    "workspaceFolder": "/workspace",
+
+    "containerEnv": {
+        // Add workspace to PYTHONPATH
+        "PYTHONPATH": "${PYTHONPATH}:/workspace"
+    }
+}
