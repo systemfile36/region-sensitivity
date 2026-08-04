@@ -1,0 +1,19 @@
+schema_version: 1.0.0
+regions:
+  - region_id: center_bbox
+    kind: bbox_partition
+    params:
+      bbox: [16, 16, 48, 48]
+      partition: center
+perturbations:
+  - op: blur
+    params:
+      sigma: 3.0
+controls:
+  - match_area_of: center_bbox
+    n_samples: 3
+runtime:
+  global_seed: 7
+  variants_per_chunk: 8
+  retry_failed: true
+

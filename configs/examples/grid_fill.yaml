@@ -1,0 +1,20 @@
+schema_version: 1.0.0
+regions:
+  - region_id: grid_2x2
+    kind: grid
+    params:
+      rows: 2
+      cols: 2
+perturbations:
+  - op: constant_fill
+    params:
+      value: [0, 0, 0]
+  - op: mean_fill
+runtime:
+  variants_per_chunk: 16
+  target_batch_size: 32
+dump:
+  flush_every: 1000
+dataset_stats:
+  channel_mean: [123.675, 116.28, 103.53]
+

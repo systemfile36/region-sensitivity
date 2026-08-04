@@ -1,0 +1,18 @@
+schema_version: 1.0.0
+regions:
+  - region_id: foreground
+    kind: explicit
+    params: {}
+    ref: masks/foreground.png
+    ref_hash: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+perturbations:
+  - op: gaussian_noise
+    params:
+      sigma: 12.5
+    seed_salts: [0, 1, 2]
+runtime:
+  global_seed: 20260804
+  num_workers: 4
+dump:
+  flush_every: 512
+

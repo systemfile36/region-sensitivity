@@ -2,24 +2,19 @@
 ## Spatial Sensitivity Audit Toolkit
 
 > 본 계획서는 방향과 틀을 정하기 위한 것이며, 세부 사항은 구현 과정에서 조정한다.
-> 전제: Dev Container 기반 개발, Docker Compose 기반 배포.
+> 전제: Dev Container 또는 같은 이미지를 사용하는 Docker Compose 워크스페이스에서 개발·테스트한다.
 
 ---
 
 ## 1. 기술 스택과 의존성 방침
 
-### 1.1 의존성 계층 원칙
+### 1.1 의존성 관리 원칙
 
-**코어는 최소 의존성만 갖는다.** 프레임워크 의존은 전부 optional extras로 분리하여, 코어만 설치해도 동작하고 필요한 어댑터만 추가할 수 있게 한다.
+현재 저장소의 익숙한 구성을 유지하여 Python 의존성은 루트의 `requirements.txt`, 시스템 의존성은 `scripts/install_deps.sh`에서 관리한다. `.devcontainer/Dockerfile`은 두 파일을 사용해 공통 워크스페이스 이미지를 만들고, Dev Container와 `compose.yaml`이 같은 이미지를 사용한다.
 
-```
-[core]                  numpy, pandas, pyarrow, pydantic, typer, PyYAML
-  └ [torch]             torch, torchvision        (TorchvisionAdapter, DataLoader)
-  └ [timm]              timm                      (TimmAdapter)
-  └ [image]             Pillow, opencv-python     (ImageFolderSource, blur 등)
-  └ [dev]               pytest, pytest-cov, ruff, mypy, pre-commit
-  └ [docs]              mkdocs-material           (선택)
-```
+의존성 목록과 버전 제약은 고정된 최종 명세가 아니다. 구현 단계, 어댑터 추가, 호환성 검증 결과에 따라 패키지가 추가·제거되거나 버전 범위가 변경될 수 있으며, 변경 후에는 워크스페이스 이미지를 다시 빌드한다.
+
+코어의 **논리적 의존 경계**는 계속 최소화한다. 현재 이미지에 torch/timm 등이 함께 설치되더라도 프레임워크 의존 코드는 `runtime/`과 해당 adapter 모듈에 격리하고, 나머지 코어 계약은 numpy 기반을 유지한다. 패키지 배포가 필요해지는 시점에만 optional extras와 별도 패키징 메타데이터 도입을 검토한다.
 
 ### 1.2 주요 선택과 근거
 
@@ -30,7 +25,7 @@
 | dump 포맷 | parquet (pyarrow) | 컬럼 압축, chunk 독립 읽기, 로짓 벡터 저장 효율 |
 | 배열 표현 | numpy | 프레임워크 비의존 원칙 |
 | 병렬 로딩 | torch DataLoader | 검증된 구현, 기존 실험 코드 경험 재사용 |
-| 린트·포맷 | ruff | 속도, 단일 도구 |
+| 테스트 | pytest | 현재 워크스페이스의 공통 테스트 러너 |
 
 **주의.** `torch.utils.data.DataLoader`를 쓰지만, 이는 **워커 관리 유틸리티로만** 사용한다. 코어 로직은 numpy 배열만 다루며 torch 텐서에 의존하지 않는다. 향후 다른 병렬 백엔드로 교체 가능하도록 `runtime/` 하위에 격리한다.
 
@@ -39,61 +34,27 @@
 ## 2. 디렉터리 구조
 
 ```
-ssat/                                  # 프로젝트 루트
+프로젝트 루트/
 ├── .devcontainer/
 │   ├── devcontainer.json
-│   └── Dockerfile                     # 개발 환경 (CUDA + dev extras)
-├── docker/
-│   ├── Dockerfile                     # 배포용 (slim)
-│   └── docker-compose.yml             # 실행 예제 (볼륨 마운트 포함)
-├── src/
-│   └── ssat/
-│       ├── __init__.py
-│       ├── core/                      # ← v1 구현 범위
-│       │   ├── config/                # M0  ConfigResolver
-│       │   │   ├── schema.py          #     pydantic 모델
-│       │   │   ├── resolver.py
-│       │   │   └── stats.py           #     DatasetStats 사전 계산
-│       │   ├── plan/                  # M1  PlanBuilder
-│       │   │   ├── types.py           #     WorkItem, WorkChunk, RegionSpec
-│       │   │   ├── hashing.py         #     item_id 정규화·해시
-│       │   │   └── builder.py
-│       │   ├── resume/                # M2  ResumeIndex
-│       │   ├── source/                # M3  SampleSource
-│       │   │   ├── base.py
-│       │   │   └── image_folder.py
-│       │   ├── region/                # M4  RegionResolver
-│       │   │   ├── base.py
-│       │   │   ├── grid.py
-│       │   │   ├── explicit.py
-│       │   │   └── random_area.py
-│       │   ├── perturb/               # M5  Perturbator
-│       │   │   ├── base.py
-│       │   │   ├── ops.py
-│       │   │   └── rng.py             #     seed 유도
-│       │   ├── runtime/               # M6, M7, M9  실행 계층
-│       │   │   ├── chunk_processor.py
-│       │   │   ├── rebatcher.py
-│       │   │   ├── batch_splitter.py
-│       │   │   └── loop.py            #     전체 실행 루프
-│       │   ├── adapter/               # M8  ModelAdapter
-│       │   │   ├── base.py            #     인터페이스 + AdapterSpec
-│       │   │   ├── callable.py
-│       │   │   ├── torchvision.py     #     [torch] extra
-│       │   │   ├── timm.py            #     [timm] extra
-│       │   │   └── declarative.py     #     선언적 전처리 헬퍼
-│       │   ├── dump/                  # M10 DumpWriter + Reader
-│       │   │   ├── schema.py          #     parquet 스키마 정의
-│       │   │   ├── writer.py
-│       │   │   ├── reader.py          #     후단과의 계약 지점
-│       │   │   └── manifest.py
-│       │   └── estimate/              # M11 CostEstimator + SanityCheck
-│       ├── metrics/                   # (v1 이후) 지표 엔진
-│       ├── analysis/                  # (v1 이후) 대조군·안정성 분석
-│       ├── report/                    # (v1 이후) JSON/CSV/HTML
-│       └── cli/
-│           ├── __init__.py
-│           └── main.py                # typer 엔트리포인트
+│   └── Dockerfile                     # Dev Container/Compose 공용 이미지
+├── compose.yaml                       # VS Code 서버 없는 워크스페이스 실행
+├── requirements.txt                   # Python 의존성 (구현에 따라 변경 가능)
+├── scripts/
+│   └── install_deps.sh                # 시스템 의존성
+├── ssat/                              # /workspace PYTHONPATH에서 직접 import
+│   ├── __init__.py
+│   └── core/                          # ← v1 구현 범위
+│       ├── config/                    # M0  설정 스키마·Resolver
+│       ├── plan/                      # M1  작업 타입·해싱·PlanBuilder
+│       ├── resume/                    # M2  ResumeIndex
+│       ├── source/                    # M3  SampleSource
+│       ├── region/                    # M4  RegionResolver
+│       ├── perturb/                   # M5  Perturbator
+│       ├── runtime/                   # M6, M7, M9 실행 계층
+│       ├── adapter/                   # M8  ModelAdapter
+│       ├── dump/                      # M10 DumpWriter + Reader
+│       └── estimate/                  # M11 CostEstimator + SanityCheck
 ├── tests/
 │   ├── unit/                          # 모듈별 단위 테스트
 │   ├── integration/                   # 파이프라인 결합 테스트
@@ -103,10 +64,7 @@ ssat/                                  # 프로젝트 루트
 │   ├── examples/                      # 예제 설정 YAML
 │   └── schema/                        # 스키마 버전별 참조 문서
 ├── examples/                          # 노트북·스크립트 예제
-├── docs/
-├── pyproject.toml
-├── README.md
-└── LICENSE
+└── docs/
 ```
 
 ### 2.1 구조 설계 의도
@@ -122,14 +80,15 @@ ssat/                                  # 프로젝트 루트
 ### 2.2 의존 방향 규칙
 
 ```
-config → (없음)
-plan   → config
-source → config
-region → plan(types)
-perturb→ region
+types  → (없음)
+config → types
+region → types
+plan   → types, region
+source → (없음, 독립)
 adapter→ (없음, 독립)
+perturb→ region
 runtime→ plan, source, region, perturb, adapter, dump
-dump   → plan(types)
+dump   → types
 ```
 
 역방향 import를 금지하고, CI에서 import-linter 등으로 검사한다.
@@ -138,27 +97,23 @@ dump   → plan(types)
 
 ## 3. 개발·배포 환경
 
-### 3.1 Dev Container
+### 3.1 공통 워크스페이스 이미지
 
-- 베이스: CUDA 런타임 포함 Python 이미지
-- `[dev]` extras 전체 설치, pre-commit 훅 자동 설정
-- 워크스페이스 마운트, 데이터 디렉터리는 별도 볼륨
-- GPU 패스스루 설정 포함
+- `.devcontainer/Dockerfile`은 CUDA 런타임이 포함된 PyTorch 이미지를 기반으로 시스템 및 Python 의존성을 설치한다.
+- Dev Container는 저장소를 `/workspace`에 바인드하고 GPU와 32GB shared memory를 전달한다.
+- `compose.yaml`은 같은 Dockerfile을 빌드하여 VS Code 서버 없이 `sleep infinity`로 유지되는 대화형 워크스페이스를 제공한다.
+- Compose 서비스의 작업 디렉터리는 바인드된 `/workspace`로 고정한다.
+- 루트 패키지 `ssat/`는 `PYTHONPATH=/workspace`를 통해 별도 editable install 없이 import한다.
+- 테스트는 두 환경 모두 컨테이너 안에서 `pytest`로 실행한다.
 
-### 3.2 Docker Compose (배포·실행 예제)
+### 3.2 Docker Compose 워크스페이스
 
-```yaml
-services:
-  ssat:
-    image: ssat:latest
-    volumes:
-      - ./data:/data:ro          # 데이터셋 (읽기 전용)
-      - ./runs:/runs             # dump 출력
-      - ./configs:/configs:ro
-    command: ssat run --config /configs/example.yaml --out /runs/exp001
+```bash
+docker compose up -d --build region-sensitivity-workspace
+docker compose exec region-sensitivity-workspace pytest -q
 ```
 
-**설계 의도.** 데이터 읽기 전용 마운트로 원본 훼손을 구조적으로 방지한다. dump는 별도 볼륨이라 컨테이너 재생성과 무관하게 보존된다.
+현재 Compose 파일은 개발·테스트용이다. 읽기 전용 데이터와 별도 dump 볼륨을 갖는 배포용 이미지·Compose는 CLI가 완성되는 단계 10에서 별도 산출물로 추가한다.
 
 ---
 
@@ -170,12 +125,11 @@ services:
 
 ### 단계 0. 프로젝트 스캐폴딩
 
-**작업.** 디렉터리 생성, `pyproject.toml` 작성(extras 포함), Dev Container 구성, ruff/mypy/pytest 설정, CI 워크플로 골격, 빈 모듈에 인터페이스 stub 배치.
+**작업.** 현재 Dev Container/Compose/requirements 구성을 검증하고, 루트 `ssat/` 패키지와 테스트 디렉터리를 생성하며 빈 모듈에 인터페이스 stub을 배치한다. 패키징 메타데이터, lint/type-check 도구, CI는 실제 도입 시점에 현재 의존성 방식에 맞춰 추가한다.
 
 **성공 조건.**
-- Dev Container에서 `pytest` 실행 시 0개 테스트로 정상 종료
-- `ruff check`, `mypy src/` 통과
-- `pip install -e ".[dev]"` 성공
+- Dev Container와 Compose 워크스페이스에서 `python -c "import ssat"` 성공
+- Compose 워크스페이스에서 `pytest` 실행 성공
 
 ---
 
@@ -184,11 +138,11 @@ services:
 > **가장 먼저 하는 이유:** 이후 모든 모듈이 이 타입을 참조한다. 나중에 바꾸면 전면 수정이 된다.
 
 **작업.**
-- `plan/types.py`: `RegionSpec`, `WorkItem`, `WorkChunkMeta`, `ItemMeta`, `LoadedSample`, `AdapterSpec`
-- `config/schema.py`: 설정 YAML의 pydantic 모델 전체
+- `config/schema.py`: 감사 명세 중심 설정 YAML의 pydantic v2 모델. source/adapter 객체는 후속 Resolver에 주입
+- 도메인별 `types.py`: `RegionSpec`, `RegionMeta`, `WorkItem`, `WorkChunkMeta`, `WorkChunk`, `SampleMeta`, `LoadedSample`, `LoadError`, `AdapterSpec`, `RawOutput`, `ItemMeta`, prepared/failed chunk 타입
 - `dump/schema.py`: clean/perturbed/index parquet 컬럼 정의, `schema_version` 상수
 - `plan/hashing.py`: 정규화 직렬화 + item_id 해시
-- 예제 설정 YAML 2~3개 작성
+- 예제 설정 YAML 3개 작성
 
 **테스트.**
 - 정상·비정상 설정 YAML의 검증 통과/실패
@@ -196,10 +150,16 @@ services:
 - 해시 민감성: 임의 필드 하나만 바꿔도 id 변경
 - 부동소수 표현 차이(0.1 vs 0.10)에도 동일 id
 - parquet 스키마 왕복(write→read) 일치
+- 중복 `region_id`, 존재하지 않는 control 참조, explicit ref 누락 거부
 
 **성공 조건.**
 - 해시 테스트 전부 통과
 - 예제 설정이 스키마 검증을 통과하고, 오타 있는 설정은 명확한 에러 메시지 반환
+
+**v1 계약 명확화.**
+- 대조군의 `match_area_of`는 설정에서 고유한 `region_id`를 참조하고, dump에도 해당 ID를 기록한다.
+- Adapter 출력과 raw dump는 v1에서 전체 `logits`로 제한한다. `probs` 지원은 dump 컬럼 계약을 일반화하는 후속 버전에서 검토한다.
+- `schema_version=1.0.0`과 canonical JSON + SHA-256 전체 hex를 item ID 계약으로 고정한다.
 
 ---
 
@@ -348,7 +308,7 @@ services:
 
 ### 단계 10. CLI + 통합 + 문서
 
-**작업.** `ssat run`, `ssat estimate`, `ssat rebuild-index`, `ssat inspect`(dump 요약) 명령, Docker 이미지 빌드, README·설치 문서·설정 레퍼런스, 예제 노트북.
+**작업.** `ssat run`, `ssat estimate`, `ssat rebuild-index`, `ssat inspect`(dump 요약) 명령, 배포용 Docker 이미지와 Compose, README·설치 문서·설정 레퍼런스, 예제 노트북.
 
 **성공 조건.**
 - 문서만 보고 설치부터 dump 생성까지 재현 가능
@@ -405,6 +365,10 @@ GPU가 필요한 테스트는 마커로 분리하여 CI(CPU)에서 제외한다.
 | 후단과의 계약 형태 | 단계 6에서 reader API로 확정 |
 | `variants_per_chunk` 권장값 | 단계 9 (실측 후 문서화) |
 | Tier 2 manifest 모드 | v1.1로 이월 |
+
+### 7.1 구현 전 확인할 저장 포맷 제약
+
+Parquet 단일 파일은 일반적인 append 대상이 아니므로 단계 6에서 `index.parquet` 갱신 방식을 확정해야 한다. 인덱스 fragment dataset 또는 임시 파일 작성 후 원자적 교체 중 하나를 선택하고, 필요하면 코어 설계 문서의 단일 파일 표현도 함께 개정한다.
 
 ---
 

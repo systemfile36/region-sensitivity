@@ -6,6 +6,8 @@ services:
     image: local/region-sensitivity-workspace:latest
     container_name: region-sensitivity-workspace
 
+    working_dir: /workspace
+
     # Sleep infinity for wating interactive shell
     command: sleep infinity
 
@@ -16,7 +18,7 @@ services:
     shm_size: "32G"
 
     environment:
-      PYTHONPATH: "${PYTHONPATH}:/workspace"
+      PYTHONPATH: "/workspace"
 
     # Mount workspace directory
     volumes:
