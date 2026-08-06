@@ -1,6 +1,90 @@
-"""Model adapter contracts."""
+"""Model adapter contracts and built-in implementations."""
 
-from ssat.core.adapter.base import SupportsDescribe
-from ssat.core.adapter.types import AdapterSpec, RawOutput
+from __future__ import annotations
 
-__all__ = ["AdapterSpec", "RawOutput", "SupportsDescribe"]
+from typing import Any
+
+from ssat.core.adapter.base import (
+    AdapterError,
+    AdapterOutOfMemoryError,
+    ModelAdapter,
+    SupportsDescribe,
+)
+from ssat.core.adapter.output_decoder import LogitsOutputDecoder, OutputDecoder
+from ssat.core.adapter.preprocessor import (
+    CallablePreprocessor,
+    IdentityPreprocessor,
+    Preprocessor,
+)
+from ssat.core.adapter.types import AdapterSpec, PreprocessingSpec, RawOutput
+
+__all__ = [
+    "AdapterError",
+    "AdapterOutOfMemoryError",
+    "AdapterSpec",
+    "CallableAdapter",
+    "CallablePreprocessor",
+    "CenterCrop",
+    "ChannelsFirst",
+    "DeclarativeAdapter",
+    "DeclarativePreprocessor",
+    "IdentityPreprocessor",
+    "LogitsOutputDecoder",
+    "ModelAdapter",
+    "Normalize",
+    "OutputDecoder",
+    "PreprocessingSpec",
+    "Preprocessor",
+    "RawOutput",
+    "Resize",
+    "SqueezeTime",
+    "SupportsDescribe",
+    "TimmAdapter",
+    "TimmPreprocessor",
+    "ToFloat",
+    "TorchvisionAdapter",
+    "TorchvisionPreprocessor",
+]
+
+
+def __getattr__(name: str) -> Any:
+    """Load concrete adapters and preprocessing only when explicitly requested."""
+
+    if name == "CallableAdapter":
+        from ssat.core.adapter.callable_adapter import CallableAdapter
+
+        return CallableAdapter
+    if name == "DeclarativeAdapter":
+        from ssat.core.adapter.declarative import DeclarativeAdapter
+
+        return DeclarativeAdapter
+    if name in {
+        "CenterCrop",
+        "ChannelsFirst",
+        "DeclarativePreprocessor",
+        "Normalize",
+        "Resize",
+        "SqueezeTime",
+        "ToFloat",
+    }:
+        from ssat.core.adapter import preprocessing
+
+        return getattr(preprocessing, name)
+
+    if name == "TorchvisionAdapter":
+        from ssat.core.adapter.torchvision_adapter import TorchvisionAdapter
+
+        return TorchvisionAdapter
+    if name == "TorchvisionPreprocessor":
+        from ssat.core.adapter.torchvision_adapter import TorchvisionPreprocessor
+
+        return TorchvisionPreprocessor
+    if name == "TimmAdapter":
+        from ssat.core.adapter.timm_adapter import TimmAdapter
+
+        return TimmAdapter
+    if name == "TimmPreprocessor":
+        from ssat.core.adapter.timm_adapter import TimmPreprocessor
+
+        return TimmPreprocessor
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

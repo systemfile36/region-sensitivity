@@ -284,7 +284,19 @@ RegionResolver가 외부 registry 없이 이를 해석할 수 있게 한다.
 
 ### 단계 5. ModelAdapter (M8)
 
-**작업.** `base.py` 인터페이스, `CallableAdapter`, `TorchvisionAdapter`, `TimmAdapter`, `DeclarativeAdapter`(전처리 op 목록 → `transform_mask` 자동 생성).
+**작업.** 실행 경계를 `Preprocessor → 모델 호출 → OutputDecoder`로 분리한다.
+`Preprocessor`는 batch 전처리와 동일한 mask 기하 변환 및
+`PreprocessingSpec`을 함께 소유한다. `DeclarativePreprocessor`는 정규화된 op
+목록의 SHA-256 fingerprint를 만들고, 기하 op만 nearest-neighbor로 mask에
+반영한다. `LogitsOutputDecoder`는 tensor, numpy, logits mapping, item sequence를
+v1 `RawOutput`으로 정규화한다. 프레임워크 비의존 `AdapterOutOfMemoryError`를
+두어 후속 실행 계층이 torch를 import하지 않고 OOM을 복구할 수 있게 한다.
+
+기존 `CallableAdapter`, `DeclarativeAdapter`, `TorchvisionAdapter`, `TimmAdapter`
+생성자 계약은 유지하되 내부는 위 구성요소에 위임한다. `AdapterSpec`에는
+adapter kind, model/weights 식별자와 선택적 artifact hash, preprocessing
+fingerprint, mask transform 가용성을 추가한다. artifact hash는 명시적으로
+제공된 값만 기록하고 hash 계산을 위해 가중치를 다운로드하지 않는다.
 
 **테스트.**
 - 각 어댑터의 `describe()` 반환값 유효성
@@ -292,16 +304,22 @@ RegionResolver가 외부 registry 없이 이를 해석할 수 있게 한다.
 - `transform_mask`: resize·crop 적용 후 면적이 예상 범위, nearest 보간으로 이진성 유지
 - `transform_mask` 미제공 어댑터 → `effective_area_available=false` 경로 동작
 - `DeclarativeAdapter`: 기하 op만 마스크에 반영, 광도 op는 무시
+- 동일한 선언형 op 목록 표현은 같은 fingerprint, op 변경은 다른 fingerprint
+- output 형태별 decoder 정규화와 dtype·shape·batch·class 불일치 거부
+- callable 구성요소 주입 및 legacy mask callback과의 충돌 거부
+- torch GPU OOM이 `AdapterOutOfMemoryError`로 변환됨
+- 강화된 `AdapterSpec`의 ResolvedConfig JSON 왕복
 
 **성공 조건.**
 - timm/torchvision 어댑터가 모델 이름만으로 동작
 - `transform_mask` 면적 계산이 수동 계산과 일치
+- 기존 네 adapter 생성자 호출이 호환되고 전체 테스트가 통과
 
 ---
 
 ### 단계 6. DumpWriter + Reader + ResumeIndex (M10, M2)
 
-**작업.** parquet chunk 쓰기, index 갱신(쓰기 순서 준수), manifest 생성, reader API, 재개 필터.
+**작업.** parquet chunk 쓰기, index 갱신(쓰기 순서 준수), manifest 생성, reader API, 재개 필터. RunManifest에는 단계 5에서 강화한 `AdapterSpec` 전체를 기록하여 모델 artifact와 전처리 provenance를 보존한다.
 
 **테스트.**
 - chunk 독립 읽기 가능
@@ -319,7 +337,7 @@ RegionResolver가 외부 registry 없이 이를 해석할 수 있게 한다.
 
 ### 단계 7. 실행 계층 (M6, M7, M9)
 
-**작업.** `ChunkProcessor`, `Rebatcher`, `BatchSplitter`, `loop.py` 통합.
+**작업.** `ChunkProcessor`, `Rebatcher`, `BatchSplitter`, `loop.py` 통합. 실행 계층은 프레임워크 예외를 직접 알지 않고 `ModelAdapter`와 `AdapterOutOfMemoryError`에만 의존한다.
 
 **테스트.**
 - `ChunkProcessor`: 샘플 로드 1회 확인(호출 카운터), 로드 실패 시 전 아이템 `load_failed`
@@ -368,7 +386,9 @@ RegionResolver가 외부 registry 없이 이를 해석할 수 있게 한다.
 
 ### 단계 10. CLI + 통합 + 문서
 
-**작업.** `ssat run`, `ssat estimate`, `ssat rebuild-index`, `ssat inspect`(dump 요약) 명령, 배포용 Docker 이미지와 Compose, README·설치 문서·설정 레퍼런스, 예제 노트북.
+**작업.** `ssat run`, `ssat estimate`, `ssat rebuild-index`, `ssat inspect`(dump 요약) 명령, 배포용 Docker 이미지와 Compose, README·설치 문서·설정 레퍼런스, 예제 노트북. 이 단계에서 discriminated `AdapterConfig`, 이름 기반 `AdapterProviderRegistry`, torchvision/timm built-in provider와 명시적 사용자 provider 등록 API를 추가한다. Provider가 모델 생성·checkpoint 로드·Preprocessor·OutputDecoder 조합을 담당한다. `ModelLoader`와 `ModelRunner`는 provider 사이의 실제 중복이 확인될 때만 공통 계약으로 추출한다.
+
+외부 package entry point를 통한 provider 자동 발견과 ONNX, MMAction2, 원격 API provider는 패키징 메타데이터가 마련된 v1.1로 이월한다. v1 단계에서는 암묵적 plugin import를 수행하지 않는다.
 
 **성공 조건.**
 - 문서만 보고 설치부터 dump 생성까지 재현 가능
@@ -380,14 +400,14 @@ RegionResolver가 외부 registry 없이 이를 해석할 수 있게 한다.
 ## 5. 단계 간 의존과 병렬화
 
 ```
-0 ──> 1 ──┬──> 2 ──> 3 ──┐
-          │              ├──> 7 ──> 8 ──> 9 ──> 10
-          ├──> 4 ────────┤
-          ├──> 5 ────────┤
-          └──> 6 ────────┘
+0 ──> 1 ──┬──> 2 ──> 3 ─────────┐
+          ├──> 4 ────────────────┤
+          └──> 5 ──> 6 ─────────┴──> 7 ──> 8 ──> 9 ──> 10
 ```
 
-단계 4·5·6은 단계 1(타입 확정) 이후 **서로 독립적**이므로 순서를 바꾸거나 병행할 수 있다. 단계 7은 이들이 전부 끝나야 시작 가능하다.
+단계 4와 5는 단계 1(타입 확정) 이후 병행할 수 있다. 단계 6의 manifest는
+단계 5에서 강화한 AdapterSpec을 기록하므로 단계 5 완료 후 시작한다. 단계 7은
+계획·입력 처리·adapter·dump가 모두 끝나야 시작 가능하다.
 
 **단계 1이 병목이자 가장 중요하다.** 여기서 타입과 스키마를 잘못 잡으면 이후 전 단계에 파급된다. 시간을 충분히 쓴다.
 
@@ -425,6 +445,8 @@ GPU가 필요한 테스트는 마커로 분리하여 CI(CPU)에서 제외한다.
 | 후단과의 계약 형태 | 단계 6에서 reader API로 확정 |
 | `variants_per_chunk` 권장값 | 단계 9 (실측 후 문서화) |
 | Tier 2 manifest 모드 | v1.1로 이월 |
+| 외부 adapter plugin 자동 발견 | 패키징 도입 이후 v1.1에서 구현 |
+| `ModelLoader`·`ModelRunner` 공통화 | 단계 10 provider 구현에서 중복 확인 후 결정 |
 
 ### 7.1 구현 전 확인할 저장 포맷 제약
 

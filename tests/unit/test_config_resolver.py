@@ -488,6 +488,29 @@ def test_adapter_describe_must_return_adapter_spec() -> None:
         ConfigResolver().resolve(make_config(), FakeAdapter(result={}), FakeSource())
 
 
+def test_adapter_provenance_round_trips_in_resolved_config() -> None:
+    """Manifest-ready adapter provenance survives Pydantic JSON serialization."""
+
+    adapter_spec = AdapterSpec(
+        model_id="custom:model-v1",
+        deterministic=True,
+        preprocessing_desc="resize then normalize",
+        adapter_kind="callable",
+        model_name="custom-net",
+        weights_id="checkpoint-v1",
+        weights_hash="a" * 64,
+        preprocessing_fingerprint="b" * 64,
+        mask_transform_available=True,
+    )
+    resolved = ConfigResolver().resolve(
+        make_config(),
+        FakeAdapter(result=adapter_spec),
+        FakeSource(),
+    )
+    restored = ResolvedConfig.model_validate_json(resolved.model_dump_json())
+    assert restored.adapter_spec == adapter_spec
+
+
 def test_precomputed_stats_bypass_source_and_resolve_mean_fill() -> None:
     source = FakeSource()
     resolved = ConfigResolver().resolve(

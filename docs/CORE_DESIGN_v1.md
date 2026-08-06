@@ -463,7 +463,18 @@ yield buffer  # 잔여분
 
 ### M8. ModelAdapter
 
-**인터페이스.**
+ModelAdapter는 source-space 입력과 raw logits 사이의 안정된 외부 계약만
+노출한다. 구현 내부는 전처리, 모델 호출, 출력 해석을 분리한다.
+
+```
+THWC uint8 batch
+    → Preprocessor.transform_batch()
+    → model callable
+    → OutputDecoder.decode()
+    → list[RawOutput]
+```
+
+**외부 인터페이스.**
 
 ```
 describe() -> AdapterSpec
@@ -471,15 +482,44 @@ predict(batch: np.ndarray) -> list[RawOutput]
 transform_mask(mask) -> np.ndarray | None    # 선택
 ```
 
+`transform_mask()`는 adapter가 소유한 Preprocessor에 위임한다. 사용자 callable이
+모델 내부에서 전처리를 숨기는 경우에는 `None`을 반환하며 effective model-space
+area를 제공하지 않는다.
+
+**Preprocessor.**
+
+```
+describe() -> PreprocessingSpec
+transform_batch(batch: np.ndarray) -> object
+transform_mask(mask: np.ndarray) -> np.ndarray | None
+```
+
+`PreprocessingSpec`은 kind, 결정론 여부, 설명, 선택적 canonical fingerprint와
+mask transform 가용성을 기록한다. 픽셀과 mask의 기하 변환은 반드시 같은
+Preprocessor가 소유한다. 선언형 구현은 resize, center crop, float 변환,
+normalize, layout 변환을 지원하고 mask에는 resize와 crop만 nearest-neighbor로
+적용한다.
+
+**OutputDecoder.** 기본 `LogitsOutputDecoder`는 torch-like tensor, `(B,C)`
+floating numpy 배열, `{"logits": ...}` mapping, `RawOutput` 또는 1차원 배열
+sequence를 동일한 logits 계약으로 정규화한다. batch 길이와 class 차원 검증도
+decoder가 담당한다.
+
 **AdapterSpec.**
 
 ```
 deterministic: bool
 input_layout: str              # "THWC_uint8" 등
 max_batch_size: int | None
-output_kind: "logits" | "probs"
+output_kind: "logits"          # v1 고정
 class_names: list[str] | None
 preprocessing_desc: str        # 문서화용
+adapter_kind: str
+model_name: str | None
+weights_id: str | None
+weights_hash: str | None        # 제공된 경우 lowercase SHA-256
+preprocessing_fingerprint: str | None
+mask_transform_available: bool
 ```
 
 #### 결정론 요구
@@ -496,7 +536,26 @@ center crop 등이 마스크 일부를 잘라낼 수 있으므로, 실제 모델
 
 #### v1 구현체
 
-`TorchvisionAdapter`, `TimmAdapter`, `CallableAdapter`(사용자 함수 래핑).
+`TorchvisionAdapter`, `TimmAdapter`, `CallableAdapter`(사용자 함수 래핑),
+`DeclarativeAdapter`. 기존 생성자는 유지하고 내부에서 Preprocessor와
+OutputDecoder를 조합한다. torchvision/timm은 framework weight identifier를
+기록하지만 provenance hash를 얻기 위한 암묵적 다운로드는 하지 않는다.
+
+GPU OOM은 framework adapter가 공통 `AdapterOutOfMemoryError`로 변환한다.
+실행 계층은 이 예외만 처리하며 torch/timm 예외 타입을 직접 import하지 않는다.
+`CallableAdapter`의 사용자 함수도 복구 가능한 device OOM을 이 공통 예외로
+변환해 발생시켜야 한다. 그 밖의 예외는 일반 predict 실패로 처리한다.
+
+#### 단계 10 확장 경계
+
+CLI 도입 시 `AdapterConfig`와 이름 기반 `AdapterProviderRegistry`를 추가한다.
+Provider는 설정 검증, 모델·checkpoint 생성, Preprocessor와 OutputDecoder 조합을
+담당하며 사용자 provider는 registry에 명시적으로 등록한다. `ModelLoader`와
+`ModelRunner`는 built-in 및 사용자 provider에서 반복 구현이 확인된 경우에만
+공통 계약으로 추출한다.
+
+package entry point 기반 자동 plugin 발견과 ONNX/MMAction2/원격 provider는
+패키징 메타데이터가 준비되는 v1.1 범위다.
 
 #### Tier 2 — manifest 모드 (v1.1)
 
