@@ -84,11 +84,11 @@
 types  → (없음)
 utils  → (없음)
 config → types, adapter(contracts), source(contracts), utils
-region → types
+region → types, utils
 plan   → types, region
-source → (없음, 독립)
+source → utils
 adapter→ (없음, 독립)
-perturb→ region
+perturb→ types
 runtime→ plan, source, region, perturb, adapter, dump
 dump   → types
 ```
@@ -237,10 +237,21 @@ RegionResolver가 외부 registry 없이 이를 해석할 수 있게 한다.
 > 셋을 묶는 이유: 서로 데이터를 주고받으며, 개별로는 검증 가치가 낮다.
 
 **작업.**
-- `ImageFolderSource`: (T,H,W,C) uint8 반환, `LoadError` 값 반환
-- `RegionResolver`: 이미 확장된 concrete grid, explicit, random_area_match를 각각 mask 하나로 materialize
-- `Perturbator`: constant_fill, mean_fill, blur, gaussian_noise, patch_shuffle
-- `rng.py`: `derive(global_seed, item_id, seed_salt)`
+- `ImageFolderSource`: 명시적인 `SampleMeta` 목록의 정지 이미지를 RGB
+  `(1,H,W,3)` uint8로 반환하고 원본 파일 hash를 기록하며 실패는 `LoadError` 값으로 반환
+- `RegionResolver`: 이미 확장된 concrete grid, explicit, random_area_match를 각각
+  mask 하나로 materialize. grid는 integer-division 경계를 사용하고 explicit은
+  동일 크기의 single-channel bitmap만 허용하며 hash 검증 후 LRU cache
+- `random_area_match`: 내장 target recipe를 resolve한 후 같은 수의 픽셀을 전체
+  이미지에서 균등 비복원 추출
+- `Perturbator`: constant/mean fill, full-frame blur의 masked composite, Gaussian
+  noise, 완전한 tile 간 patch shuffle. 입력과 mask 외부 픽셀은 불변. 각 연산은
+  `supports`/`apply` 추상 계약의 별도 operator이며, Perturbator는 ordered dispatch와
+  공통 입력·출력 검증만 담당
+- `OperatorFactory`: built-in operator class를 instance-local registry에 등록하고
+  build마다 fresh instance list를 생성. custom factory 결과를 Perturbator에 주입 가능
+- `rng.py`: namespace와 global seed, item ID, salt를 SHA-256으로 묶어 앞 128비트의
+  item-local seed를 생성하는 `derive(global_seed, item_id, seed_salt)`
 
 `SampleRegionProvider` Protocol은 향후 skeleton/GT-bbox annotation을 planning에
 공급하는 확장 지점으로 유지한다. `SampleMeta`는 가볍게 유지하며, provider는 픽셀을
@@ -248,9 +259,11 @@ RegionResolver가 외부 registry 없이 이를 해석할 수 있게 한다.
 
 **테스트.**
 - 로드: 정상 이미지, 손상 파일(→LoadError), 다양한 크기
-- 마스크: 면적 정확성, grid 인덱스 대응, explicit 해시 검증
+- 마스크: 면적 정확성, grid 인덱스·전체 coverage, explicit 해시·채널·크기 검증과 cache 격리
 - `random_area_match`: 요청 면적과 실제 면적 일치, 동일 seed → 동일 마스크
-- 교란: 마스크 외부 픽셀 불변, 마스크 반전 시 정반대 영역 변경
+- 교란: 마스크 외부 픽셀 불변, 마스크 반전 시 정반대 영역 변경, tile 간 shuffle와 불완전 가장자리 보존
+- operator 구조: built-in supports, factory 순서·fresh instance, custom 주입,
+  first-match 우선순위, unsupported op와 잘못된 반환값 검증
 - rng: 동일 item_id → 동일 결과, 다른 item_id → 다른 결과
 - **전역 RNG 오염 검사:** 교란 실행 전후로 `np.random` 전역 상태 불변
 

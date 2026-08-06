@@ -64,7 +64,7 @@
 │                              ▼                                 │
 │              for item in chunk.items:                          │
 │                  RegionResolver.resolve(shape, spec) ──> mask  │
-│                  Perturbator.apply(arr, mask, rng)   ──> var   │
+│                  Perturbator.apply(arr, mask, op, params, rng) │
 │                              │                                 │
 │                              ▼                                 │
 │                   PreparedChunk (stacked arrays + item metas)  │
@@ -249,7 +249,10 @@ content_hash: str        # provenance용
 - **uint8 원본 픽셀 공간**이다. 정규화나 리사이즈를 하지 않는다. 그것은 어댑터의 몫이다
 - **예외를 던지지 않고 `LoadError`를 반환**한다. 워커에서 예외가 나면 DataLoader 전체가 흔들릴 수 있으므로, 실패를 값으로 다룬다
 
-**v1 구현체.** 파일 경로 리스트 + 라벨을 받는 `ImageFolderSource`, 데이터프레임/CSV 기반 `TabularSource`.
+**v1 구현체.** 명시적인 `SampleMeta` 목록을 받는 `ImageFolderSource`를 먼저
+제공한다. 정지 이미지는 Pillow로 RGB 변환한 뒤 `(1,H,W,3)` uint8로 반환하며
+원본 파일 바이트의 SHA-256을 provenance로 기록한다. 폴더 자동 탐색과
+데이터프레임/CSV 기반 `TabularSource`는 후속 source 확장으로 둔다.
 
 ---
 
@@ -277,9 +280,13 @@ RegionSpec:
 
 **절차적(procedural).** grid family는 planning 시 cell별 concrete recipe로
 확장되고, 실행 시점에는 샘플 크기를 받아 해당 cell의 비트맵만 만든다. 저장하는
-것은 recipe뿐이므로 비용이 사실상 0이다.
+것은 recipe뿐이므로 비용이 사실상 0이다. 각 축의 cell 경계는
+`start = index * size // divisions`, `end = (index + 1) * size // divisions`로
+계산하여 겹침 없이 전체 픽셀을 덮는다.
 
-**명시적(explicit).** 사용자 제공 마스크, annotation 기반 영역. 비트맵 파일 참조와 해시를 저장한다.
+**명시적(explicit).** 사용자 제공 단일 프레임·단일 채널 bitmap이다. 대상 이미지와
+동일한 `(H,W)`만 허용하고 nonzero를 `True`로 해석하며 resize하지 않는다. 비트맵
+파일 참조와 SHA-256을 저장하고 materialization 시에도 hash를 다시 검증한다.
 
 #### 인터페이스
 
@@ -303,7 +310,10 @@ confidence: float | None   # 자동 생성기인 경우
 
 #### random_area_match
 
-대상 영역의 면적을 params로 받아 같은 면적의 무작위 영역을 생성한다. rng가 필요하므로 `resolve`에 rng를 넘기고, 그 rng는 item_id에서 유도된다. 이로써 대조군도 완전히 재현 가능하다.
+내장된 concrete target recipe를 먼저 resolve한 뒤 전체 `(H,W)` 픽셀에서 target과
+동일한 개수를 균등 비복원 추출한다. rng가 필요하므로 `resolve`에 rng를 넘기고,
+그 rng는 item_id에서 유도된다. nested random target은 허용하지 않는다. 이로써
+대조군도 완전히 재현 가능하다.
 
 #### sample-dependent region 확장
 
@@ -316,7 +326,8 @@ kind를 명시적인 not-implemented 오류로 거부한다.
 
 #### explicit 마스크 캐싱
 
-워커별 LRU 캐시. 키는 `ref_hash`. v1에서는 단순 dict와 크기 제한으로 충분하다.
+워커별 128-entry LRU 캐시를 사용하며 키는 `ref_hash`다. cache hit에서도 현재 파일
+hash를 검증하고, caller에는 mask copy를 반환하여 캐시 오염을 막는다.
 
 #### 코어와의 관계
 
@@ -331,8 +342,21 @@ kind를 명시적인 not-implemented 오류로 거부한다.
 **인터페이스.**
 
 ```
-apply(array, mask, params, rng) -> np.ndarray
+apply(array, mask, op, params, rng=None) -> np.ndarray
 ```
+
+#### operator dispatch와 확장
+
+`Perturbator`는 공통 입력·출력 계약만 검증하고 op별 pixel 연산을 직접 구현하지
+않는다. `PerturbationOperator`는 `supports(op)`와
+`apply(array, mask, params, rng=None)`를 정의하며, constant fill, mean fill, blur,
+Gaussian noise, patch shuffle가 각각 별도 구현체다. ordered operator 목록을 순회해
+처음 `supports=True`인 구현체를 실행하므로 등록 순서가 명시적인 우선순위다.
+
+`OperatorFactory`는 operator class를 instance-local registry에 보관하고 build마다
+fresh instance 목록을 만든다. 기본 목록도 전역 mutable registry 없이 factory에서
+구성한다. 따라서 새 연산의 구현·등록은 `Perturbator`를 수정하지 않고 수행하며,
+custom factory 결과를 생성자에 주입할 수 있다.
 
 **순수 함수 계약.** 같은 입력 → 같은 출력. 전역 상태 참조 금지. `np.random` 전역 API 사용 금지 — 반드시 넘겨받은 rng만 사용한다.
 
@@ -342,13 +366,15 @@ apply(array, mask, params, rng) -> np.ndarray
 
 | op | params | 비고 |
 |---|---|---|
-| `constant_fill` | `value` | 단색 |
-| `mean_fill` | (DatasetStats에서) | ConfigResolver가 확정한 값 |
-| `blur` | `sigma` | 마스크 영역만 |
-| `gaussian_noise` | `sigma` | rng 사용 |
-| `patch_shuffle` | `patch_size` | rng 사용 |
+| `constant_fill` | `value` | scalar 또는 채널별 값 |
+| `mean_fill` | (DatasetStats에서) | ConfigResolver가 확정한 채널별 값 |
+| `blur` | `sigma` | 전체 frame을 Gaussian blur한 뒤 mask 영역만 합성 |
+| `gaussian_noise` | `sigma` | 독립 Gaussian noise, 반올림 및 uint8 clip |
+| `patch_shuffle` | `patch_size` | 완전한 tile들의 위치를 shuffle하고 불완전 가장자리는 유지 |
 
-**시간 축 처리.** v1은 모든 프레임에 동일 마스크·동일 연산을 적용한다. T=1이므로 실질적으로 무의미하지만, 인터페이스는 T를 인지한다.
+**시간 축 처리.** v1은 모든 프레임에 동일 마스크·동일 연산을 적용한다.
+`patch_shuffle`의 spatial permutation도 모든 프레임에서 공유한다. T=1이므로
+실질적으로 무의미하지만, 인터페이스는 T를 인지한다.
 
 **rng 유도.** 워커에서 매 아이템마다 새 인스턴스를 만든다. 재사용하지 않는다.
 
@@ -356,7 +382,8 @@ apply(array, mask, params, rng) -> np.ndarray
 rng = np.random.default_rng(derive(global_seed, item_id, seed_salt))
 ```
 
-이것이 워커 수·실행 순서·재개와 무관한 재현성의 근거이다.
+`derive`는 namespace와 세 입력의 SHA-256 앞 128비트를 seed로 사용한다. 이것이
+워커 수·실행 순서·재개와 무관한 재현성의 근거이다.
 
 ---
 
