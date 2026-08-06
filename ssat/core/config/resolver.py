@@ -21,6 +21,13 @@ from ssat.core.config.stats import DatasetStatsError, compute_dataset_stats
 from ssat.core.perturb.base import PerturbationError, PerturbationOperator
 from ssat.core.perturb.dispatch import find_operator
 from ssat.core.perturb.factory import build_operators
+from ssat.core.plan.expansion_base import (
+    RegionExpansionContext,
+    RegionExpansionError,
+    RegionFamilyExpander,
+)
+from ssat.core.plan.region_expander_dispatch import find_family_expander
+from ssat.core.plan.region_expander_factory import build_family_expanders
 from ssat.core.source.base import SampleSource
 from ssat.core.types import RegionKind
 from ssat.utils.io import load_yaml, sha256_file
@@ -39,6 +46,7 @@ class ConfigResolver:
     Args:
         logger: Optional package logger used for resolution audit events.
         perturbation_operators: Optional operators in config dispatch order.
+        region_family_expanders: Optional expanders in config dispatch order.
     """
 
     def __init__(
@@ -46,23 +54,40 @@ class ConfigResolver:
         logger: logging.Logger | None = None,
         *,
         perturbation_operators: Sequence[PerturbationOperator] | None = None,
+        region_family_expanders: Sequence[RegionFamilyExpander] | None = None,
     ) -> None:
         self._logger = logger or get_logger(__name__)
-        resolved = tuple(
+        resolved_operators = tuple(
             build_operators()
             if perturbation_operators is None
             else perturbation_operators
         )
-        if not resolved:
+        if not resolved_operators:
             raise ValueError("perturbation_operators must not be empty")
         if any(
             not isinstance(operator, PerturbationOperator)
-            for operator in resolved
+            for operator in resolved_operators
         ):
             raise TypeError(
                 "perturbation_operators must contain PerturbationOperator values"
             )
-        self._perturbation_operators = resolved
+        self._perturbation_operators = resolved_operators
+
+        resolved_expanders = tuple(
+            build_family_expanders(RegionExpansionContext())
+            if region_family_expanders is None
+            else region_family_expanders
+        )
+        if not resolved_expanders:
+            raise ValueError("region_family_expanders must not be empty")
+        if any(
+            not isinstance(expander, RegionFamilyExpander)
+            for expander in resolved_expanders
+        ):
+            raise TypeError(
+                "region_family_expanders must contain RegionFamilyExpander values"
+            )
+        self._region_family_expanders = resolved_expanders
 
     def resolve(
         self,
@@ -310,59 +335,30 @@ class ConfigResolver:
             ref_hash=actual_hash,
         )
 
-    @staticmethod
-    def _validate_region_family(region: RegionConfig) -> None:
-        """Validate the supported v1 region-family parameter contract.
+    def _validate_region_family(self, region: RegionConfig) -> None:
+        """Select an expander and validate one region-family config.
 
         Args:
             region: User-configured region family to validate.
 
         Raises:
-            ConfigResolutionError: If the kind is reserved or its parameters
-                cannot be expanded deterministically.
+            ConfigResolutionError: If dispatch or config validation fails.
         """
 
-        if region.kind is RegionKind.GRID:
-            ConfigResolver._require_region_keys(region, {"rows", "cols"})
-            for field_name in ("rows", "cols"):
-                value = region.params[field_name]
-                if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
-                    raise ConfigResolutionError(
-                        f"grid.{field_name} must be a positive integer"
-                    )
-            return
-        if region.kind is RegionKind.EXPLICIT:
-            return
-        if region.kind is RegionKind.RANDOM_AREA_MATCH:
-            raise ConfigResolutionError(
-                "random_area_match is internal to area-matched controls and "
-                "cannot be configured as a region family"
+        try:
+            expander = find_family_expander(
+                self._region_family_expanders,
+                region,
             )
-        raise ConfigResolutionError(
-            f"region kind {region.kind.value!r} is not implemented"
-        )
-
-    @staticmethod
-    def _require_region_keys(
-        region: RegionConfig,
-        expected: set[str],
-    ) -> None:
-        """Require an exact parameter-key set for a region family.
-
-        Args:
-            region: Region family whose parameters are checked.
-            expected: Exact accepted parameter names.
-
-        Raises:
-            ConfigResolutionError: If the parameter names differ.
-        """
-
-        actual = set(region.params)
-        if actual != expected:
+            expander.validate_config(region)
+        except RegionExpansionError as error:
             raise ConfigResolutionError(
-                f"{region.kind.value} params must contain exactly "
-                f"{sorted(expected)}; received {sorted(actual)}"
-            )
+                f"invalid {region.kind.value} region configuration: {error}"
+            ) from error
+        except Exception as error:
+            raise ConfigResolutionError(
+                f"{region.kind.value} region config validation failed"
+            ) from error
 
     def _validate_perturbation(
         self,

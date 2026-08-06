@@ -107,7 +107,9 @@
 
 - 어댑터의 `describe()` 호출 → 결정론 여부 확인. 비결정론이면 기본 거부, `allow_nondeterministic: true`일 때만 경고 후 진행
 - 데이터셋 통계 사전 계산(채널 평균 등). 이미 계산된 값이 설정에 있으면 그것을 사용
-- 영역 명세와 교란 명세의 유효성 검증 (예: keep-only와 특정 연산자의 조합이 말이 되는지)
+- 영역 명세와 교란 명세의 유효성 검증. Region family는 planning과
+  같은 ordered `RegionFamilyExpander`, 교란은 runtime과 같은 ordered
+  `PerturbationOperator`의 config hook을 사용
 - 상대 경로 → 절대 경로, 기본값 채우기
 
 **출력.** `ResolvedConfig` — 이후 어떤 모듈도 설정을 재해석하지 않는다. 이 객체 전문이 RunManifest에 기록된다.
@@ -266,10 +268,13 @@ materialize한다. RegionResolver에서 여러 mask를 반환하지 않으므로
 item ID, dump row의 1:1 계약이 유지된다.
 
 두 계층 모두 facade에서 kind를 분기하지 않는다. `RegionFamilyExpander`는
-`supports(family)`/`expand(sample, family)`, `RegionMaskGenerator`는
+`supports(family)`/`validate_config(family)`/`expand(sample, family)`, `RegionMaskGenerator`는
 `supports(spec)`/`get_mask(height, width, spec, rng)` 계약을 구현한다. 각 factory가
 fresh ordered strategy 목록을 만들고 처음 지원하는 구현체를 실행한다. 등록 순서는
-custom 확장의 명시적인 override 우선순위다.
+custom 확장의 명시적인 override 우선순위다. ConfigResolver도 동일한
+first-match 목록을 사용하므로 family의 설정 검증과 concrete expansion은 같은
+구현체가 소유한다. explicit 경로·hash 확정은 외부 참조 resolution이므로
+ConfigResolver에 남는다.
 
 #### RegionSpec의 두 갈래
 

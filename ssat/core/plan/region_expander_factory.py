@@ -11,6 +11,7 @@ from ssat.core.plan.expansion_base import (
 from ssat.core.plan.region_expanders import (
     ExplicitRegionExpander,
     GridRegionExpander,
+    RandomAreaMatchRegionExpander,
     SampleDependentRegionExpander,
 )
 
@@ -20,6 +21,7 @@ _DEFAULT_EXPANDER_TYPES: tuple[FamilyExpanderType, ...] = (
     GridRegionExpander,
     ExplicitRegionExpander,
     SampleDependentRegionExpander,
+    RandomAreaMatchRegionExpander,
 )
 
 

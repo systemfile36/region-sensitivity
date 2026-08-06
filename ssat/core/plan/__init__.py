@@ -3,6 +3,7 @@
 from ssat.core.plan.builder import PlanBuildError, PlanBuilder
 from ssat.core.plan.expansion_base import (
     RegionExpansionContext,
+    RegionFamilyConfig,
     RegionFamilyExpander,
 )
 from ssat.core.plan.hashing import compute_chunk_id, compute_item_id
@@ -26,6 +27,7 @@ __all__ = [
     "RegionExpansionContext",
     "RegionExpander",
     "RegionExpansionError",
+    "RegionFamilyConfig",
     "RegionFamilyExpander",
     "RegionFamilyExpanderFactory",
     "SampleRegionProvider",

@@ -5,15 +5,18 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from collections.abc import Sequence
 from dataclasses import dataclass
-from typing import Protocol
+from typing import Protocol, TypeAlias
 
-from ssat.core.config.schema import ResolvedRegionConfig
+from ssat.core.config.schema import RegionConfig, ResolvedRegionConfig
 from ssat.core.region.types import RegionSpec
 from ssat.core.source.types import SampleMeta
 
 
 class RegionExpansionError(ValueError):
     """Indicate that a region family cannot produce concrete instances."""
+
+
+RegionFamilyConfig: TypeAlias = RegionConfig | ResolvedRegionConfig
 
 
 class SampleRegionProvider(Protocol):
@@ -57,14 +60,26 @@ class RegionFamilyExpander(ABC):
         self._context = context
 
     @abstractmethod
-    def supports(self, family: ResolvedRegionConfig) -> bool:
-        """Return whether this expander supports a resolved family.
+    def supports(self, family: RegionFamilyConfig) -> bool:
+        """Return whether this expander supports a region family.
 
         Args:
-            family: Resolved region-family recipe.
+            family: User or resolved region-family recipe.
 
         Returns:
-            ``True`` when this expander can enumerate ``family``.
+            ``True`` when this expander owns ``family`` validation and expansion.
+        """
+
+    @abstractmethod
+    def validate_config(self, family: RegionConfig) -> None:
+        """Validate one user-configured region family.
+
+        Args:
+            family: Unresolved region-family recipe from user configuration.
+
+        Raises:
+            RegionExpansionError: If the family configuration is invalid or
+                not implemented.
         """
 
     @abstractmethod

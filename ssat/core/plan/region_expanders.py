@@ -4,9 +4,10 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
-from ssat.core.config.schema import ResolvedRegionConfig
+from ssat.core.config.schema import RegionConfig, ResolvedRegionConfig
 from ssat.core.plan.expansion_base import (
     RegionExpansionError,
+    RegionFamilyConfig,
     RegionFamilyExpander,
 )
 from ssat.core.region.types import RegionSpec
@@ -17,7 +18,7 @@ from ssat.core.types import RegionKind
 class GridRegionExpander(RegionFamilyExpander):
     """Expand a grid family into row-major concrete cells."""
 
-    def supports(self, family: ResolvedRegionConfig) -> bool:
+    def supports(self, family: RegionFamilyConfig) -> bool:
         """Return whether the family is a grid recipe.
 
         Args:
@@ -28,6 +29,18 @@ class GridRegionExpander(RegionFamilyExpander):
         """
 
         return family.kind is RegionKind.GRID
+
+    def validate_config(self, family: RegionConfig) -> None:
+        """Validate grid dimensions before reference resolution.
+
+        Args:
+            family: User-configured grid family.
+
+        Raises:
+            RegionExpansionError: If rows or columns are missing or invalid.
+        """
+
+        self._validate_params(family.params)
 
     def expand(
         self,
@@ -48,18 +61,9 @@ class GridRegionExpander(RegionFamilyExpander):
         """
 
         params = family.params
-        expected = {"rows", "cols"}
-        if set(params) != expected:
-            raise RegionExpansionError(
-                "grid params must contain exactly ['cols', 'rows']"
-            )
+        self._validate_params(params)
         rows = params["rows"]
         cols = params["cols"]
-        for field_name, value in (("rows", rows), ("cols", cols)):
-            if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
-                raise RegionExpansionError(
-                    f"grid.{field_name} must be a positive integer"
-                )
 
         return tuple(
             RegionSpec(
@@ -79,11 +83,35 @@ class GridRegionExpander(RegionFamilyExpander):
             for col_index in range(cols)
         )
 
+    @staticmethod
+    def _validate_params(params: dict[str, object]) -> None:
+        """Validate the parameter mapping shared by config and planning.
+
+        Args:
+            params: Grid family parameters.
+
+        Raises:
+            RegionExpansionError: If the grid recipe is not valid.
+        """
+
+        expected = {"rows", "cols"}
+        if set(params) != expected:
+            raise RegionExpansionError(
+                "grid params must contain exactly ['cols', 'rows']"
+            )
+        rows = params["rows"]
+        cols = params["cols"]
+        for field_name, value in (("rows", rows), ("cols", cols)):
+            if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
+                raise RegionExpansionError(
+                    f"grid.{field_name} must be a positive integer"
+                )
+
 
 class ExplicitRegionExpander(RegionFamilyExpander):
     """Expand an explicit family into its single concrete mask reference."""
 
-    def supports(self, family: ResolvedRegionConfig) -> bool:
+    def supports(self, family: RegionFamilyConfig) -> bool:
         """Return whether the family references an explicit mask.
 
         Args:
@@ -94,6 +122,13 @@ class ExplicitRegionExpander(RegionFamilyExpander):
         """
 
         return family.kind is RegionKind.EXPLICIT
+
+    def validate_config(self, family: RegionConfig) -> None:
+        """Accept an explicit family validated by the config schema.
+
+        Args:
+            family: User-configured explicit family.
+        """
 
     def expand(
         self,
@@ -131,7 +166,7 @@ class SampleDependentRegionExpander(RegionFamilyExpander):
         RegionKind.GT_BBOX,
     }
 
-    def supports(self, family: ResolvedRegionConfig) -> bool:
+    def supports(self, family: RegionFamilyConfig) -> bool:
         """Return whether the family requires sample annotations.
 
         Args:
@@ -142,6 +177,20 @@ class SampleDependentRegionExpander(RegionFamilyExpander):
         """
 
         return family.kind in self._SUPPORTED_KINDS
+
+    def validate_config(self, family: RegionConfig) -> None:
+        """Reject reserved sample-dependent families until implemented.
+
+        Args:
+            family: User-configured sample-dependent family.
+
+        Raises:
+            RegionExpansionError: Always, because v1 providers are reserved.
+        """
+
+        raise RegionExpansionError(
+            f"region kind {family.kind.value!r} is not implemented"
+        )
 
     def expand(
         self,
@@ -175,3 +224,53 @@ class SampleDependentRegionExpander(RegionFamilyExpander):
             raise RegionExpansionError(
                 f"sample region provider failed for region_id={family.region_id!r}"
             ) from error
+
+
+class RandomAreaMatchRegionExpander(RegionFamilyExpander):
+    """Reserve random area matching for internally generated controls."""
+
+    def supports(self, family: RegionFamilyConfig) -> bool:
+        """Return whether the family is an area-matched control recipe.
+
+        Args:
+            family: User or resolved region-family recipe.
+
+        Returns:
+            ``True`` only for random area matching.
+        """
+
+        return family.kind is RegionKind.RANDOM_AREA_MATCH
+
+    def validate_config(self, family: RegionConfig) -> None:
+        """Reject direct configuration of an internal control family.
+
+        Args:
+            family: User-configured random-area family.
+
+        Raises:
+            RegionExpansionError: Always, because controls create this recipe.
+        """
+
+        raise RegionExpansionError(
+            "random_area_match is internal to area-matched controls and "
+            "cannot be configured as a region family"
+        )
+
+    def expand(
+        self,
+        sample: SampleMeta,
+        family: ResolvedRegionConfig,
+    ) -> Sequence[RegionSpec]:
+        """Reject planning expansion of an internal control family.
+
+        Args:
+            sample: Unused lightweight source metadata.
+            family: Resolved random-area family.
+
+        Raises:
+            RegionExpansionError: Always, because PlanBuilder creates controls.
+        """
+
+        raise RegionExpansionError(
+            "random_area_match is generated internally by area-matched controls"
+        )

@@ -1,7 +1,7 @@
 import hashlib
 import io
 import logging
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any
 
@@ -13,11 +13,24 @@ from numpy.typing import NDArray
 
 from ssat.core.adapter.types import AdapterSpec
 from ssat.core.config.resolver import ConfigResolutionError, ConfigResolver
-from ssat.core.config.schema import AuditConfig, ResolvedConfig
+from ssat.core.config.schema import (
+    AuditConfig,
+    RegionConfig,
+    ResolvedConfig,
+    ResolvedRegionConfig,
+)
 from ssat.core.config.stats import DatasetStatsError, compute_dataset_stats
 from ssat.core.perturb import PerturbationError, PerturbationOperator, build_operators
+from ssat.core.plan import (
+    RegionExpansionContext,
+    RegionExpansionError,
+    RegionFamilyExpander,
+    build_family_expanders,
+)
+from ssat.core.plan.expansion_base import RegionFamilyConfig
+from ssat.core.region.types import RegionSpec
 from ssat.core.source.types import LoadError, LoadedSample, SampleMeta
-from ssat.core.types import PerturbationOp
+from ssat.core.types import PerturbationOp, RegionKind
 
 
 class FakeAdapter:
@@ -134,6 +147,91 @@ class CustomConfigOperator(PerturbationOperator):
         """
 
         return array.copy()
+
+
+class CustomConfigRegionExpander(RegionFamilyExpander):
+    """Override grid config validation for resolver integration tests."""
+
+    def supports(self, family: RegionFamilyConfig) -> bool:
+        """Support grid families before the built-in expander.
+
+        Args:
+            family: User or resolved region-family recipe.
+
+        Returns:
+            ``True`` only for grid families.
+        """
+
+        return family.kind is RegionKind.GRID
+
+    def validate_config(self, family: RegionConfig) -> None:
+        """Require a custom marker instead of grid dimensions.
+
+        Args:
+            family: User-configured grid family.
+
+        Raises:
+            RegionExpansionError: If the custom contract is invalid.
+        """
+
+        if family.params != {"custom": True}:
+            raise RegionExpansionError("custom grid config is invalid")
+
+    def expand(
+        self,
+        sample: SampleMeta,
+        family: ResolvedRegionConfig,
+    ) -> Sequence[RegionSpec]:
+        """Return one concrete region for the unused planning hook.
+
+        Args:
+            sample: Lightweight sample metadata.
+            family: Resolved custom grid family.
+
+        Returns:
+            A single concrete region.
+        """
+
+        return (
+            RegionSpec(
+                region_id=family.region_id,
+                region_instance_id=f"{family.region_id}/custom",
+                kind=family.kind,
+                params=family.params,
+            ),
+        )
+
+
+class RaisingConfigRegionExpander(CustomConfigRegionExpander):
+    """Raise unexpectedly from region-family config validation."""
+
+    def validate_config(self, family: RegionConfig) -> None:
+        """Raise a representative validation failure.
+
+        Args:
+            family: User-configured grid family.
+
+        Raises:
+            RuntimeError: Always, to test error translation.
+        """
+
+        raise RuntimeError("custom validation crashed")
+
+
+class RaisingConfigRegionSupportExpander(CustomConfigRegionExpander):
+    """Raise unexpectedly during region-family support detection."""
+
+    def supports(self, family: RegionFamilyConfig) -> bool:
+        """Raise a representative support-discovery failure.
+
+        Args:
+            family: User or resolved region-family recipe.
+
+        Raises:
+            RuntimeError: Always, to test error translation.
+        """
+
+        raise RuntimeError("custom support crashed")
 
 
 def make_loaded(sample_id: str, array: np.ndarray) -> LoadedSample:
@@ -279,6 +377,66 @@ def test_grid_family_params_are_strictly_validated(params: dict) -> None:
 
     with pytest.raises(ConfigResolutionError, match="grid"):
         ConfigResolver().resolve(config, FakeAdapter(), FakeSource())
+
+
+def test_custom_region_expander_controls_config_validation() -> None:
+    """ConfigResolver uses the first expander's family validation hook."""
+
+    context = RegionExpansionContext()
+    expanders = (
+        CustomConfigRegionExpander(context),
+        *build_family_expanders(context),
+    )
+    config = make_config()
+    config["regions"][0]["params"] = {"custom": True}
+
+    resolved = ConfigResolver(
+        region_family_expanders=expanders,
+    ).resolve(config, FakeAdapter(), FakeSource())
+
+    assert resolved.regions[0].params == {"custom": True}
+
+
+def test_custom_region_expander_validation_error_preserves_cause() -> None:
+    """Unexpected family validation failures retain their original cause."""
+
+    expander = RaisingConfigRegionExpander(RegionExpansionContext())
+    with pytest.raises(
+        ConfigResolutionError,
+        match="region config validation failed",
+    ) as captured:
+        ConfigResolver(region_family_expanders=(expander,)).resolve(
+            make_config(),
+            FakeAdapter(),
+            FakeSource(),
+        )
+
+    assert isinstance(captured.value.__cause__, RuntimeError)
+
+
+def test_custom_region_expander_support_error_preserves_cause_chain() -> None:
+    """Support-discovery failures retain both resolver and dispatch causes."""
+
+    expander = RaisingConfigRegionSupportExpander(RegionExpansionContext())
+    with pytest.raises(ConfigResolutionError, match="invalid grid") as captured:
+        ConfigResolver(region_family_expanders=(expander,)).resolve(
+            make_config(),
+            FakeAdapter(),
+            FakeSource(),
+        )
+
+    dispatch_error = captured.value.__cause__
+    assert isinstance(dispatch_error, RegionExpansionError)
+    assert isinstance(dispatch_error.__cause__, RuntimeError)
+
+
+def test_config_resolver_rejects_invalid_region_expander_collections() -> None:
+    """ConfigResolver requires a non-empty typed family expander sequence."""
+
+    with pytest.raises(ValueError, match="must not be empty"):
+        ConfigResolver(region_family_expanders=())
+    with pytest.raises(TypeError, match="RegionFamilyExpander"):
+        ConfigResolver(region_family_expanders=(object(),))  # type: ignore[arg-type]
 
 
 @pytest.mark.parametrize(
