@@ -74,6 +74,31 @@ def fill_value(value: Any, channels: int, op_name: str) -> NDArray[np.uint8]:
     return np.asarray(normalized, dtype=np.uint8)
 
 
+def validate_config_fill_value(value: Any, op_name: str) -> None:
+    """Validate a config-time scalar or channel-list fill value.
+
+    Args:
+        value: User-supplied JSON fill value.
+        op_name: Operation name included in validation errors.
+
+    Raises:
+        PerturbationError: If the value is empty, nonnumeric, or out of range.
+    """
+
+    values = value if isinstance(value, list) else [value]
+    if not values:
+        raise PerturbationError(f"{op_name}.value must not be empty")
+    for item in values:
+        if isinstance(item, bool) or not isinstance(item, (int, float)):
+            raise PerturbationError(
+                f"{op_name}.value must contain only numeric values"
+            )
+        if not isfinite(float(item)) or not 0.0 <= float(item) <= 255.0:
+            raise PerturbationError(
+                f"{op_name}.value values must be finite and within [0, 255]"
+            )
+
+
 def positive_real(value: Any, field_name: str) -> float:
     """Validate a finite positive numeric parameter.
 

@@ -265,6 +265,12 @@ content_hash: str        # provenance용
 materialize한다. RegionResolver에서 여러 mask를 반환하지 않으므로 WorkItem,
 item ID, dump row의 1:1 계약이 유지된다.
 
+두 계층 모두 facade에서 kind를 분기하지 않는다. `RegionFamilyExpander`는
+`supports(family)`/`expand(sample, family)`, `RegionMaskGenerator`는
+`supports(spec)`/`get_mask(height, width, spec, rng)` 계약을 구현한다. 각 factory가
+fresh ordered strategy 목록을 만들고 처음 지원하는 구현체를 실행한다. 등록 순서는
+custom 확장의 명시적인 override 우선순위다.
+
 #### RegionSpec의 두 갈래
 
 ```
@@ -327,7 +333,9 @@ kind를 명시적인 not-implemented 오류로 거부한다.
 #### explicit 마스크 캐싱
 
 워커별 128-entry LRU 캐시를 사용하며 키는 `ref_hash`다. cache hit에서도 현재 파일
-hash를 검증하고, caller에는 mask copy를 반환하여 캐시 오염을 막는다.
+hash를 검증하고, caller에는 mask copy를 반환하여 캐시 오염을 막는다. Resolver가
+생성한 context를 explicit generator와 random-area generator가 공유하므로 embedded
+target도 같은 cache와 generator registry를 통해 resolve된다.
 
 #### 코어와의 관계
 
@@ -348,9 +356,11 @@ apply(array, mask, op, params, rng=None) -> np.ndarray
 #### operator dispatch와 확장
 
 `Perturbator`는 공통 입력·출력 계약만 검증하고 op별 pixel 연산을 직접 구현하지
-않는다. `PerturbationOperator`는 `supports(op)`와
-`apply(array, mask, params, rng=None)`를 정의하며, constant fill, mean fill, blur,
-Gaussian noise, patch shuffle가 각각 별도 구현체다. ordered operator 목록을 순회해
+않는다. `PerturbationOperator`는 `supports(op)`, `validate_config(params)`,
+`requires_dataset_stats()`, `resolve_config_params(...)`,
+`apply(array, mask, params, rng=None)`를 정의한다. ConfigResolver와 runtime이 같은
+operator 순서와 operation별 계약을 공유한다. constant fill, mean fill, blur,
+Gaussian noise, patch shuffle가 각각 별도 구현체이며 ordered 목록을 순회해
 처음 `supports=True`인 구현체를 실행하므로 등록 순서가 명시적인 우선순위다.
 
 `OperatorFactory`는 operator class를 instance-local registry에 보관하고 build마다

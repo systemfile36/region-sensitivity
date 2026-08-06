@@ -40,6 +40,13 @@ class CustomConstantOperator(PerturbationOperator):
 
         return op is PerturbationOp.CONSTANT_FILL
 
+    def validate_config(self, params: Mapping[str, Any]) -> None:
+        """Accept any custom parameters for this test operator.
+
+        Args:
+            params: User parameter mapping ignored by the custom operator.
+        """
+
     def apply(
         self,
         array: NDArray[np.uint8],
@@ -98,6 +105,13 @@ class RecordingOperator(PerturbationOperator):
 
         self._events.append(f"supports:{self._name}")
         return self._supported
+
+    def validate_config(self, params: Mapping[str, Any]) -> None:
+        """Accept any parameters for dispatch-only tests.
+
+        Args:
+            params: User parameter mapping ignored by this test operator.
+        """
 
     def apply(
         self,

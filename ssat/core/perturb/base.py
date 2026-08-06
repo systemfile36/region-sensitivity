@@ -32,6 +32,43 @@ class PerturbationOperator(ABC):
         """
 
     @abstractmethod
+    def validate_config(self, params: Mapping[str, Any]) -> None:
+        """Validate user parameters before runtime resolution.
+
+        Args:
+            params: User-supplied operation parameter mapping.
+
+        Raises:
+            PerturbationError: If the configuration is invalid.
+        """
+
+    def requires_dataset_stats(self) -> bool:
+        """Return whether config resolution needs dataset channel statistics.
+
+        Returns:
+            ``False`` unless a concrete operator overrides the requirement.
+        """
+
+        return False
+
+    def resolve_config_params(
+        self,
+        params: Mapping[str, Any],
+        channel_mean: tuple[float, ...] | None = None,
+    ) -> dict[str, Any]:
+        """Resolve runtime parameters from validated user configuration.
+
+        Args:
+            params: Validated user parameter mapping.
+            channel_mean: Optional dataset mean required by derived operators.
+
+        Returns:
+            Runtime parameter mapping consumed by :meth:`apply`.
+        """
+
+        return dict(params)
+
+    @abstractmethod
     def apply(
         self,
         array: NDArray[np.uint8],

@@ -1,179 +1,108 @@
-"""Deterministic expansion of configured region families for work planning."""
+"""Validated facade for deterministic region-family expanders."""
 
 from __future__ import annotations
 
 from collections.abc import Sequence
-from typing import Protocol
 
 from ssat.core.config.schema import ResolvedRegionConfig
+from ssat.core.plan.expansion_base import (
+    RegionExpansionContext,
+    RegionExpansionError,
+    RegionFamilyExpander,
+    SampleRegionProvider,
+)
+from ssat.core.plan.region_expander_dispatch import dispatch_family_expander
+from ssat.core.plan.region_expander_factory import build_family_expanders
 from ssat.core.region.types import RegionSpec
 from ssat.core.source.types import SampleMeta
-from ssat.core.types import RegionKind
-
-
-class RegionExpansionError(ValueError):
-    """Indicate that a region family cannot produce concrete instances."""
-
-
-class SampleRegionProvider(Protocol):
-    """Provide sample-dependent concrete regions without loading pixels.
-
-    Future skeleton and ground-truth bounding-box integrations implement this
-    contract using lightweight annotation metadata available during planning.
-    """
-
-    def expand(
-        self,
-        sample: SampleMeta,
-        family: ResolvedRegionConfig,
-    ) -> Sequence[RegionSpec]:
-        """Return deterministic concrete regions for one sample and family.
-
-        Args:
-            sample: Lightweight metadata for the source sample.
-            family: Resolved sample-dependent region-family recipe.
-
-        Returns:
-            Concrete region specifications in stable semantic order.
-        """
 
 
 class RegionExpander:
-    """Expand static region families before WorkItem enumeration.
+    """Validate and dispatch region-family expansion before planning.
 
     Args:
-        sample_region_provider: Optional provider reserved for future
-            sample-dependent region kinds.
-    """
+        sample_region_provider: Optional annotation-backed provider.
+        family_expanders: Optional expanders in dispatch-priority order.
 
-    _SAMPLE_DEPENDENT_KINDS = {
-        RegionKind.BBOX_PARTITION,
-        RegionKind.SKELETON_PARTS,
-        RegionKind.GT_BBOX,
-    }
+    Raises:
+        TypeError: If a supplied value is not a family expander.
+        ValueError: If the expander collection is empty.
+    """
 
     def __init__(
         self,
         sample_region_provider: SampleRegionProvider | None = None,
+        *,
+        family_expanders: Sequence[RegionFamilyExpander] | None = None,
     ) -> None:
-        self._sample_region_provider = sample_region_provider
+        if family_expanders is None:
+            context = RegionExpansionContext(sample_region_provider)
+            resolved = tuple(build_family_expanders(context))
+        else:
+            resolved = tuple(family_expanders)
+        if not resolved:
+            raise ValueError("family_expanders must not be empty")
+        if any(
+            not isinstance(expander, RegionFamilyExpander)
+            for expander in resolved
+        ):
+            raise TypeError(
+                "family_expanders must contain RegionFamilyExpander values"
+            )
+        self._family_expanders = resolved
 
     def expand(
         self,
         sample: SampleMeta,
         family: ResolvedRegionConfig,
     ) -> tuple[RegionSpec, ...]:
-        """Expand one family into deterministic concrete RegionSpecs.
+        """Expand one family into validated concrete region specifications.
 
         Args:
             sample: Lightweight metadata for the source sample.
-            family: Resolved region-family recipe to expand.
+            family: Resolved region-family recipe.
 
         Returns:
             Concrete region specifications in planning order.
 
         Raises:
-            RegionExpansionError: If the recipe is invalid, unsupported, or
-                produces invalid concrete instances.
+            RegionExpansionError: If dispatch, expansion, or output validation
+                fails.
         """
 
-        if family.kind is RegionKind.GRID:
-            instances = self._expand_grid(family)
-        elif family.kind is RegionKind.EXPLICIT:
-            instances = (self._expand_explicit(family),)
-        elif family.kind in self._SAMPLE_DEPENDENT_KINDS:
-            instances = self._expand_sample_dependent(sample, family)
-        else:
-            raise RegionExpansionError(
-                f"region kind {family.kind.value!r} cannot be expanded from config"
+        instances = tuple(
+            dispatch_family_expander(
+                self._family_expanders,
+                sample,
+                family,
             )
-
+        )
         self._validate_instances(family, instances)
         return instances
-
-    @staticmethod
-    def _expand_grid(family: ResolvedRegionConfig) -> tuple[RegionSpec, ...]:
-        """Create row-major concrete cells for one grid family."""
-
-        params = family.params
-        expected = {"rows", "cols"}
-        if set(params) != expected:
-            raise RegionExpansionError(
-                "grid params must contain exactly ['cols', 'rows']"
-            )
-        rows = params["rows"]
-        cols = params["cols"]
-        for field_name, value in (("rows", rows), ("cols", cols)):
-            if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
-                raise RegionExpansionError(
-                    f"grid.{field_name} must be a positive integer"
-                )
-
-        return tuple(
-            RegionSpec(
-                region_id=family.region_id,
-                region_instance_id=(
-                    f"{family.region_id}/r{row_index}/c{col_index}"
-                ),
-                kind=family.kind,
-                params={
-                    "rows": rows,
-                    "cols": cols,
-                    "row_index": row_index,
-                    "col_index": col_index,
-                },
-            )
-            for row_index in range(rows)
-            for col_index in range(cols)
-        )
-
-    @staticmethod
-    def _expand_explicit(family: ResolvedRegionConfig) -> RegionSpec:
-        """Create the single concrete instance of an explicit family."""
-
-        return RegionSpec(
-            region_id=family.region_id,
-            region_instance_id=family.region_id,
-            kind=family.kind,
-            params=family.params,
-            ref=family.ref.as_posix() if family.ref is not None else None,
-            ref_hash=family.ref_hash,
-        )
-
-    def _expand_sample_dependent(
-        self,
-        sample: SampleMeta,
-        family: ResolvedRegionConfig,
-    ) -> tuple[RegionSpec, ...]:
-        """Delegate a reserved sample-dependent family to its provider."""
-
-        if self._sample_region_provider is None:
-            raise RegionExpansionError(
-                f"region kind {family.kind.value!r} is not implemented; "
-                "provide a SampleRegionProvider"
-            )
-        try:
-            return tuple(self._sample_region_provider.expand(sample, family))
-        except RegionExpansionError:
-            raise
-        except Exception as error:
-            raise RegionExpansionError(
-                f"sample region provider failed for region_id={family.region_id!r}"
-            ) from error
 
     @staticmethod
     def _validate_instances(
         family: ResolvedRegionConfig,
         instances: tuple[RegionSpec, ...],
     ) -> None:
-        """Validate provider and built-in expansion output."""
+        """Validate concrete instances returned by one family expander.
+
+        Args:
+            family: Resolved source family.
+            instances: Concrete instances returned by dispatch.
+
+        Raises:
+            RegionExpansionError: If output violates the planning contract.
+        """
 
         if not instances:
             raise RegionExpansionError(
                 f"region family {family.region_id!r} produced no instances"
             )
         if any(not isinstance(instance, RegionSpec) for instance in instances):
-            raise RegionExpansionError("region expansion must return RegionSpec values")
+            raise RegionExpansionError(
+                "region expansion must return RegionSpec values"
+            )
         if any(instance.region_id != family.region_id for instance in instances):
             raise RegionExpansionError(
                 "expanded RegionSpec.region_id must match its family region_id"

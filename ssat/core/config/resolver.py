@@ -3,8 +3,7 @@
 from __future__ import annotations
 
 import logging
-import math
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any, TypeAlias
 
@@ -19,8 +18,11 @@ from ssat.core.config.schema import (
     ResolvedRegionConfig,
 )
 from ssat.core.config.stats import DatasetStatsError, compute_dataset_stats
+from ssat.core.perturb.base import PerturbationError, PerturbationOperator
+from ssat.core.perturb.dispatch import find_operator
+from ssat.core.perturb.factory import build_operators
 from ssat.core.source.base import SampleSource
-from ssat.core.types import PerturbationOp, RegionKind
+from ssat.core.types import RegionKind
 from ssat.utils.io import load_yaml, sha256_file
 from ssat.utils.logger_factory import get_logger
 
@@ -36,10 +38,31 @@ class ConfigResolver:
 
     Args:
         logger: Optional package logger used for resolution audit events.
+        perturbation_operators: Optional operators in config dispatch order.
     """
 
-    def __init__(self, logger: logging.Logger | None = None) -> None:
+    def __init__(
+        self,
+        logger: logging.Logger | None = None,
+        *,
+        perturbation_operators: Sequence[PerturbationOperator] | None = None,
+    ) -> None:
         self._logger = logger or get_logger(__name__)
+        resolved = tuple(
+            build_operators()
+            if perturbation_operators is None
+            else perturbation_operators
+        )
+        if not resolved:
+            raise ValueError("perturbation_operators must not be empty")
+        if any(
+            not isinstance(operator, PerturbationOperator)
+            for operator in resolved
+        ):
+            raise TypeError(
+                "perturbation_operators must contain PerturbationOperator values"
+            )
+        self._perturbation_operators = resolved
 
     def resolve(
         self,
@@ -81,12 +104,17 @@ class ConfigResolver:
                 self._resolve_region(region, config_base_dir)
                 for region in audit_config.regions
             )
-            for perturbation in audit_config.perturbations:
-                self._validate_perturbation(perturbation)
+            perturbation_handlers = tuple(
+                (
+                    perturbation,
+                    self._validate_perturbation(perturbation),
+                )
+                for perturbation in audit_config.perturbations
+            )
 
             needs_stats = any(
-                perturbation.op is PerturbationOp.MEAN_FILL
-                for perturbation in audit_config.perturbations
+                self._requires_dataset_stats(perturbation, operator)
+                for perturbation, operator in perturbation_handlers
             )
             dataset_stats = audit_config.dataset_stats
             if dataset_stats is not None:
@@ -98,8 +126,12 @@ class ConfigResolver:
                 )
 
             perturbations = tuple(
-                self._resolve_perturbation(perturbation, dataset_stats)
-                for perturbation in audit_config.perturbations
+                self._resolve_perturbation(
+                    perturbation,
+                    operator,
+                    dataset_stats,
+                )
+                for perturbation, operator in perturbation_handlers
             )
             resolved = ResolvedConfig(
                 schema_version=audit_config.schema_version,
@@ -332,87 +364,105 @@ class ConfigResolver:
                 f"{sorted(expected)}; received {sorted(actual)}"
             )
 
-    @staticmethod
-    def _validate_perturbation(perturbation: PerturbationConfig) -> None:
-        """Validate the strict v1 parameter contract for one operation."""
+    def _validate_perturbation(
+        self,
+        perturbation: PerturbationConfig,
+    ) -> PerturbationOperator:
+        """Select an operator and validate one user perturbation config.
 
-        params = perturbation.params
-        op = perturbation.op
-        if op is PerturbationOp.CONSTANT_FILL:
-            ConfigResolver._require_keys(op, params, {"value"})
-            ConfigResolver._validate_fill_value(params["value"])
-        elif op is PerturbationOp.MEAN_FILL:
-            ConfigResolver._require_keys(op, params, set())
-        elif op in (PerturbationOp.BLUR, PerturbationOp.GAUSSIAN_NOISE):
-            ConfigResolver._require_keys(op, params, {"sigma"})
-            ConfigResolver._validate_positive_number(op, "sigma", params["sigma"])
-        elif op is PerturbationOp.PATCH_SHUFFLE:
-            ConfigResolver._require_keys(op, params, {"patch_size"})
-            patch_size = params["patch_size"]
-            if isinstance(patch_size, bool) or not isinstance(patch_size, int):
-                raise ConfigResolutionError("patch_shuffle.patch_size must be an integer")
-            if patch_size <= 0:
-                raise ConfigResolutionError("patch_shuffle.patch_size must be positive")
+        Args:
+            perturbation: User operation and unresolved parameters.
 
-    @staticmethod
-    def _require_keys(
-        op: PerturbationOp,
-        params: Mapping[str, Any],
-        expected: set[str],
-    ) -> None:
-        """Require an exact parameter-key set for a v1 operation."""
+        Returns:
+            The first registered operator supporting the operation.
 
-        actual = set(params)
-        if actual != expected:
-            raise ConfigResolutionError(
-                f"{op.value} params must contain exactly {sorted(expected)}; "
-                f"received {sorted(actual)}"
+        Raises:
+            ConfigResolutionError: If dispatch or config validation fails.
+        """
+
+        try:
+            operator = find_operator(
+                self._perturbation_operators,
+                perturbation.op,
             )
+            operator.validate_config(perturbation.params)
+            return operator
+        except PerturbationError as error:
+            raise ConfigResolutionError(
+                f"invalid {perturbation.op.value} configuration: {error}"
+            ) from error
+        except Exception as error:
+            raise ConfigResolutionError(
+                f"{perturbation.op.value} config validation failed"
+            ) from error
 
     @staticmethod
-    def _validate_fill_value(value: Any) -> None:
-        """Validate scalar or per-channel constant-fill values."""
+    def _requires_dataset_stats(
+        perturbation: PerturbationConfig,
+        operator: PerturbationOperator,
+    ) -> bool:
+        """Query an operator's dataset-statistics requirement.
 
-        values = value if isinstance(value, list) else [value]
-        if not values:
-            raise ConfigResolutionError("constant_fill.value must not be empty")
-        for item in values:
-            if isinstance(item, bool) or not isinstance(item, (int, float)):
-                raise ConfigResolutionError(
-                    "constant_fill.value must contain only numeric values"
-                )
-            if not math.isfinite(float(item)) or not 0.0 <= float(item) <= 255.0:
-                raise ConfigResolutionError(
-                    "constant_fill.value values must be finite and within [0, 255]"
-                )
+        Args:
+            perturbation: User perturbation included for error context.
+            operator: Selected supporting operator.
 
-    @staticmethod
-    def _validate_positive_number(
-        op: PerturbationOp,
-        name: str,
-        value: Any,
-    ) -> None:
-        """Validate a finite, positive scalar parameter."""
+        Returns:
+            Whether dataset channel statistics must be available.
 
-        if isinstance(value, bool) or not isinstance(value, (int, float)):
-            raise ConfigResolutionError(f"{op.value}.{name} must be numeric")
-        if not math.isfinite(float(value)) or float(value) <= 0.0:
-            raise ConfigResolutionError(f"{op.value}.{name} must be finite and positive")
+        Raises:
+            ConfigResolutionError: If the operator hook fails.
+        """
+
+        try:
+            required = operator.requires_dataset_stats()
+        except Exception as error:
+            raise ConfigResolutionError(
+                f"{perturbation.op.value} stats requirement check failed"
+            ) from error
+        if not isinstance(required, bool):
+            raise ConfigResolutionError(
+                f"{perturbation.op.value} requires_dataset_stats() must return bool"
+            )
+        return required
 
     @staticmethod
     def _resolve_perturbation(
         perturbation: PerturbationConfig,
+        operator: PerturbationOperator,
         dataset_stats: DatasetStats | None,
     ) -> PerturbationConfig:
-        """Fill runtime-derived perturbation parameters."""
+        """Resolve runtime params through the selected operator hook.
 
-        if perturbation.op is not PerturbationOp.MEAN_FILL:
-            return perturbation
-        if dataset_stats is None:
-            raise ConfigResolutionError("mean_fill requires resolved dataset statistics")
-        return PerturbationConfig(
-            op=perturbation.op,
-            params={"value": list(dataset_stats.channel_mean)},
-            invert_mask=perturbation.invert_mask,
-            seed_salts=perturbation.seed_salts,
+        Args:
+            perturbation: Validated user perturbation config.
+            operator: First registered supporting operator.
+            dataset_stats: Optional computed or preconfigured statistics.
+
+        Returns:
+            Perturbation config containing complete runtime parameters.
+
+        Raises:
+            ConfigResolutionError: If parameter resolution fails.
+        """
+
+        channel_mean = (
+            dataset_stats.channel_mean if dataset_stats is not None else None
         )
+        try:
+            params = operator.resolve_config_params(
+                perturbation.params,
+                channel_mean,
+            )
+            return PerturbationConfig(
+                op=perturbation.op,
+                params=params,
+                invert_mask=perturbation.invert_mask,
+                seed_salts=perturbation.seed_salts,
+            )
+        except PerturbationError as error:
+            raise ConfigResolutionError(str(error)) from error
+        except Exception as error:
+            raise ConfigResolutionError(
+                f"{perturbation.op.value} parameter resolution failed"
+            ) from error

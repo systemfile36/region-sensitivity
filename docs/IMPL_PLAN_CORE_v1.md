@@ -83,7 +83,7 @@
 ```
 types  → (없음)
 utils  → (없음)
-config → types, adapter(contracts), source(contracts), utils
+config → types, adapter(contracts), source(contracts), perturb, utils
 region → types, utils
 plan   → types, region
 source → utils
@@ -172,7 +172,7 @@ docker compose exec region-sensitivity-workspace pytest -q
 
 ### 단계 2. ConfigResolver (M0)
 
-**작업.** 설정 로드·검증, grid family의 `rows`·`cols` 검증, 경로·explicit mask hash 확정, v1 perturbation params 검증, 필요한 경우 DatasetStats 사전 계산, 어댑터 `describe()` 호출 및 결정론 검증, manifest-ready `ResolvedConfig` 산출. `random_area_match`는 내부 control 전용으로 거부하고, 예약된 `bbox_partition`, `skeleton_parts`, `gt_bbox`는 구현 전까지 명시적인 미지원 오류로 거부한다. 이 단계에서 공통 `logger_factory`, YAML/JSON·atomic write·파일 hash 유틸과 최소 Adapter/SampleSource Protocol도 함께 구현한다.
+**작업.** 설정 로드·검증, grid family의 `rows`·`cols` 검증, 경로·explicit mask hash 확정, v1 perturbation params 검증, 필요한 경우 DatasetStats 사전 계산, 어댑터 `describe()` 호출 및 결정론 검증, manifest-ready `ResolvedConfig` 산출. Perturbation config validation, stats 필요 여부, runtime params 확정은 runtime과 동일한 ordered `PerturbationOperator` hook을 사용한다. `random_area_match`는 내부 control 전용으로 거부하고, 예약된 `bbox_partition`, `skeleton_parts`, `gt_bbox`는 구현 전까지 명시적인 미지원 오류로 거부한다. 이 단계에서 공통 `logger_factory`, YAML/JSON·atomic write·파일 hash 유틸과 최소 Adapter/SampleSource Protocol도 함께 구현한다.
 
 **테스트.**
 - 비결정론 어댑터 → 기본 거부, `allow_nondeterministic: true`면 경고 후 통과
@@ -198,7 +198,8 @@ docker compose exec region-sensitivity-workspace pytest -q
 호출하고, 픽셀을 로드하지 않은 채 `sample_id` 순으로 실행 계획을 고정한다.
 `enumerate()`는 가벼운 `WorkChunkMeta`만 반환하고, `enumerate_clean()`은 정렬된
 `SampleMeta`를 별도 반환한다. `RegionExpander`는 각 family를 ordered concrete
-`RegionSpec` 목록으로 확장한다. grid는 row-major cell 순서를 사용하고 explicit은
+`RegionSpec` 목록으로 확장한다. 각 kind는 factory가 만든 ordered
+`RegionFamilyExpander`의 first-match 구현체가 담당한다. grid는 row-major cell 순서를 사용하고 explicit은
 하나의 instance를 만든다. 일반 WorkItem은 각 샘플에서 family → concrete region →
 perturbation → seed salt 순서로 열거한다. 명시된 area-matched control은 일반 항목
 뒤에 control 요청 → target instance → control index → perturbation → seed salt
@@ -241,7 +242,8 @@ RegionResolver가 외부 registry 없이 이를 해석할 수 있게 한다.
   `(1,H,W,3)` uint8로 반환하고 원본 파일 hash를 기록하며 실패는 `LoadError` 값으로 반환
 - `RegionResolver`: 이미 확장된 concrete grid, explicit, random_area_match를 각각
   mask 하나로 materialize. grid는 integer-division 경계를 사용하고 explicit은
-  동일 크기의 single-channel bitmap만 허용하며 hash 검증 후 LRU cache
+  동일 크기의 single-channel bitmap만 허용하며 hash 검증 후 LRU cache. 각 kind는
+  ordered `RegionMaskGenerator`가 담당하고 shared context로 cache와 target callback을 사용
 - `random_area_match`: 내장 target recipe를 resolve한 후 같은 수의 픽셀을 전체
   이미지에서 균등 비복원 추출
 - `Perturbator`: constant/mean fill, full-frame blur의 masked composite, Gaussian
@@ -250,6 +252,8 @@ RegionResolver가 외부 registry 없이 이를 해석할 수 있게 한다.
   공통 입력·출력 검증만 담당
 - `OperatorFactory`: built-in operator class를 instance-local registry에 등록하고
   build마다 fresh instance list를 생성. custom factory 결과를 Perturbator에 주입 가능
+- `RegionMaskGeneratorFactory`, `RegionFamilyExpanderFactory`: 동일한 instance-local
+  registry와 first-match 규칙으로 mask materialization과 planning expansion을 확장
 - `rng.py`: namespace와 global seed, item ID, salt를 SHA-256으로 묶어 앞 128비트의
   item-local seed를 생성하는 `derive(global_seed, item_id, seed_salt)`
 
@@ -264,6 +268,8 @@ RegionResolver가 외부 registry 없이 이를 해석할 수 있게 한다.
 - 교란: 마스크 외부 픽셀 불변, 마스크 반전 시 정반대 영역 변경, tile 간 shuffle와 불완전 가장자리 보존
 - operator 구조: built-in supports, factory 순서·fresh instance, custom 주입,
   first-match 우선순위, unsupported op와 잘못된 반환값 검증
+- region 전략 구조: mask/family abstract contract, factory build, shared context,
+  custom first-match, 예외 원인과 반환 contract 검증
 - rng: 동일 item_id → 동일 결과, 다른 item_id → 다른 결과
 - **전역 RNG 오염 검사:** 교란 실행 전후로 `np.random` 전역 상태 불변
 

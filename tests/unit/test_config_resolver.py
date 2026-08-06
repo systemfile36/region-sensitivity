@@ -1,17 +1,23 @@
 import hashlib
 import io
 import logging
+from collections.abc import Mapping
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 import pytest
 import yaml
+from numpy.random import Generator
+from numpy.typing import NDArray
 
 from ssat.core.adapter.types import AdapterSpec
 from ssat.core.config.resolver import ConfigResolutionError, ConfigResolver
 from ssat.core.config.schema import AuditConfig, ResolvedConfig
 from ssat.core.config.stats import DatasetStatsError, compute_dataset_stats
+from ssat.core.perturb import PerturbationError, PerturbationOperator, build_operators
 from ssat.core.source.types import LoadError, LoadedSample, SampleMeta
+from ssat.core.types import PerturbationOp
 
 
 class FakeAdapter:
@@ -50,6 +56,84 @@ class FakeSource:
 class RaisingSource(FakeSource):
     def list_samples(self) -> list[SampleMeta]:
         raise RuntimeError("list failed")
+
+
+class CustomConfigOperator(PerturbationOperator):
+    """Override constant-fill config handling for integration tests."""
+
+    def supports(self, op: PerturbationOp) -> bool:
+        """Support constant fill before the default operator.
+
+        Args:
+            op: Requested perturbation operation.
+
+        Returns:
+            ``True`` only for constant fill.
+        """
+
+        return op is PerturbationOp.CONSTANT_FILL
+
+    def validate_config(self, params: Mapping[str, Any]) -> None:
+        """Require one custom marker parameter.
+
+        Args:
+            params: User-supplied custom parameters.
+
+        Raises:
+            PerturbationError: If the custom contract is invalid.
+        """
+
+        if params != {"custom": True}:
+            raise PerturbationError("custom constant config is invalid")
+
+    def requires_dataset_stats(self) -> bool:
+        """Request statistics to prove hook-based aggregation.
+
+        Returns:
+            Always ``True`` for this test operator.
+        """
+
+        return True
+
+    def resolve_config_params(
+        self,
+        params: Mapping[str, Any],
+        channel_mean: tuple[float, ...] | None = None,
+    ) -> dict[str, Any]:
+        """Resolve the custom config into runtime fill parameters.
+
+        Args:
+            params: Validated custom parameters.
+            channel_mean: Dataset mean requested by this operator.
+
+        Returns:
+            Runtime constant-fill value derived from the first channel.
+        """
+
+        if channel_mean is None:
+            raise PerturbationError("custom stats are required")
+        return {"value": channel_mean[0]}
+
+    def apply(
+        self,
+        array: NDArray[np.uint8],
+        mask: NDArray[np.bool_],
+        params: Mapping[str, Any],
+        rng: Generator | None = None,
+    ) -> NDArray[np.uint8]:
+        """Return a copy for the unused runtime side of this test.
+
+        Args:
+            array: Validated source pixels.
+            mask: Validated source-space mask.
+            params: Resolved runtime parameters.
+            rng: Optional item-local generator.
+
+        Returns:
+            A copy of the source pixels.
+        """
+
+        return array.copy()
 
 
 def make_loaded(sample_id: str, array: np.ndarray) -> LoadedSample:
@@ -403,6 +487,45 @@ def test_invalid_v1_perturbation_params(perturbation: dict) -> None:
             FakeAdapter(),
             FakeSource(),
         )
+
+
+def test_custom_operator_controls_config_validation_stats_and_resolution() -> None:
+    """ConfigResolver uses the first operator's complete config lifecycle."""
+
+    array = np.array([[[[10, 20, 30], [30, 40, 50]]]], dtype=np.uint8)
+    source = FakeSource(
+        [SampleMeta("sample", Path("sample.png"))],
+        {"sample": make_loaded("sample", array)},
+    )
+    operators = (CustomConfigOperator(), *build_operators())
+    resolved = ConfigResolver(
+        perturbation_operators=operators,
+    ).resolve(
+        make_config(
+            {"op": "constant_fill", "params": {"custom": True}},
+        ),
+        FakeAdapter(),
+        source,
+    )
+
+    assert source.list_calls == 1
+    assert source.load_calls == ["sample"]
+    assert resolved.perturbations[0].params == {"value": 20.0}
+
+
+def test_custom_operator_validation_error_is_wrapped_with_cause() -> None:
+    """Operator config failures cross one ConfigResolutionError boundary."""
+
+    operators = (CustomConfigOperator(), *build_operators())
+    with pytest.raises(ConfigResolutionError, match="custom constant") as captured:
+        ConfigResolver(perturbation_operators=operators).resolve(
+            make_config(
+                {"op": "constant_fill", "params": {"value": 0}},
+            ),
+            FakeAdapter(),
+            FakeSource(),
+        )
+    assert isinstance(captured.value.__cause__, PerturbationError)
 
 
 def test_audit_config_model_input_is_supported(tmp_path: Path) -> None:
