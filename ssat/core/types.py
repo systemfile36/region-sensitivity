@@ -15,10 +15,12 @@ FrozenJsonValue: TypeAlias = JsonScalar | tuple["FrozenJsonValue", ...] | Mappin
 
 
 class RegionKind(str, Enum):
-    """Enumerate mask recipes understood by the region layer."""
+    """Enumerate built-in and reserved region-family recipes."""
 
     GRID = "grid"
     BBOX_PARTITION = "bbox_partition"
+    SKELETON_PARTS = "skeleton_parts"
+    GT_BBOX = "gt_bbox"
     EXPLICIT = "explicit"
     RANDOM_AREA_MATCH = "random_area_match"
 
@@ -103,3 +105,20 @@ def freeze_json_mapping(value: dict[str, JsonValue]) -> MappingProxyType:
     if not isinstance(frozen, MappingProxyType):  # pragma: no cover - defensive
         raise TypeError("expected a mapping")
     return frozen
+
+
+def thaw_json_value(value: FrozenJsonValue) -> JsonValue:
+    """Convert an immutable runtime JSON value back to mutable containers.
+
+    Args:
+        value: Recursively frozen JSON-compatible value.
+
+    Returns:
+        An equivalent value containing regular dictionaries and lists.
+    """
+
+    if isinstance(value, MappingProxyType):
+        return {key: thaw_json_value(child) for key, child in value.items()}
+    if isinstance(value, tuple):
+        return [thaw_json_value(child) for child in value]
+    return value

@@ -140,7 +140,7 @@ WorkChunkMeta:
 WorkItem:
     item_id: str           # 아래 필드 전부의 정규화 해시
     sample_id: str
-    region_spec: RegionSpec
+    region_spec: RegionSpec # family에서 확장된 concrete region
     perturb_op: str
     perturb_params: dict
     invert_mask: bool
@@ -169,6 +169,22 @@ WorkItem:
 
 한 샘플의 아이템을 `variants_per_chunk`(고정 설정값) 단위로 순서대로 분할. 마지막 청크는 짧을 수 있다.
 
+#### region family 확장
+
+설정의 `RegionConfig`와 `ResolvedRegionConfig`는 단일 마스크가 아니라 concrete
+region을 열거하는 **region family**다. PlanBuilder는 픽셀을 로드하기 전에
+`RegionExpander`를 호출하여 family를 ordered `RegionSpec` 목록으로 확장한다.
+`RegionSpec.region_id`는 family ID를 유지하고, `region_instance_id`가 concrete
+공간 단위를 식별한다.
+
+grid는 `rows`, `cols`만 설정하며 row-major 순서로 모든 cell을 확장한다. 일반
+WorkItem 순서는 sample → family → concrete region → perturbation → seed salt다.
+따라서 샘플별 일반 아이템 수는 다음과 같다.
+
+```
+Σ(family의 concrete region 수 × Σ(perturbation의 seed 수))
+```
+
 #### clean 취급
 
 clean은 별도로 열거한다. `enumerate_clean()`이 샘플당 하나의 clean 아이템을 반환하고, 이는 별도 테이블로 간다. 교란 설정이 바뀌어도 clean은 재사용된다.
@@ -181,7 +197,9 @@ clean은 별도로 열거한다. `enumerate_clean()`이 샘플당 하나의 clea
 controls: [{match_area_of: "...", n_samples: 3}]
 ```
 
-`is_control` 플래그로 구분된다.
+`match_area_of`는 family ID를 참조한다. PlanBuilder는 family의 각 concrete target
+region마다 `n_samples`개의 control을 만들고, target의 전체 concrete recipe를
+control RegionSpec에 내장한다. `is_control` 플래그로 일반 항목과 구분한다.
 
 ---
 
@@ -237,17 +255,29 @@ content_hash: str        # provenance용
 
 ### M4. RegionResolver
 
+#### planning과 materialization의 분리
+
+`RegionExpander`는 planning 계층에서 region family를 concrete `RegionSpec`들로
+열거한다. `RegionResolver`는 그중 하나를 받아 정확히 하나의 bool mask로
+materialize한다. RegionResolver에서 여러 mask를 반환하지 않으므로 WorkItem,
+item ID, dump row의 1:1 계약이 유지된다.
+
 #### RegionSpec의 두 갈래
 
 ```
 RegionSpec:
-    kind: "grid" | "bbox_partition" | "explicit" | "random_area_match"
+    region_id: str          # 설정의 family ID
+    region_instance_id: str # concrete region ID
+    kind: "grid" | "explicit" | "random_area_match"
+          | "bbox_partition" | "skeleton_parts" | "gt_bbox"
     params: dict           # 절차적 생성 레시피
     ref: str | None        # explicit인 경우 마스크 파일 참조
     ref_hash: str | None
 ```
 
-**절차적(procedural).** 격자, 슬라이딩 윈도우, bbox 분할처럼 규칙으로 생성 가능한 것. 저장하는 것은 레시피뿐이며 실행 시점에 샘플 크기를 받아 비트맵을 만든다. 저장 비용이 사실상 0이다.
+**절차적(procedural).** grid family는 planning 시 cell별 concrete recipe로
+확장되고, 실행 시점에는 샘플 크기를 받아 해당 cell의 비트맵만 만든다. 저장하는
+것은 recipe뿐이므로 비용이 사실상 0이다.
 
 **명시적(explicit).** 사용자 제공 마스크, annotation 기반 영역. 비트맵 파일 참조와 해시를 저장한다.
 
@@ -275,13 +305,24 @@ confidence: float | None   # 자동 생성기인 경우
 
 대상 영역의 면적을 params로 받아 같은 면적의 무작위 영역을 생성한다. rng가 필요하므로 `resolve`에 rng를 넘기고, 그 rng는 item_id에서 유도된다. 이로써 대조군도 완전히 재현 가능하다.
 
+#### sample-dependent region 확장
+
+`skeleton_parts`, `gt_bbox`, `bbox_partition`은 향후 확장용 kind로 예약한다.
+`SampleMeta`에는 annotation 전문을 넣지 않고, 별도 `SampleRegionProvider`가
+sample metadata와 resolved family를 받아 deterministic RegionSpec 목록을
+제공한다. skeleton 정보·부위 정의·가릴 부위 목록이나 GT bbox 목록은 provider의
+구체 구현이 담당하며 픽셀 로딩에는 의존하지 않는다. 현재 v1 코어에서는 이 세
+kind를 명시적인 not-implemented 오류로 거부한다.
+
 #### explicit 마스크 캐싱
 
 워커별 LRU 캐시. 키는 `ref_hash`. v1에서는 단순 dict와 크기 제한으로 충분하다.
 
 #### 코어와의 관계
 
-코어는 마스크가 어떻게 생성되었는지 전혀 모른다. 따라서 이후 pose 기반이든 segmentation 기반이든 adapter만 추가하면 된다.
+실행 코어는 family가 어떻게 확장되었는지 모르고 concrete recipe만 처리한다.
+향후 pose·detection 연동은 SampleRegionProvider와 해당 RegionResolver generator를
+추가하는 방식으로 확장한다.
 
 ---
 
@@ -463,7 +504,8 @@ logits (list[float]), original_shape, model_id, written_at
 
 ```
 item_id, sample_id, status,
-region_kind, region_params_json, intended_area_px, effective_area_px,
+region_id, region_instance_id, region_kind, region_params_json,
+intended_area_px, effective_area_px,
 perturb_op, perturb_params_json, invert_mask, is_control,
 seed_used,
 logits (list[float]),

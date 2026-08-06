@@ -10,6 +10,7 @@ def identity(**overrides: object) -> dict[str, object]:
         "sample_id": "sample-1",
         "region_spec": {
             "region_id": "grid",
+            "region_instance_id": "grid/r0/c0",
             "kind": "grid",
             "params": {"ratio": 0.1, "rows": 2},
             "ref": None,
@@ -32,7 +33,7 @@ def test_key_order_does_not_change_item_id() -> None:
 
 def test_v1_item_id_regression_value() -> None:
     assert compute_item_id(identity()) == (
-        "56ce62890b2ea59632489954384dacf4dead3573b781d81fb4121498f946d668"
+        "865fdf7a4e782b2f789573aaa771b47ea98812fbe43681925b5ade9161edb2ef"
     )
 
 
@@ -65,6 +66,7 @@ def test_nested_region_or_perturbation_change_changes_item_id() -> None:
     changed_region = identity(
         region_spec={
             "region_id": "grid",
+            "region_instance_id": "grid/r0/c0",
             "kind": "grid",
             "params": {"ratio": 0.1, "rows": 3},
             "ref": None,
@@ -74,6 +76,20 @@ def test_nested_region_or_perturbation_change_changes_item_id() -> None:
 
     assert compute_item_id(base) != compute_item_id(changed_region)
     assert compute_item_id(base) != compute_item_id(changed_perturbation)
+
+
+def test_region_instance_changes_item_id() -> None:
+    changed_instance = identity(
+        region_spec={
+            "region_id": "grid",
+            "region_instance_id": "grid/r0/c1",
+            "kind": "grid",
+            "params": {"ratio": 0.1, "rows": 2},
+            "ref": None,
+        }
+    )
+
+    assert compute_item_id(identity()) != compute_item_id(changed_instance)
 
 
 def test_none_mapping_fields_are_omitted() -> None:

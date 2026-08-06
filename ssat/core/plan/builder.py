@@ -6,13 +6,14 @@ import logging
 from dataclasses import dataclass
 from typing import Any
 
-from ssat.core.config.schema import ResolvedConfig, ResolvedRegionConfig
+from ssat.core.config.schema import ResolvedConfig
 from ssat.core.plan.hashing import compute_chunk_id, compute_item_id
+from ssat.core.plan.region_expander import RegionExpander, RegionExpansionError
 from ssat.core.plan.types import WorkChunk, WorkChunkMeta, WorkItem
 from ssat.core.region.types import RegionSpec
 from ssat.core.source.base import SampleSource
 from ssat.core.source.types import SampleMeta
-from ssat.core.types import PerturbationOp, RegionKind
+from ssat.core.types import PerturbationOp, RegionKind, thaw_json_value
 from ssat.utils.logger_factory import get_logger
 
 
@@ -36,6 +37,7 @@ class PlanBuilder:
         resolved_config: Fully resolved configuration shared by main and workers.
         sample_source: Source used only to list deterministic sample metadata.
         logger: Optional package logger for planning lifecycle events.
+        region_expander: Optional deterministic region-family expander.
     """
 
     def __init__(
@@ -43,10 +45,13 @@ class PlanBuilder:
         resolved_config: ResolvedConfig,
         sample_source: SampleSource,
         logger: logging.Logger | None = None,
+        *,
+        region_expander: RegionExpander | None = None,
     ) -> None:
         self._config = resolved_config
         self._sample_source = sample_source
         self._logger = logger or get_logger(__name__)
+        self._region_expander = region_expander or RegionExpander()
         self._samples: tuple[SampleMeta, ...] | None = None
         self._sample_by_id: dict[str, SampleMeta] | None = None
         self._chunk_metas: tuple[WorkChunkMeta, ...] | None = None
@@ -205,10 +210,19 @@ class PlanBuilder:
         if self._sample_by_id is None or sample_id not in self._sample_by_id:
             raise PlanBuildError(f"unknown sample_id: {sample_id}")
 
+        sample = self._sample_by_id[sample_id]
         resolved_regions = tuple(self._config.regions)
-        runtime_regions = tuple(
-            self._to_region_spec(region) for region in resolved_regions
-        )
+        expanded_by_family: dict[str, tuple[RegionSpec, ...]] = {}
+        runtime_regions: list[RegionSpec] = []
+        for region in resolved_regions:
+            try:
+                instances = self._region_expander.expand(sample, region)
+            except RegionExpansionError as error:
+                raise PlanBuildError(
+                    f"region expansion failed for region_id={region.region_id!r}: {error}"
+                ) from error
+            expanded_by_family[region.region_id] = instances
+            runtime_regions.extend(instances)
         items: list[WorkItem] = []
 
         for region_spec in runtime_regions:
@@ -226,48 +240,52 @@ class PlanBuilder:
                         )
                     )
 
-        region_by_id = {region.region_id: region for region in resolved_regions}
-        if len(region_by_id) != len(resolved_regions):
+        if len(expanded_by_family) != len(resolved_regions):
             raise PlanBuildError("resolved config contains duplicate region_id values")
-        configured_region_ids = set(region_by_id)
+        configured_region_ids = set(expanded_by_family)
         for control_request_index, control in enumerate(self._config.controls):
-            target_region = region_by_id.get(control.match_area_of)
-            if target_region is None:
+            target_regions = expanded_by_family.get(control.match_area_of)
+            if target_regions is None:
                 raise PlanBuildError(
                     f"control references unknown region_id={control.match_area_of!r}"
                 )
-            target_recipe = self._region_recipe(target_region)
-            for control_index in range(control.n_samples):
-                control_region_id = (
-                    f"control:{target_region.region_id}:"
-                    f"{control_request_index}:{control_index}"
+            control_region_id = (
+                f"control:{control.match_area_of}:{control_request_index}"
+            )
+            if control_region_id in configured_region_ids:
+                raise PlanBuildError(
+                    f"generated control region_id collides with config: {control_region_id}"
                 )
-                if control_region_id in configured_region_ids:
-                    raise PlanBuildError(
-                        f"generated control region_id collides with config: {control_region_id}"
+            for target_region in target_regions:
+                target_recipe = self._region_recipe(target_region)
+                for control_index in range(control.n_samples):
+                    control_instance_id = (
+                        f"control:{target_region.region_instance_id}:"
+                        f"{control_request_index}:{control_index}"
                     )
-                control_region = RegionSpec(
-                    region_id=control_region_id,
-                    kind=RegionKind.RANDOM_AREA_MATCH,
-                    params={
-                        "target_region": target_recipe,
-                        "control_request_index": control_request_index,
-                        "control_index": control_index,
-                    },
-                )
-                for perturbation in self._config.perturbations:
-                    for seed_salt in perturbation.seed_salts:
-                        items.append(
-                            self._make_item(
-                                sample_id=sample_id,
-                                region_spec=control_region,
-                                perturb_op=perturbation.op,
-                                perturb_params=perturbation.params,
-                                invert_mask=perturbation.invert_mask,
-                                seed_salt=seed_salt,
-                                is_control=True,
+                    control_region = RegionSpec(
+                        region_id=control_region_id,
+                        region_instance_id=control_instance_id,
+                        kind=RegionKind.RANDOM_AREA_MATCH,
+                        params={
+                            "target_region": target_recipe,
+                            "control_request_index": control_request_index,
+                            "control_index": control_index,
+                        },
+                    )
+                    for perturbation in self._config.perturbations:
+                        for seed_salt in perturbation.seed_salts:
+                            items.append(
+                                self._make_item(
+                                    sample_id=sample_id,
+                                    region_spec=control_region,
+                                    perturb_op=perturbation.op,
+                                    perturb_params=perturbation.params,
+                                    invert_mask=perturbation.invert_mask,
+                                    seed_salt=seed_salt,
+                                    is_control=True,
+                                )
                             )
-                        )
 
         item_ids = tuple(item.item_id for item in items)
         if len(set(item_ids)) != len(item_ids):
@@ -307,25 +325,14 @@ class PlanBuilder:
         )
 
     @staticmethod
-    def _to_region_spec(region: ResolvedRegionConfig) -> RegionSpec:
-        """Convert a manifest model to the immutable runtime region contract."""
-
-        return RegionSpec(
-            region_id=region.region_id,
-            kind=region.kind,
-            params=region.params,
-            ref=region.ref.as_posix() if region.ref is not None else None,
-            ref_hash=region.ref_hash,
-        )
-
-    @staticmethod
-    def _region_recipe(region: ResolvedRegionConfig) -> dict[str, Any]:
+    def _region_recipe(region: RegionSpec) -> dict[str, Any]:
         """Create the self-contained JSON recipe embedded in control regions."""
 
         return {
             "region_id": region.region_id,
+            "region_instance_id": region.region_instance_id,
             "kind": region.kind.value,
-            "params": region.params,
-            "ref": region.ref.as_posix() if region.ref is not None else None,
+            "params": thaw_json_value(region.params),
+            "ref": region.ref,
             "ref_hash": region.ref_hash,
         }

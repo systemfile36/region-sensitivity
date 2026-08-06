@@ -33,6 +33,7 @@ PERTURBED_SCHEMA = pa.schema(
         pa.field("sample_id", pa.string(), nullable=False),
         pa.field("status", pa.string(), nullable=False),
         pa.field("region_id", pa.string(), nullable=False),
+        pa.field("region_instance_id", pa.string(), nullable=False),
         pa.field("region_kind", pa.string(), nullable=False),
         pa.field("region_params_json", pa.string(), nullable=False),
         pa.field("intended_area_px", pa.int64()),

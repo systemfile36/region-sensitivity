@@ -111,8 +111,16 @@ def test_sample_order_is_stable_and_source_is_listed_once(tmp_path: Path) -> Non
 
 def test_normal_items_follow_region_perturbation_seed_order(tmp_path: Path) -> None:
     regions = (
-        ResolvedRegionConfig(region_id="r1", kind=RegionKind.GRID),
-        ResolvedRegionConfig(region_id="r2", kind=RegionKind.BBOX_PARTITION),
+        ResolvedRegionConfig(
+            region_id="r1",
+            kind=RegionKind.GRID,
+            params={"rows": 1, "cols": 2},
+        ),
+        ResolvedRegionConfig(
+            region_id="r2",
+            kind=RegionKind.GRID,
+            params={"rows": 1, "cols": 1},
+        ),
     )
     perturbations = (
         PerturbationConfig(
@@ -136,17 +144,20 @@ def test_normal_items_follow_region_perturbation_seed_order(tmp_path: Path) -> N
     )
 
     observed = [
-        (item.region_spec.region_id, item.perturb_op.value, item.seed_salt)
+        (item.region_spec.region_instance_id, item.perturb_op.value, item.seed_salt)
         for item in _all_items(builder)
     ]
 
     assert observed == [
-        ("r1", "blur", 7),
-        ("r1", "blur", 3),
-        ("r1", "patch_shuffle", 5),
-        ("r2", "blur", 7),
-        ("r2", "blur", 3),
-        ("r2", "patch_shuffle", 5),
+        ("r1/r0/c0", "blur", 7),
+        ("r1/r0/c0", "blur", 3),
+        ("r1/r0/c0", "patch_shuffle", 5),
+        ("r1/r0/c1", "blur", 7),
+        ("r1/r0/c1", "blur", 3),
+        ("r1/r0/c1", "patch_shuffle", 5),
+        ("r2/r0/c0", "blur", 7),
+        ("r2/r0/c0", "blur", 3),
+        ("r2/r0/c0", "patch_shuffle", 5),
     ]
 
 
@@ -167,8 +178,11 @@ def test_chunks_split_without_empty_chunks(
         tmp_path,
         variants_per_chunk=variants_per_chunk,
         regions=(
-            ResolvedRegionConfig(region_id="r1", kind=RegionKind.GRID),
-            ResolvedRegionConfig(region_id="r2", kind=RegionKind.GRID),
+            ResolvedRegionConfig(
+                region_id="r1",
+                kind=RegionKind.GRID,
+                params={"rows": 1, "cols": 2},
+            ),
         ),
         perturbations=(
             PerturbationConfig(
@@ -206,8 +220,16 @@ def test_config_order_changes_chunks_but_preserves_work_item_identity(
     tmp_path: Path,
 ) -> None:
     regions = (
-        ResolvedRegionConfig(region_id="r1", kind=RegionKind.GRID),
-        ResolvedRegionConfig(region_id="r2", kind=RegionKind.BBOX_PARTITION),
+        ResolvedRegionConfig(
+            region_id="r1",
+            kind=RegionKind.GRID,
+            params={"rows": 1, "cols": 1},
+        ),
+        ResolvedRegionConfig(
+            region_id="r2",
+            kind=RegionKind.GRID,
+            params={"rows": 1, "cols": 1},
+        ),
     )
     perturbations = (
         PerturbationConfig(
@@ -255,6 +277,44 @@ def test_materialize_reproduces_metadata_ids_and_chunk_id(tmp_path: Path) -> Non
         assert chunk.chunk_id == metadata.chunk_id
         assert chunk.sample_id == metadata.sample_id
         assert tuple(item.item_id for item in chunk.items) == metadata.item_ids
+
+
+def test_grid_cells_multiply_perturbation_variants(tmp_path: Path) -> None:
+    config = _resolved_config(
+        tmp_path,
+        regions=(
+            ResolvedRegionConfig(
+                region_id="grid",
+                kind=RegionKind.GRID,
+                params={"rows": 2, "cols": 2},
+            ),
+        ),
+        perturbations=(
+            PerturbationConfig(
+                op=PerturbationOp.BLUR,
+                params={"sigma": 1.0},
+            ),
+            PerturbationConfig(
+                op=PerturbationOp.CONSTANT_FILL,
+                params={"value": 0},
+            ),
+        ),
+    )
+    builder = PlanBuilder(config, FakeSampleSource((_sample("s"),)))
+
+    items = _all_items(builder)
+
+    assert len(items) == 8
+    assert [item.region_spec.region_instance_id for item in items] == [
+        "grid/r0/c0",
+        "grid/r0/c0",
+        "grid/r0/c1",
+        "grid/r0/c1",
+        "grid/r1/c0",
+        "grid/r1/c0",
+        "grid/r1/c1",
+        "grid/r1/c1",
+    ]
 
 
 def test_materialize_rejects_unknown_chunk_id(tmp_path: Path) -> None:
@@ -314,13 +374,10 @@ def test_source_listing_error_is_wrapped(tmp_path: Path) -> None:
 def test_controls_are_appended_after_normal_items_with_full_product(
     tmp_path: Path,
 ) -> None:
-    explicit_ref = (tmp_path / "mask.json").resolve()
     target = ResolvedRegionConfig(
         region_id="target",
-        kind=RegionKind.EXPLICIT,
-        params={"threshold": 0.5},
-        ref=explicit_ref,
-        ref_hash="a" * 64,
+        kind=RegionKind.GRID,
+        params={"rows": 2, "cols": 2},
     )
     perturbations = (
         PerturbationConfig(
@@ -350,36 +407,42 @@ def test_controls_are_appended_after_normal_items_with_full_product(
     )
 
     items = _all_items(builder)
-    normal_count = 3
+    normal_count = 12
     control_items = items[normal_count:]
 
-    assert len(items) == 9
+    assert len(items) == 36
     assert all(not item.is_control for item in items[:normal_count])
     assert all(item.is_control for item in control_items)
     assert len({item.item_id for item in items}) == len(items)
     assert [
         (
+            item.region_spec.params["target_region"]["region_instance_id"],
             item.region_spec.params["control_index"],
             item.perturb_op.value,
             item.seed_salt,
         )
         for item in control_items
     ] == [
-        (0, "blur", 0),
-        (0, "blur", 1),
-        (0, "patch_shuffle", 9),
-        (1, "blur", 0),
-        (1, "blur", 1),
-        (1, "patch_shuffle", 9),
+        (target_id, control_index, op, seed)
+        for target_id in (
+            "target/r0/c0",
+            "target/r0/c1",
+            "target/r1/c0",
+            "target/r1/c1",
+        )
+        for control_index in (0, 1)
+        for op, seed in (("blur", 0), ("blur", 1), ("patch_shuffle", 9))
     ]
     target_recipe = control_items[0].region_spec.params["target_region"]
     assert target_recipe == {
         "region_id": "target",
-        "kind": "explicit",
-        "params": {"threshold": 0.5},
-        "ref": explicit_ref.as_posix(),
-        "ref_hash": "a" * 64,
+        "region_instance_id": "target/r0/c0",
+        "kind": "grid",
+        "params": {"rows": 2, "cols": 2, "row_index": 0, "col_index": 0},
+        "ref": None,
+        "ref_hash": None,
     }
+    assert len({item.region_spec.region_instance_id for item in control_items}) == 8
     assert control_items[-1].invert_mask is True
 
 
@@ -389,6 +452,13 @@ def test_duplicate_control_requests_are_distinguished_by_request_ordinal(
     request = ControlConfig(match_area_of="region-a", n_samples=1)
     config = _resolved_config(
         tmp_path,
+        regions=(
+            ResolvedRegionConfig(
+                region_id="region-a",
+                kind=RegionKind.GRID,
+                params={"rows": 1, "cols": 1},
+            ),
+        ),
         controls=(request, request),
     )
     builder = PlanBuilder(config, FakeSampleSource((_sample("s"),)))

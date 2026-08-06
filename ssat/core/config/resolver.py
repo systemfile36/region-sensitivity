@@ -230,7 +230,9 @@ class ConfigResolver:
         region: RegionConfig,
         base_dir: Path,
     ) -> ResolvedRegionConfig:
-        """Resolve and verify one explicit mask reference when present."""
+        """Validate a family recipe and resolve its external references."""
+
+        self._validate_region_family(region)
 
         if region.kind is not RegionKind.EXPLICIT:
             return ResolvedRegionConfig(
@@ -275,6 +277,60 @@ class ConfigResolver:
             ref=resolved_ref,
             ref_hash=actual_hash,
         )
+
+    @staticmethod
+    def _validate_region_family(region: RegionConfig) -> None:
+        """Validate the supported v1 region-family parameter contract.
+
+        Args:
+            region: User-configured region family to validate.
+
+        Raises:
+            ConfigResolutionError: If the kind is reserved or its parameters
+                cannot be expanded deterministically.
+        """
+
+        if region.kind is RegionKind.GRID:
+            ConfigResolver._require_region_keys(region, {"rows", "cols"})
+            for field_name in ("rows", "cols"):
+                value = region.params[field_name]
+                if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
+                    raise ConfigResolutionError(
+                        f"grid.{field_name} must be a positive integer"
+                    )
+            return
+        if region.kind is RegionKind.EXPLICIT:
+            return
+        if region.kind is RegionKind.RANDOM_AREA_MATCH:
+            raise ConfigResolutionError(
+                "random_area_match is internal to area-matched controls and "
+                "cannot be configured as a region family"
+            )
+        raise ConfigResolutionError(
+            f"region kind {region.kind.value!r} is not implemented"
+        )
+
+    @staticmethod
+    def _require_region_keys(
+        region: RegionConfig,
+        expected: set[str],
+    ) -> None:
+        """Require an exact parameter-key set for a region family.
+
+        Args:
+            region: Region family whose parameters are checked.
+            expected: Exact accepted parameter names.
+
+        Raises:
+            ConfigResolutionError: If the parameter names differ.
+        """
+
+        actual = set(region.params)
+        if actual != expected:
+            raise ConfigResolutionError(
+                f"{region.kind.value} params must contain exactly "
+                f"{sorted(expected)}; received {sorted(actual)}"
+            )
 
     @staticmethod
     def _validate_perturbation(perturbation: PerturbationConfig) -> None:
@@ -360,4 +416,3 @@ class ConfigResolver:
             invert_mask=perturbation.invert_mask,
             seed_salts=perturbation.seed_salts,
         )
-

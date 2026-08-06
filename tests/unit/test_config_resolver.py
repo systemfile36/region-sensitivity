@@ -68,7 +68,13 @@ def make_config(
     allow_nondeterministic: bool = False,
 ) -> dict:
     config = {
-        "regions": [{"region_id": "grid", "kind": "grid", "params": {}}],
+        "regions": [
+            {
+                "region_id": "grid",
+                "kind": "grid",
+                "params": {"rows": 1, "cols": 1},
+            }
+        ],
         "perturbations": [perturbation or {"op": "blur", "params": {"sigma": 1.0}}],
         "runtime": {"allow_nondeterministic": allow_nondeterministic},
     }
@@ -166,6 +172,56 @@ def test_missing_explicit_ref_is_rejected(tmp_path: Path) -> None:
         {"region_id": "mask", "kind": "explicit", "ref": str(tmp_path / "missing")}
     ]
     with pytest.raises(ConfigResolutionError, match="ref does not exist"):
+        ConfigResolver().resolve(config, FakeAdapter(), FakeSource())
+
+
+@pytest.mark.parametrize(
+    "params",
+    [
+        {},
+        {"rows": 2},
+        {"rows": 2, "cols": 2, "index": 0},
+        {"rows": True, "cols": 2},
+        {"rows": 2, "cols": False},
+        {"rows": 0, "cols": 2},
+        {"rows": 2, "cols": -1},
+        {"rows": 2.0, "cols": 2},
+        {"rows": 2, "cols": "2"},
+    ],
+)
+def test_grid_family_params_are_strictly_validated(params: dict) -> None:
+    config = make_config()
+    config["regions"][0]["params"] = params
+
+    with pytest.raises(ConfigResolutionError, match="grid"):
+        ConfigResolver().resolve(config, FakeAdapter(), FakeSource())
+
+
+@pytest.mark.parametrize(
+    "kind",
+    ["bbox_partition", "skeleton_parts", "gt_bbox"],
+)
+def test_reserved_region_kinds_fail_explicitly(kind: str) -> None:
+    config = make_config()
+    config["regions"][0] = {
+        "region_id": "future",
+        "kind": kind,
+        "params": {},
+    }
+
+    with pytest.raises(ConfigResolutionError, match="not implemented"):
+        ConfigResolver().resolve(config, FakeAdapter(), FakeSource())
+
+
+def test_random_area_match_cannot_be_configured_directly() -> None:
+    config = make_config()
+    config["regions"][0] = {
+        "region_id": "control",
+        "kind": "random_area_match",
+        "params": {},
+    }
+
+    with pytest.raises(ConfigResolutionError, match="internal"):
         ConfigResolver().resolve(config, FakeAdapter(), FakeSource())
 
 

@@ -23,11 +23,21 @@ def test_loaded_sample_enforces_thwc_uint8() -> None:
 
 def test_resolved_explicit_region_requires_hash() -> None:
     with pytest.raises(ValueError, match="require ref and ref_hash"):
-        RegionSpec("mask", RegionKind.EXPLICIT, ref="mask.png")
+        RegionSpec(
+            region_id="mask",
+            region_instance_id="mask",
+            kind=RegionKind.EXPLICIT,
+            ref="mask.png",
+        )
 
 
 def test_work_item_params_are_immutable_and_hashable() -> None:
-    region = RegionSpec("grid", RegionKind.GRID, params={"rows": 2})
+    region = RegionSpec(
+        region_id="grid",
+        region_instance_id="grid/r0/c0",
+        kind=RegionKind.GRID,
+        params={"rows": 2, "cols": 2, "row_index": 0, "col_index": 0},
+    )
     payload = {
         "sample_id": "sample",
         "region_spec": region,

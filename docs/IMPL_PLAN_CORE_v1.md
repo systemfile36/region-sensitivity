@@ -47,7 +47,7 @@
 │   ├── utils/                         # 공통 logging·파일 I/O
 │   └── core/                          # ← v1 구현 범위
 │       ├── config/                    # M0  설정 스키마·Resolver
-│       ├── plan/                      # M1  작업 타입·해싱·PlanBuilder
+│       ├── plan/                      # M1  region 확장·작업 타입·해싱·PlanBuilder
 │       ├── resume/                    # M2  ResumeIndex
 │       ├── source/                    # M3  SampleSource
 │       ├── region/                    # M4  RegionResolver
@@ -145,7 +145,7 @@ docker compose exec region-sensitivity-workspace pytest -q
 
 **작업.**
 - `config/schema.py`: 감사 명세 중심 설정 YAML의 pydantic v2 모델. source/adapter 객체는 후속 Resolver에 주입
-- 도메인별 `types.py`: `RegionSpec`, `RegionMeta`, `WorkItem`, `WorkChunkMeta`, `WorkChunk`, `SampleMeta`, `LoadedSample`, `LoadError`, `AdapterSpec`, `RawOutput`, `ItemMeta`, prepared/failed chunk 타입
+- 도메인별 `types.py`: family ID와 concrete instance ID를 분리한 `RegionSpec`, `RegionMeta`, `WorkItem`, `WorkChunkMeta`, `WorkChunk`, `SampleMeta`, `LoadedSample`, `LoadError`, `AdapterSpec`, `RawOutput`, `ItemMeta`, prepared/failed chunk 타입
 - `dump/schema.py`: clean/perturbed/index parquet 컬럼 정의, `schema_version` 상수
 - `plan/hashing.py`: 정규화 직렬화 + item_id 해시
 - 예제 설정 YAML 3개 작성
@@ -164,6 +164,7 @@ docker compose exec region-sensitivity-workspace pytest -q
 
 **v1 계약 명확화.**
 - 대조군의 `match_area_of`는 설정에서 고유한 `region_id`를 참조하고, dump에도 해당 ID를 기록한다.
+- 설정의 region은 concrete mask 하나가 아니라 region family다. `RegionSpec`은 family에서 확장된 concrete region 하나이며 `region_id`와 `region_instance_id`를 함께 가진다.
 - Adapter 출력과 raw dump는 v1에서 전체 `logits`로 제한한다. `probs` 지원은 dump 컬럼 계약을 일반화하는 후속 버전에서 검토한다.
 - `schema_version=1.0.0`과 canonical JSON + SHA-256 전체 hex를 item ID 계약으로 고정한다.
 
@@ -171,7 +172,7 @@ docker compose exec region-sensitivity-workspace pytest -q
 
 ### 단계 2. ConfigResolver (M0)
 
-**작업.** 설정 로드·검증, 경로·explicit mask hash 확정, v1 perturbation params 검증, 필요한 경우 DatasetStats 사전 계산, 어댑터 `describe()` 호출 및 결정론 검증, manifest-ready `ResolvedConfig` 산출. 이 단계에서 공통 `logger_factory`, YAML/JSON·atomic write·파일 hash 유틸과 최소 Adapter/SampleSource Protocol도 함께 구현한다.
+**작업.** 설정 로드·검증, grid family의 `rows`·`cols` 검증, 경로·explicit mask hash 확정, v1 perturbation params 검증, 필요한 경우 DatasetStats 사전 계산, 어댑터 `describe()` 호출 및 결정론 검증, manifest-ready `ResolvedConfig` 산출. `random_area_match`는 내부 control 전용으로 거부하고, 예약된 `bbox_partition`, `skeleton_parts`, `gt_bbox`는 구현 전까지 명시적인 미지원 오류로 거부한다. 이 단계에서 공통 `logger_factory`, YAML/JSON·atomic write·파일 hash 유틸과 최소 Adapter/SampleSource Protocol도 함께 구현한다.
 
 **테스트.**
 - 비결정론 어댑터 → 기본 거부, `allow_nondeterministic: true`면 경고 후 통과
@@ -196,28 +197,31 @@ docker compose exec region-sensitivity-workspace pytest -q
 **작업.** `PlanBuilder`는 `SampleSource.list_samples()`를 최초 접근 시 한 번만
 호출하고, 픽셀을 로드하지 않은 채 `sample_id` 순으로 실행 계획을 고정한다.
 `enumerate()`는 가벼운 `WorkChunkMeta`만 반환하고, `enumerate_clean()`은 정렬된
-`SampleMeta`를 별도 반환한다. 일반 WorkItem은 각 샘플에서 설정의
-region → perturbation → seed salt 순서로 열거하며, 명시된 area-matched control은
-일반 항목 뒤에 control 요청 → control index → perturbation → seed salt 순서로
-추가한다.
+`SampleMeta`를 별도 반환한다. `RegionExpander`는 각 family를 ordered concrete
+`RegionSpec` 목록으로 확장한다. grid는 row-major cell 순서를 사용하고 explicit은
+하나의 instance를 만든다. 일반 WorkItem은 각 샘플에서 family → concrete region →
+perturbation → seed salt 순서로 열거한다. 명시된 area-matched control은 일반 항목
+뒤에 control 요청 → target instance → control index → perturbation → seed salt
+순서로 추가한다.
 
 각 샘플의 항목은 `variants_per_chunk` 단위로 나눈다. chunk ID는 schema version,
 sample ID, 샘플 내 chunk ordinal, ordered item ID를 canonical JSON으로 묶은
 SHA-256 전체 hex로 계산한다. PlanBuilder는 immutable metadata와 chunk locator만
 캐시하고, `materialize(chunk_id)`에서 해당 샘플의 항목을 다시 열거한 뒤 metadata의
-item ID와 chunk ID가 모두 일치하는지 검증한다. Control의 `random_area_match`
-RegionSpec에는 target region의 전체 resolved JSON recipe와 control 요청·control
-index를 내장하여 다음 단계의 RegionResolver가 외부 registry 없이 이를 해석할
-수 있게 한다.
+item ID와 chunk ID가 모두 일치하는지 검증한다. 샘플별 일반 item 수는
+`Σ(family instance 수 × Σ perturbation seed 수)`다. Control의
+`random_area_match` RegionSpec에는 concrete target의 family ID, instance ID,
+kind, params, ref, ref_hash와 control 요청·control index를 내장하여 다음 단계의
+RegionResolver가 외부 registry 없이 이를 해석할 수 있게 한다.
 
 **테스트.**
 - source 반환 순서가 달라도 sample·clean·chunk 순서와 ID가 동일함
-- region → perturbation → seed salt 순서와 전체 WorkItem 수가 정확함
+- family → concrete region → perturbation → seed salt 순서와 전체 WorkItem 수가 정확함
 - `enumerate()`의 item ID 및 chunk ID와 `materialize()` 재계산 결과가 일치함 ← **핵심**
 - `variants_per_chunk`에 따른 정확한 분할, 짧은 마지막 chunk, 크기 1 처리
 - chunk ID 회귀값 및 item 순서·ordinal·sample·schema version 변화 감지
 - 빈 데이터셋, 중복 sample ID, source 예외, 알 수 없는 chunk ID 거부
-- 대조군 전체 곱집합, 일반 항목 뒤 배치, 고유 ID와 self-contained target recipe
+- concrete target별 대조군 전체 곱집합, 일반 항목 뒤 배치, 고유 ID와 self-contained target recipe
 - 중복 control 요청이 request ordinal로 구분됨
 - clean과 perturbed 열거 모두 `SampleSource.load()`를 호출하지 않음
 
@@ -234,9 +238,13 @@ index를 내장하여 다음 단계의 RegionResolver가 외부 registry 없이 
 
 **작업.**
 - `ImageFolderSource`: (T,H,W,C) uint8 반환, `LoadError` 값 반환
-- `RegionResolver`: grid, explicit, random_area_match
+- `RegionResolver`: 이미 확장된 concrete grid, explicit, random_area_match를 각각 mask 하나로 materialize
 - `Perturbator`: constant_fill, mean_fill, blur, gaussian_noise, patch_shuffle
 - `rng.py`: `derive(global_seed, item_id, seed_salt)`
+
+`SampleRegionProvider` Protocol은 향후 skeleton/GT-bbox annotation을 planning에
+공급하는 확장 지점으로 유지한다. `SampleMeta`는 가볍게 유지하며, provider는 픽셀을
+로드하지 않고 sample별 concrete RegionSpec을 결정론적으로 반환해야 한다.
 
 **테스트.**
 - 로드: 정상 이미지, 손상 파일(→LoadError), 다양한 크기

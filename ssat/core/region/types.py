@@ -11,28 +11,30 @@ from ssat.core.types import JsonValue, RegionKind, freeze_json_mapping
 
 @dataclass(frozen=True, slots=True)
 class RegionSpec:
-    """Describe a fully resolved mask recipe stored in each work item.
+    """Describe one concrete, fully resolved region stored in a WorkItem.
 
-    Unlike ``RegionConfig``, explicit regions here always contain a resolved
-    reference and content hash, so workers do not reinterpret configuration.
+    A configured region family may expand into several instances of this type.
+    Explicit instances always contain a resolved reference and content hash.
 
     Attributes:
-        region_id: Stable name used for controls and result inspection.
+        region_id: Configured family ID used for grouping and controls.
+        region_instance_id: Stable identity of this concrete spatial unit.
         kind: Mask materialization strategy.
-        params: Immutable strategy-specific parameters.
+        params: Immutable concrete mask recipe.
         ref: Resolved explicit-mask path, when applicable.
         ref_hash: Content hash for the explicit mask, when applicable.
     """
 
     region_id: str
+    region_instance_id: str
     kind: RegionKind
     params: Mapping[str, JsonValue] = field(default_factory=dict)
     ref: str | None = None
     ref_hash: str | None = None
 
     def __post_init__(self) -> None:
-        if not self.region_id:
-            raise ValueError("region_id must not be empty")
+        if not self.region_id or not self.region_instance_id:
+            raise ValueError("region_id and region_instance_id must not be empty")
         frozen = freeze_json_mapping(dict(self.params))
         object.__setattr__(self, "params", frozen)
         if self.kind is RegionKind.EXPLICIT:

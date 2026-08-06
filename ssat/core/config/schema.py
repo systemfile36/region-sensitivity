@@ -28,12 +28,12 @@ class FrozenModel(BaseModel):
 
 
 class RegionConfig(FrozenModel):
-    """Describe one user-configured region before path and hash resolution.
+    """Describe a user-configured region family before resolution.
 
     Attributes:
-        region_id: Stable name used by controls and dump records.
-        kind: Strategy used to materialize the region mask.
-        params: Strategy-specific JSON parameters.
+        region_id: Stable family name used by controls and dump records.
+        kind: Strategy used to enumerate concrete spatial regions.
+        params: Family-specific JSON expansion parameters.
         ref: Optional path to an explicit mask.
         ref_hash: Optional precomputed hash for the referenced mask.
     """
@@ -100,11 +100,11 @@ class PerturbationConfig(FrozenModel):
 
 
 class ControlConfig(FrozenModel):
-    """Request random controls matched to the area of a named region.
+    """Request random controls for every instance of a named region family.
 
     Attributes:
-        match_area_of: Region ID whose intended area should be matched.
-        n_samples: Number of control regions to generate per target region.
+        match_area_of: Family ID whose concrete instances should be matched.
+        n_samples: Number of controls generated per concrete target region.
     """
 
     match_area_of: RegionId
@@ -203,12 +203,12 @@ class AuditConfig(FrozenModel):
 
 
 class ResolvedRegionConfig(FrozenModel):
-    """Describe a region after all filesystem references are resolved.
+    """Describe a region family after external references are resolved.
 
     Attributes:
-        region_id: Stable name used by controls and dump records.
-        kind: Strategy used to materialize the region mask.
-        params: Strategy-specific JSON parameters.
+        region_id: Stable family name used by controls and dump records.
+        kind: Strategy used to enumerate concrete spatial regions.
+        params: Family-specific JSON expansion parameters.
         ref: Absolute explicit-mask path, when applicable.
         ref_hash: Verified SHA-256 digest of the explicit mask.
     """

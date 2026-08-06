@@ -34,6 +34,7 @@ def records_for(name: str) -> list[dict]:
                 "sample_id": "sample-1",
                 "status": "ok",
                 "region_id": "grid",
+                "region_instance_id": "grid/r0/c0",
                 "region_kind": "grid",
                 "region_params_json": '{"cols":2,"rows":2}',
                 "intended_area_px": 1024,
@@ -78,6 +79,7 @@ def test_parquet_schema_round_trip(tmp_path, name: str, schema: pa.Schema) -> No
 
 
 def test_perturbed_schema_contains_effective_area_contract() -> None:
+    assert "region_instance_id" in PERTURBED_SCHEMA.names
     assert "intended_area_ratio" in PERTURBED_SCHEMA.names
     assert "generator_confidence" in PERTURBED_SCHEMA.names
     assert "effective_area_available" in PERTURBED_SCHEMA.names
@@ -86,4 +88,3 @@ def test_perturbed_schema_contains_effective_area_contract() -> None:
 def test_schema_lookup_rejects_unknown_name() -> None:
     with pytest.raises(ValueError, match="unknown dump schema"):
         schema_for("missing")
-

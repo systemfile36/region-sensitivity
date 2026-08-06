@@ -1,19 +1,19 @@
 schema_version: 1.0.0
 regions:
-  - region_id: center_bbox
-    kind: bbox_partition
+  - region_id: grid_2x2
+    kind: grid
     params:
-      bbox: [16, 16, 48, 48]
-      partition: center
+      rows: 2
+      cols: 2
 perturbations:
   - op: blur
     params:
       sigma: 3.0
 controls:
-  - match_area_of: center_bbox
+  - match_area_of: grid_2x2
     n_samples: 3
+# 4 normal cells + (4 target cells x 3 controls) = 16 variants per sample.
 runtime:
   global_seed: 7
   variants_per_chunk: 8
   retry_failed: true
-
