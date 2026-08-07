@@ -1,0 +1,270 @@
+{
+  "classes": [
+    {
+      "id": 0,
+      "name": "gradient"
+    },
+    {
+      "id": 1,
+      "name": "geometry"
+    },
+    {
+      "id": 2,
+      "name": "texture"
+    }
+  ],
+  "corrupt_count": 2,
+  "description": "Deterministic procedural images for SSAT execution-layer E2E tests.",
+  "fixture_version": "1.0.0",
+  "generator": "generate_synthetic_classification_fixture.py",
+  "image_size": [
+    64,
+    64
+  ],
+  "samples": [
+    {
+      "class_name": "gradient",
+      "content_sha256": "648e33f00a4b974ffd9b7cbd8356e042cc18c9da7e9942e32f5e91f4986fafe3",
+      "expected_status": "ok",
+      "gt_label": 0,
+      "height": 64,
+      "mode": "RGB",
+      "path": "images/sample_000.png",
+      "pixel_sha256": "3f153719f032be9ec24609e139bbf3c5798a60cc38f33c0c64a4d3a81e632031",
+      "sample_id": "synthetic-000",
+      "width": 64
+    },
+    {
+      "class_name": "geometry",
+      "content_sha256": "566c266da29fde2600ddb3bef4f32ee32a9b91cbf342563ec5a720bb1d91fe55",
+      "expected_status": "ok",
+      "gt_label": 1,
+      "height": 64,
+      "mode": "RGB",
+      "path": "images/sample_001.png",
+      "pixel_sha256": "eba78bd9557cc31aef4563c915662a5313ae94126bda6ebd5dc1ade74783eb12",
+      "sample_id": "synthetic-001",
+      "width": 64
+    },
+    {
+      "class_name": "texture",
+      "content_sha256": "d137a91f8a8e50d5e7323380e6e4d951342aaa5b1db4f353372a315dca37b294",
+      "expected_status": "ok",
+      "gt_label": 2,
+      "height": 64,
+      "mode": "RGB",
+      "path": "images/sample_002.png",
+      "pixel_sha256": "15a150e4664276b0ecc0e41bbe392b7ecc0bb4693557efe4c8807983bcbde0aa",
+      "sample_id": "synthetic-002",
+      "width": 64
+    },
+    {
+      "class_name": "gradient",
+      "content_sha256": "7a31fb4e8e7b4f33a5aaea38b741e72347269501682b3695a6f706be10a50124",
+      "expected_status": "ok",
+      "gt_label": 0,
+      "height": 64,
+      "mode": "RGB",
+      "path": "images/sample_003.png",
+      "pixel_sha256": "dd636b64c83df5f53be5c4dae81f14c78e45b699152cb041a7b5c13510efd8e4",
+      "sample_id": "synthetic-003",
+      "width": 64
+    },
+    {
+      "class_name": "geometry",
+      "content_sha256": "dcd652107803fb7198c9240e798cda40e2d1d882de849e506295e18ba6d134e4",
+      "expected_status": "ok",
+      "gt_label": 1,
+      "height": 64,
+      "mode": "RGB",
+      "path": "images/sample_004.png",
+      "pixel_sha256": "55c5ffed5c8de832a3f97fa9ff97868dd2c9092bddc58adb7725073ce333b355",
+      "sample_id": "synthetic-004",
+      "width": 64
+    },
+    {
+      "class_name": "texture",
+      "content_sha256": "b11c5250e665dfd671cde93efe0c8550bd9612c3cd50fee7887152b1c004c310",
+      "expected_status": "ok",
+      "gt_label": 2,
+      "height": 64,
+      "mode": "RGB",
+      "path": "images/sample_005.png",
+      "pixel_sha256": "a668ae48159c430aa720c1c6bda225e9beca05d875c463fe7e08d125672c05e0",
+      "sample_id": "synthetic-005",
+      "width": 64
+    },
+    {
+      "class_name": "gradient",
+      "content_sha256": "7ce5b462a23b8f9a61733330370ccd979f50b96148e23b6b89a73a4101ef8809",
+      "expected_status": "ok",
+      "gt_label": 0,
+      "height": 64,
+      "mode": "RGB",
+      "path": "images/sample_006.png",
+      "pixel_sha256": "867a909732221c5abea536b5c537ec3c896abe975c663676beb2f229d5ed3269",
+      "sample_id": "synthetic-006",
+      "width": 64
+    },
+    {
+      "class_name": "geometry",
+      "content_sha256": "31553dbd029ecee941774834677ce6b64954822b94d9ed40d9e37f2bf7ba86ae",
+      "expected_status": "ok",
+      "gt_label": 1,
+      "height": 64,
+      "mode": "RGB",
+      "path": "images/sample_007.png",
+      "pixel_sha256": "0d2cc358976af6b6adc6f10a7dcf7fc3d30668ff23be5247c38ef9ab5f9b5881",
+      "sample_id": "synthetic-007",
+      "width": 64
+    },
+    {
+      "class_name": "texture",
+      "content_sha256": "c9d2a3daa380b03759006405cbdc64d2da7990cb7b06609d4ffe287f7f99acfd",
+      "expected_status": "ok",
+      "gt_label": 2,
+      "height": 64,
+      "mode": "RGB",
+      "path": "images/sample_008.png",
+      "pixel_sha256": "a7921fa96c8c43adbd80a22b9c76f6999f0ca39a2a9c1a78d857ded1232637d6",
+      "sample_id": "synthetic-008",
+      "width": 64
+    },
+    {
+      "class_name": "gradient",
+      "content_sha256": "538ffb97bcae4e790171c986f44dc3bd1befab7647eb79f8beda5969142b8abc",
+      "expected_status": "ok",
+      "gt_label": 0,
+      "height": 64,
+      "mode": "RGB",
+      "path": "images/sample_009.png",
+      "pixel_sha256": "2098dc0e503ad4616a6805e0590d28dbe9ed2f25da09fea373513aae47f16c71",
+      "sample_id": "synthetic-009",
+      "width": 64
+    },
+    {
+      "class_name": "geometry",
+      "content_sha256": "475b37e6f2e6156e472edf2895673e81254c06de8ed52d685109ee52a3d7c810",
+      "expected_status": "ok",
+      "gt_label": 1,
+      "height": 64,
+      "mode": "RGB",
+      "path": "images/sample_010.png",
+      "pixel_sha256": "0462b8387f516e744eb5228788d021b88669bf44a968d7ccf4214a8fca762ed9",
+      "sample_id": "synthetic-010",
+      "width": 64
+    },
+    {
+      "class_name": "texture",
+      "content_sha256": "56afe1613fd070f22049d28c6ce09202a04019753d883e370ee9825b5c56f3bc",
+      "expected_status": "ok",
+      "gt_label": 2,
+      "height": 64,
+      "mode": "RGB",
+      "path": "images/sample_011.png",
+      "pixel_sha256": "901d4280b2dd1e981510085600e3d1a49ab3ebe22db900bed79b36ded77c24b8",
+      "sample_id": "synthetic-011",
+      "width": 64
+    },
+    {
+      "class_name": "gradient",
+      "content_sha256": "b1f6c1bed626079c6a13ba9fa7a1435b035163f716e83100fbcab2a9dfe6047b",
+      "expected_status": "ok",
+      "gt_label": 0,
+      "height": 64,
+      "mode": "RGB",
+      "path": "images/sample_012.png",
+      "pixel_sha256": "17340b286d0cb57af394a3d7bd203814f2bd0e9083ac93e24dd8e69c17706cce",
+      "sample_id": "synthetic-012",
+      "width": 64
+    },
+    {
+      "class_name": "geometry",
+      "content_sha256": "8e0d3d74275dc8cd096e3a3fe6b85d473cbd508ed5e7acb7753209c19918f27f",
+      "expected_status": "ok",
+      "gt_label": 1,
+      "height": 64,
+      "mode": "RGB",
+      "path": "images/sample_013.png",
+      "pixel_sha256": "bac460b5b20d1b40027916258c23e298db19558fc34f541e480fed89db86eb0c",
+      "sample_id": "synthetic-013",
+      "width": 64
+    },
+    {
+      "class_name": "texture",
+      "content_sha256": "a9f971af17664fa5a3ca2113ce9f102f92e9862ce44988fdbeae5f78c059a181",
+      "expected_status": "ok",
+      "gt_label": 2,
+      "height": 64,
+      "mode": "RGB",
+      "path": "images/sample_014.png",
+      "pixel_sha256": "bf32b6a46f1e062b16d419673a9a5dbfa6dcea7cfad56fddc730f830b4113e6e",
+      "sample_id": "synthetic-014",
+      "width": 64
+    },
+    {
+      "class_name": "gradient",
+      "content_sha256": "9ea7e5f89d0bc3738ba46561d7a0350e8ce34f45f83fcf42361b16c7bfdbc70c",
+      "expected_status": "ok",
+      "gt_label": 0,
+      "height": 64,
+      "mode": "RGB",
+      "path": "images/sample_015.png",
+      "pixel_sha256": "ef881af44cc51eef31d5ab62cd7d8ec0ee7758f49d4be830d3b12d0857a32146",
+      "sample_id": "synthetic-015",
+      "width": 64
+    },
+    {
+      "class_name": "geometry",
+      "content_sha256": "5398fad93a9a78106abbeef93c837b2cae897a124a15123c27dda03493155f9c",
+      "expected_status": "ok",
+      "gt_label": 1,
+      "height": 64,
+      "mode": "RGB",
+      "path": "images/sample_016.png",
+      "pixel_sha256": "df51d1363571d8923fbd8492465078ede80353c84694be23b61c17cd69764b47",
+      "sample_id": "synthetic-016",
+      "width": 64
+    },
+    {
+      "class_name": "texture",
+      "content_sha256": "8a7890f368695af09f886ab6c29eb1633f335ed1e59ab06c9e76d8ed137b7d86",
+      "expected_status": "ok",
+      "gt_label": 2,
+      "height": 64,
+      "mode": "RGB",
+      "path": "images/sample_017.png",
+      "pixel_sha256": "b6bab2201becaf376097099fb67b68947dc05a118ec494937324d8d85fa7546c",
+      "sample_id": "synthetic-017",
+      "width": 64
+    },
+    {
+      "class_name": null,
+      "content_sha256": "02a3e298f1533f62558c58e4c70edcab9af5a50d62d925fd5390942020fb0fb8",
+      "expected_error_kind": "truncated_png",
+      "expected_status": "load_failed",
+      "gt_label": null,
+      "height": null,
+      "mode": null,
+      "path": "corrupt/truncated.png",
+      "pixel_sha256": null,
+      "sample_id": "synthetic-corrupt-truncated",
+      "width": null
+    },
+    {
+      "class_name": null,
+      "content_sha256": "90ae15a6855f55714add20a7c7d77c91c747975108c5af598bf6b0ccd92669cc",
+      "expected_error_kind": "invalid_image_bytes",
+      "expected_status": "load_failed",
+      "gt_label": null,
+      "height": null,
+      "mode": null,
+      "path": "corrupt/invalid.png",
+      "pixel_sha256": null,
+      "sample_id": "synthetic-corrupt-invalid",
+      "width": null
+    }
+  ],
+  "seed": 20260807,
+  "valid_count": 18
+}
