@@ -682,9 +682,21 @@ migration 또는 경고 기반 호환 읽기를 제공하지 않는다.
 
 ### M11. CostEstimator
 
-실행 전 보고하고 사용자 확인을 받는다.
+실행 전에 실제 runtime 경로를 bounded profile하고, CLI가 표시·확인할 immutable
+`EstimateReport`를 만든다. core는 대화형 입력이나 `--yes`를 처리하지 않는다.
 
-**추정 입력.** 열거된 아이템 수, 소규모 프로파일 실행(예: 20청크)의 실측 처리량
+```
+CostEstimator.estimate(
+    config, plan_builder, sample_source, adapter,
+    resume_index=None, region_resolver=None, perturbator=None,
+) -> EstimateReport
+```
+
+**추정 입력.** 전체·resume 후 계획과 최대 20개 profile chunk의 실측 처리량이다.
+chunk는 pending 목록 전체 구간에서 결정론적 균등 간격으로 선택한다. profile은
+DataLoader worker의 load·region resolve·perturbation, main의 mask transform,
+Rebatcher, BatchSplitter 및 모델 추론을 포함하지만 dump I/O는 포함하지 않는다.
+일부 terminal 실패는 status별로 집계하며 성공 추론이 하나도 없을 때만 거부한다.
 
 **보고 항목.**
 
@@ -697,7 +709,28 @@ migration 또는 경고 기반 호환 읽기를 제공하지 않는다.
 Sanity check (소수의 clean 샘플로 추론 후 정확도 보고. 만약 기대되는 값보다 크게 다르다면 전처리 검토 필요)
 ```
 
-**임계 초과 시.** 샘플링 비율, 영역 수, seed 수 조정 권고를 출력한다. `--yes`로 건너뛸 수 있다.
+**SanityCheck.** 전체 clean 목록에서 최대 20개를 균등 선택한다. 모든 terminal
+sample은 clean 처리량에 포함하고, 성공한 유효 라벨 sample만 top-1 accuracy 분모에
+포함한다. load/predict/OOM 실패, 무라벨, 범위 밖 라벨, 비유한 logits는 별도
+집계한다. 호출자가 `minimum_accuracy`를 제공한 경우에만 통과 여부를 판정한다.
+
+**Dump 크기.** class 수를 `C`라 할 때 기본 분석식은 다음과 같다. 모든 가정은
+report에 포함해 호출자가 교체할 수 있다.
+
+```
+16 KiB + 0.6 * [clean_rows * (4C + 128)
+              + perturbed_rows * (4C + 384 + 96)]
+```
+
+기본 confirmation 한도는 pending perturbed item 1,000,000개, 예상 24시간,
+남은 dump 증가량 100 GiB다. 하나라도 엄격히 초과하거나 명시된 sanity accuracy를
+충족하지 못하면 `confirmation_required=true`다. report는 권장 최대 sample fraction과
+region/control/seed 축소 권고를 제공한다. CLI의 실제 prompt와 `--yes` bypass는 단계
+10에서 구현한다.
+
+profile에서 관측한 prepared chunk가 기본 64 MiB 예산을 넘으면 item bytes를 이용해
+더 작은 `variants_per_chunk`를 권고한다. 설정 기본값 16과 dump schema version
+`1.0.0`은 변경하지 않는다.
 
 ---
 

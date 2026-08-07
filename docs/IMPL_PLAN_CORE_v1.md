@@ -417,21 +417,33 @@ AdapterSpec 구현으로 resume하여 uninterrupted dump와 비교한다. OOM �
 
 ### 단계 9. CostEstimator + SanityCheck (M11)
 
-**작업.** 소규모 프로파일 실행으로 처리량 측정, 총 비용 추정, dump 크기 추정, clean 정확도 sanity check, 임계 초과 시 권고 출력.
+**작업.** `ssat/core/estimate/`에 `CostEstimator`, `SanityCheck`, immutable option/result
+계약을 추가한다. 전체와 resume 후 작업량을 구분하고 pending chunk 중 최대 20개를
+균등 선택해 dump I/O를 제외한 E2E 처리량을 측정한다. clean sanity도 최대 20개를
+균등 선택해 처리량과 선택적 최소 top-1 accuracy를 보고한다.
+
+기본 한도는 pending item 100만, 예상 24시간, 남은 dump 100 GiB이며 core는
+`confirmation_required`, exceedance, 권장 sample fraction과 region/control/seed 축소
+권고만 반환한다. `--yes`와 실제 prompt는 단계 10 CLI 책임이다. dump 크기는
+float32 logits, zstd 비율 0.6, clean/perturbed/index overhead 128/384/96 bytes와
+manifest 16 KiB를 사용하는 공개된 분석식으로 계산한다. profile은 shared lazy
+DataLoader, Rebatcher와 BatchSplitter를 사용하며 사용자 dump를 생성하지 않는다.
 
 **테스트.**
 - 추정치와 실측의 오차가 허용 범위 내(소형 데이터셋 기준)
 - sanity check가 의도적으로 잘못된 전처리를 감지(정확도 급락)
-- `--yes` 플래그로 확인 단계 생략
+- resume 완료 작업 제외, 한도 경계·초과와 confirmation 판정
+- 부분 실패·OOM·prepared chunk memory 권고 및 torch 지연 import
 
 **성공 조건.**
 - 잘못된 전처리 어댑터에 대해 sanity check가 경고 발생
+- committed fixture CPU profile이 dump를 쓰지 않고 완료
 
 ---
 
 ### 단계 10. CLI + 통합 + 문서
 
-**작업.** `ssat run`, `ssat estimate`, `ssat rebuild-index`, `ssat inspect`(dump 요약) 명령, 배포용 Docker 이미지와 Compose, README·설치 문서·설정 레퍼런스, 예제 노트북. 이 단계에서 discriminated `AdapterConfig`, 이름 기반 `AdapterProviderRegistry`, torchvision/timm built-in provider와 명시적 사용자 provider 등록 API를 추가한다. Provider가 모델 생성·checkpoint 로드·Preprocessor·OutputDecoder 조합을 담당한다. `ModelLoader`와 `ModelRunner`는 provider 사이의 실제 중복이 확인될 때만 공통 계약으로 추출한다.
+**작업.** `ssat run`, `ssat estimate`, `ssat rebuild-index`, `ssat inspect`(dump 요약) 명령, 배포용 Docker 이미지와 Compose, README·설치 문서·설정 레퍼런스, 예제 노트북. `EstimateReport.confirmation_required`가 참이면 prompt를 표시하고 `--yes`는 이 확인만 생략하도록 구현·테스트한다. 이 단계에서 discriminated `AdapterConfig`, 이름 기반 `AdapterProviderRegistry`, torchvision/timm built-in provider와 명시적 사용자 provider 등록 API를 추가한다. Provider가 모델 생성·checkpoint 로드·Preprocessor·OutputDecoder 조합을 담당한다. `ModelLoader`와 `ModelRunner`는 provider 사이의 실제 중복이 확인될 때만 공통 계약으로 추출한다.
 
 외부 package entry point를 통한 provider 자동 발견과 ONNX, MMAction2, 원격 API provider는 패키징 메타데이터가 마련된 v1.1로 이월한다. v1 단계에서는 암묵적 plugin import를 수행하지 않는다.
 

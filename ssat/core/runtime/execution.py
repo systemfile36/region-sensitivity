@@ -5,7 +5,6 @@ from __future__ import annotations
 from collections import Counter
 from collections.abc import Iterable, Iterator
 import logging
-from typing import TypeVar
 
 import numpy as np
 
@@ -22,6 +21,7 @@ from ssat.core.region.types import RegionMeta
 from ssat.core.resume.index import ResumeIndex
 from ssat.core.runtime.batching import BatchSplitter, Rebatcher
 from ssat.core.runtime.errors import RuntimeContractError, RuntimeExecutionError
+from ssat.core.runtime.loader import iter_worker_results
 from ssat.core.runtime.processors import ChunkProcessor, CleanProcessor
 from ssat.core.runtime.types import (
     BatchSizeState,
@@ -38,29 +38,6 @@ from ssat.core.source.base import SampleSource
 from ssat.core.source.types import LoadError, LoadedSample, SampleMeta
 from ssat.core.types import ItemStatus
 from ssat.utils.logger_factory import get_logger
-
-T = TypeVar("T")
-
-
-def _identity_collate(value: T) -> T:
-    """Preserve NumPy arrays when DataLoader automatic batching is disabled."""
-
-    return value
-
-
-def _data_loader(dataset: object, *, num_workers: int) -> Iterable[object]:
-    """Construct the only worker boundary used by the runtime."""
-
-    from torch.utils.data import DataLoader
-
-    return DataLoader(
-        dataset,
-        batch_size=None,
-        shuffle=False,
-        num_workers=num_workers,
-        collate_fn=_identity_collate,
-    )
-
 
 class _RunState:
     """Accumulate records and status counts for one run_audit invocation."""
@@ -204,7 +181,7 @@ def _iter_clean_items(
 ) -> Iterator[CleanInferenceItem]:
     processor = CleanProcessor(samples, sample_source)
     try:
-        for result in _data_loader(processor, num_workers=num_workers):
+        for result in iter_worker_results(processor, num_workers=num_workers):
             if isinstance(result, LoadError):
                 state.write_clean(
                     CleanDumpRecord(
@@ -251,7 +228,7 @@ def _iter_perturbed_items(
         perturbator=perturbator,
     )
     try:
-        for result in _data_loader(processor, num_workers=num_workers):
+        for result in iter_worker_results(processor, num_workers=num_workers):
             if not isinstance(result, (PreparedChunk, FailedChunk)):
                 raise RuntimeContractError("chunk worker returned an unsupported value")
             chunk = plan_builder.materialize(result.chunk_id)
