@@ -8,8 +8,13 @@ from ssat.core.types import SCHEMA_VERSION
 
 SCHEMA_METADATA = {b"ssat.schema_version": SCHEMA_VERSION.encode("ascii")}
 UTC_TIMESTAMP = pa.timestamp("us", tz="UTC")
-LOGITS = pa.list_(pa.float32())
-SHAPE_4D = pa.list_(pa.int32(), 4)
+# Parquet restores nested list children with the conventional ``element``
+# name. Declare it explicitly so strict schema equality survives round trips.
+LOGITS = pa.list_(pa.field("element", pa.float32()))
+# A nullable fixed-size list cannot round-trip a null value through Parquet in
+# supported PyArrow releases. Record validation still enforces exactly four
+# dimensions for non-null shapes, while the physical schema uses a normal list.
+SHAPE_4D = pa.list_(pa.field("element", pa.int32()))
 
 # One row per source sample, independent of perturbation enumeration.
 CLEAN_SCHEMA = pa.schema(
@@ -47,7 +52,7 @@ PERTURBED_SCHEMA = pa.schema(
         pa.field("perturb_params_json", pa.string(), nullable=False),
         pa.field("invert_mask", pa.bool_(), nullable=False),
         pa.field("is_control", pa.bool_(), nullable=False),
-        pa.field("seed_used", pa.uint64(), nullable=False),
+        pa.field("seed_used", pa.string(), nullable=False),
         pa.field("logits", LOGITS),
         pa.field("written_at", UTC_TIMESTAMP, nullable=False),
     ],

@@ -48,7 +48,7 @@ def records_for(name: str) -> list[dict]:
                 "perturb_params_json": '{"sigma":"1.000000000000"}',
                 "invert_mask": False,
                 "is_control": False,
-                "seed_used": 7,
+                "seed_used": "00000000000000000000000000000007",
                 "logits": [0.0, 1.0],
                 "written_at": now,
             }

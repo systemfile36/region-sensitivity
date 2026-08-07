@@ -90,7 +90,8 @@ source → utils
 adapter→ (없음, 독립)
 perturb→ types
 runtime→ plan, source, region, perturb, adapter, dump
-dump   → types
+resume → plan(types), source(types), dump(storage contracts)
+dump   → types, config(contracts), plan(types/hashing), region(types), utils
 ```
 
 역방향 import를 금지하고, CI에서 import-linter 등으로 검사한다.
@@ -319,7 +320,17 @@ fingerprint, mask transform 가용성을 추가한다. artifact hash는 명시�
 
 ### 단계 6. DumpWriter + Reader + ResumeIndex (M10, M2)
 
-**작업.** parquet chunk 쓰기, index 갱신(쓰기 순서 준수), manifest 생성, reader API, 재개 필터. RunManifest에는 단계 5에서 강화한 `AdapterSpec` 전체를 기록하여 모델 artifact와 전처리 provenance를 보존한다.
+**작업.** clean/perturbed/index를 독립 parquet fragment dataset으로 기록한다. data
+fragment를 fsync·원자 publish한 뒤 같은 ordinal의 index fragment를 publish하고,
+manifest 집계를 갱신한다. RunManifest에는 단계 5에서 강화한 `AdapterSpec` 전체와
+ResolvedConfig, code version, 환경 및 resume 이력을 기록한다. Reader는 index가
+가리키는 최신 행만 Arrow chunk stream으로 노출하며 orphan과 retry 이전 행은 숨긴다.
+RNG seed는 128비트 전체를 32자리 hex로 저장한다.
+
+스키마 버전과 Arrow schema 불일치는 엄격히 거부하며 v1 migration은 제공하지 않는다.
+`DumpConfig.max_classes_for_full_logits`는 기본 10,000으로 전체 logits 크기 경고만
+제어한다. Resume 시 전체 ResolvedConfig, AdapterSpec, schema 및 code version 일치를
+요구하고 환경 차이는 경고와 manifest 이력으로 남긴다.
 
 **테스트.**
 - chunk 독립 읽기 가능
@@ -440,17 +451,19 @@ GPU가 필요한 테스트는 마커로 분리하여 CI(CPU)에서 제외한다.
 
 | 항목 | 결정 시점 |
 |---|---|
-| 스키마 버전 불일치 시 동작 | 단계 6 (reader 구현 시) |
-| 로짓 차원 임계 경고 | 단계 6 (dump 스키마 확정 시) |
-| 후단과의 계약 형태 | 단계 6에서 reader API로 확정 |
+| 스키마 버전 불일치 시 동작 | 단계 6에서 엄격 거부로 확정 |
+| 로짓 차원 임계 경고 | 단계 6에서 설정 가능 기본 10,000으로 확정 |
+| 후단과의 계약 형태 | 단계 6에서 Arrow chunk 기반 Reader API로 확정 |
 | `variants_per_chunk` 권장값 | 단계 9 (실측 후 문서화) |
 | Tier 2 manifest 모드 | v1.1로 이월 |
 | 외부 adapter plugin 자동 발견 | 패키징 도입 이후 v1.1에서 구현 |
 | `ModelLoader`·`ModelRunner` 공통화 | 단계 10 provider 구현에서 중복 확인 후 결정 |
 
-### 7.1 구현 전 확인할 저장 포맷 제약
+### 7.1 저장 포맷 결정
 
-Parquet 단일 파일은 일반적인 append 대상이 아니므로 단계 6에서 `index.parquet` 갱신 방식을 확정해야 한다. 인덱스 fragment dataset 또는 임시 파일 작성 후 원자적 교체 중 하나를 선택하고, 필요하면 코어 설계 문서의 단일 파일 표현도 함께 개정한다.
+Parquet 단일 파일 append 대신 clean/perturbed/index 모두 fragment dataset을 사용한다.
+각 파일은 같은 디렉터리의 임시 파일에서 완성·fsync한 뒤 원자적으로 publish하며,
+perturbed data가 index보다 항상 먼저 영속화된다.
 
 ---
 

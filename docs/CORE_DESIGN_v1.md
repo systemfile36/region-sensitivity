@@ -85,8 +85,8 @@
 │                                    DumpWriter                  │
 │                          ┌───────────┼───────────┐             │
 │                          ▼           ▼           ▼             │
-│                   clean.parquet  perturbed/  index.parquet     │
-│                                  chunk_*.parquet               │
+│                   clean/         perturbed/  index/             │
+│                   part_*        chunk_*     part_*             │
 │                          └───────────┼───────────┘             │
 │                                      ▼                         │
 │                              RunManifest (JSON)                │
@@ -207,21 +207,25 @@ control RegionSpec에 내장한다. `is_control` 플래그로 일반 항목과 �
 
 ### M2. ResumeIndex
 
-**별도 인덱스 파일**로 완료 상태를 관리한다.
+**별도 인덱스 fragment dataset**으로 완료 상태를 관리한다.
 
-**파일 구조.** `index.parquet` — 컬럼은 `item_id`, `status`, `chunk_file`, `written_at`
+**파일 구조.** `index/part_NNNNNNNN.parquet` — 컬럼은 `item_id`, `status`,
+`chunk_file`, `written_at`. 같은 ordinal의 perturbed data fragment와 1:1로 대응한다.
 
 **메인에서의 동작.**
 
-- 시작 시 인덱스를 메모리에 로드 → `item_id → status` 매핑
+- 시작 시 fragment를 ordinal 순으로 메모리에 로드 → 최신 `item_id → status` 매핑
 - 청크 필터링: 청크의 모든 아이템이 인덱스에 있고 `retry_failed` 설정에 따라 재시도 대상이 아니면 건너뜀
 - **필터 단위는 청크**이다. 부분 완료 청크는 통째로 재실행한다 (로드 비용을 낭비하지 않기 위해)
 
-**쓰기 시점.** DumpWriter가 chunk 파일을 flush할 때마다 인덱스에 append.
+**쓰기 시점.** DumpWriter가 data fragment를 flush할 때마다 새 index fragment를
+원자적으로 publish한다.
 
 **쓰기 순서가 중요하다.** 데이터 chunk를 먼저 fsync하고, 그 다음 인덱스를 갱신한다. 반대면 크래시 시 "인덱스엔 있는데 데이터는 없는" 상태가 생긴다.
 
-**크래시 복구.** 인덱스에 없는 데이터 레코드는 고아가 된다. 시작 시 선택적으로 `--rebuild-index`로 chunk를 스캔해 재구축한다. 기본 경로가 아닌 복구 도구이다.
+**크래시 복구.** 인덱스에 없는 데이터 레코드는 고아가 되며 기본 Reader와
+ResumeIndex는 무시한다. 선택적으로 `--rebuild-index`로 모든 data fragment를
+검증·스캔해 index fragment를 멱등적으로 재구축한다.
 
 **규모 감각.** item_id 32바이트 + 상태 + 파일명이면 레코드당 약 100바이트. 288만 아이템이어도 300MB 이하이고, parquet 압축하면 훨씬 작다. 메모리 로드에 문제없다.
 
@@ -594,7 +598,7 @@ def predict_with_recovery(batch, adapter, state):
 
 ### M10. DumpWriter
 
-#### (a) clean.parquet — sample_id 단위
+#### (a) clean/part_NNNNNNNN.parquet — sample_id 단위
 
 ```
 sample_id, content_hash, gt_label, status,
@@ -614,8 +618,9 @@ written_at
 ```
 
 전체 로짓 벡터를 저장한다. parquet의 컬럼 압축이 효율적이라 실제 용량은 예상보다 작다.
+`seed_used`는 128비트 RNG seed를 보존하는 32자리 lowercase hex 문자열이다.
 
-#### (c) index.parquet — ResumeIndex용
+#### (c) index/part_NNNNNNNN.parquet — ResumeIndex용
 
 ```
 item_id, status, chunk_file, written_at
@@ -632,9 +637,22 @@ started_at, finished_at, counts_by_status
 
 #### 쓰기 정책
 
-- 버퍼가 `flush_every` 레코드에 도달하면 새 chunk 파일 작성
-- 순서: chunk 파일 write + fsync → index append → 버퍼 비움
+- clean과 perturbed의 독립 버퍼가 `flush_every` 레코드에 도달하면 새 fragment 작성
+- 순서: data write + fsync + atomic rename → index write + fsync + atomic rename
+  → manifest counts 갱신 → 버퍼 비움
 - 각 chunk는 독립적으로 읽을 수 있어야 한다 (중단 시 부분 결과 보존)
+- retry로 같은 ID가 재기록되면 ordinal이 큰 fragment가 authoritative하며 Reader는
+  이전 행과 orphan을 노출하지 않는다
+
+#### Reader와 버전 정책
+
+후단은 `DumpReader`의 Arrow chunk iterator를 기본 API로 사용하고, 소형 분석에는
+전체 Table 결합 API를 사용할 수 있다. manifest와 모든 parquet fragment의
+`schema_version` 및 Arrow schema는 현재 버전과 정확히 일치해야 한다. v1에서는
+migration 또는 경고 기반 호환 읽기를 제공하지 않는다.
+
+전체 logits 차원이 `DumpConfig.max_classes_for_full_logits`의 기본값 10,000을 넘으면
+실행 세션당 한 번 경고한다. `None`이면 경고만 비활성화하며 전체 logits는 유지한다.
 
 ---
 
@@ -700,19 +718,9 @@ Sanity check (소수의 clean 샘플로 추론 후 정확도 보고. 만약 기�
 
 ## 5. 잔여 결정 사항
 
-코어 구조는 이 수준에서 잠정 확정하되, 다음은 후속 논의가 필요하다.
-
-### (1) 스키마 버전 관리 정책
-
-item_id 해시 규칙이나 dump 컬럼이 바뀌면 기존 dump와 호환되지 않는다. `schema_version`을 manifest에 기록하기로 했으나, 불일치 시 동작(거부 / 마이그레이션 / 경고)을 정해야 한다.
-
-### (2) 로짓 차원이 큰 경우
-
-클래스 수가 수천~수만이면 전체 로짓 저장이 부담이 될 수 있다. v1은 전체 저장으로 가되, `max_classes_for_full_logits` 같은 임계를 두고 초과 시 경고할지 여부를 결정해야 한다.
-
-### (3) 후단(지표 계산)과의 계약
-
-지표 엔진이 dump를 어떻게 읽을지 — parquet 직접 읽기인지, 코어가 reader API를 제공하는지. 후자가 스키마 변경에 강하다.
+단계 6에서 스키마 불일치는 엄격히 거부하고, 대형 logits는 설정 가능한 임계값으로
+경고하며, 후단은 `DumpReader`만 사용하도록 확정했다. 향후 migration이 필요해질 때
+별도 버전 변환 도구를 설계한다.
 
 ---
 

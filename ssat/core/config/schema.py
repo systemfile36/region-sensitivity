@@ -127,9 +127,10 @@ class RuntimeConfig(FrozenModel):
 
 
 class DumpConfig(FrozenModel):
-    """Configure buffering behavior for the future dump writer."""
+    """Configure buffering and full-logits size warnings for raw dumps."""
 
     flush_every: PositiveInt = 1000
+    max_classes_for_full_logits: PositiveInt | None = 10_000
 
 
 class DatasetStats(FrozenModel):
