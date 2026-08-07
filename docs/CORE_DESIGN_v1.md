@@ -743,6 +743,12 @@ invariant 위반은 설정과 관계없이 즉시 중단한다.
 
 **검증.** 위 항목들은 deterministic regression test로 검증한다. 워커 수를 바꾸거나 중단·재개한 실행이 동일한 dump를 산출하는지 확인한다.
 
+이 비교에서 Parquet fragment 경계, 행의 물리 순서, `written_at`은 실행 스케줄과
+flush 시점에 따라 달라질 수 있으므로 재현성 대상이 아니다. DumpReader의
+authoritative 행을 clean은 `sample_id`, perturbed는 `item_id`로 정렬하고
+`written_at`만 제외한 모든 논리 필드(logits, seed, status, params, 면적 포함)를
+정확히 비교한다. 이 회귀 검사는 기본 pytest suite에 포함해 CI에서 항상 실행한다.
+
 ---
 
 ## 5. 잔여 결정 사항

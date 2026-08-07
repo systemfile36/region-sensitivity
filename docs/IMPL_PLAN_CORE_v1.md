@@ -400,6 +400,19 @@ perturbed가 하나의 동적 batch cap을 공유한다. 초기 cap은 target과
 
 **성공 조건.** 위 5개 전부 통과. 이 테스트는 CI 필수 항목으로 등록한다.
 
+**구현 방식.** 별도 실행 스크립트가 아니라 기본 `pytest` collection에 포함되는
+`tests/integration/test_reproducibility.py`로 구현한다. committed 합성 fixture의
+정상 이미지와 item-local RNG를 사용하는 Gaussian noise 교란을 사용한다. 비교 시
+Reader가 반환한 authoritative clean/perturbed 행을 각각 sample_id/item_id로 정렬하고,
+실행마다 달라지는 `written_at`만 제외한다. logits, seed, status, intended/effective
+area 및 canonical params를 포함한 나머지 논리 필드는 정확히 일치해야 한다.
+
+중단·재개 검증은 동일한 `fail_fast=true`, `retry_failed=true` 설정에서 두 번째
+inference batch에 실패를 주입해 성공·실패 행을 durable flush한 뒤, 안정된 동일
+AdapterSpec 구현으로 resume하여 uninterrupted dump와 비교한다. OOM 검증은 batch
+크기 2를 넘을 때만 공통 `AdapterOutOfMemoryError`를 주입하고 cleanup 호출 및 최종
+논리 dump 일치를 함께 확인한다.
+
 ---
 
 ### 단계 9. CostEstimator + SanityCheck (M11)
