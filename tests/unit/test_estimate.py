@@ -28,7 +28,7 @@ from ssat.core.estimate import (
     LimitKind,
     SanityCheck,
 )
-from ssat.core.estimate.estimator import _select_evenly
+from ssat.core.estimate.measurement import _select_evenly
 from ssat.core.perturb import Perturbator
 from ssat.core.plan import PlanBuilder
 from ssat.core.source.types import LoadError, LoadedSample, SampleMeta
@@ -514,3 +514,11 @@ def test_estimate_import_keeps_torch_lazy() -> None:
         text=True,
     )
     assert result.returncode == 0, result.stderr
+
+
+def test_estimate_public_and_legacy_imports_remain_compatible() -> None:
+    """The package and historical estimator imports should resolve identically."""
+
+    from ssat.core.estimate.estimator import SanityCheck as LegacySanityCheck
+
+    assert LegacySanityCheck is SanityCheck

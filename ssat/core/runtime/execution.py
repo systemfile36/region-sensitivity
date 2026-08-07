@@ -6,43 +6,53 @@ from collections import Counter
 from collections.abc import Iterable, Iterator
 import logging
 
-import numpy as np
-
 from ssat.core.adapter.base import ModelAdapter
 from ssat.core.config.schema import ResolvedConfig
 from ssat.core.dump.types import CleanDumpRecord, PerturbedDumpRecord
 from ssat.core.dump.writer import DumpWriter
 from ssat.core.perturb.perturbator import Perturbator
-from ssat.core.perturb.rng import derive
 from ssat.core.plan.builder import PlanBuilder
-from ssat.core.plan.types import WorkChunk, WorkChunkMeta, WorkItem
+from ssat.core.plan.types import WorkChunkMeta
 from ssat.core.region.resolver import RegionResolver
-from ssat.core.region.types import RegionMeta
 from ssat.core.resume.index import ResumeIndex
-from ssat.core.runtime.batching import BatchSplitter, Rebatcher
 from ssat.core.runtime.errors import RuntimeContractError, RuntimeExecutionError
-from ssat.core.runtime.loader import iter_worker_results
-from ssat.core.runtime.processors import ChunkProcessor, CleanProcessor
+from ssat.core.runtime.pipeline import (
+    PreparationFailure,
+    initial_batch_size,
+    iter_clean_preparation_results,
+    iter_prediction_batches,
+    iter_prepared_work_chunks,
+)
 from ssat.core.runtime.types import (
     BatchSizeState,
     CleanInferenceItem,
     ExecutionSummary,
-    FailedChunk,
-    InferenceBatch,
     InferenceItem,
     PerturbedInferenceItem,
     PredictionResult,
-    PreparedChunk,
 )
 from ssat.core.source.base import SampleSource
-from ssat.core.source.types import LoadError, LoadedSample, SampleMeta
+from ssat.core.source.types import LoadError, SampleMeta
 from ssat.core.types import ItemStatus
 from ssat.utils.logger_factory import get_logger
 
+
 class _RunState:
-    """Accumulate records and status counts for one run_audit invocation."""
+    """Accumulate records and status counts for one audit invocation.
+
+    Args:
+        writer: Dump writer that owns durable record persistence.
+        model_id: Stable model identifier written to clean records.
+    """
 
     def __init__(self, writer: DumpWriter, model_id: str) -> None:
+        """Initialize mutable counters around an open dump writer.
+
+        Args:
+            writer: Dump writer that owns durable record persistence.
+            model_id: Stable model identifier written to clean records.
+        """
+
         self.writer = writer
         self.model_id = model_id
         self.counts: Counter[ItemStatus] = Counter()
@@ -50,11 +60,23 @@ class _RunState:
         self.perturbed_records = 0
 
     def write_clean(self, record: CleanDumpRecord) -> None:
+        """Write and count one clean record.
+
+        Args:
+            record: Validated clean dump record.
+        """
+
         self.writer.write_clean(record)
         self.clean_records += 1
         self.counts[record.status] += 1
 
     def write_perturbed(self, record: PerturbedDumpRecord) -> None:
+        """Write and count one perturbed record.
+
+        Args:
+            record: Validated perturbed dump record.
+        """
+
         self.writer.write_perturbed(record)
         self.perturbed_records += 1
         self.counts[record.status] += 1
@@ -72,10 +94,31 @@ def run_audit(
     perturbator: Perturbator | None = None,
     logger: logging.Logger | None = None,
 ) -> ExecutionSummary:
-    """Run pending clean inference and perturbation chunks in deterministic order.
+    """Run pending clean inference and perturbation work deterministically.
 
     The caller owns writer creation and closure. A successful invocation flushes
     durable fragments but deliberately leaves the writer open.
+
+    Args:
+        config: Fully resolved audit configuration.
+        plan_builder: Planner for clean samples and perturbation chunks.
+        sample_source: Source used by worker-side loaders.
+        adapter: Model adapter used for mask transforms and prediction.
+        writer: Open dump writer matching the resolved configuration.
+        resume_index: Status index used to select pending work.
+        region_resolver: Optional resolver injected into chunk workers.
+        perturbator: Optional perturbation facade injected into chunk workers.
+        logger: Optional runtime event logger.
+
+    Returns:
+        A summary of pending work, emitted records, and adaptive batching.
+
+    Raises:
+        TypeError: If the configuration or adapter has an invalid type.
+        RuntimeExecutionError: If provenance validation or fail-fast execution
+            fails.
+        RuntimeContractError: If a worker, batch, or adapter violates a runtime
+            contract.
     """
 
     if not isinstance(config, ResolvedConfig):
@@ -92,6 +135,8 @@ def run_audit(
 
     runtime = config.runtime
     resolved_logger = logger or get_logger(__name__)
+
+    # Resume filtering defines the exact work set before any model call occurs.
     clean_samples = resume_index.pending_clean_samples(
         plan_builder.enumerate_clean(),
         retry_failed=runtime.retry_failed,
@@ -100,21 +145,16 @@ def run_audit(
         plan_builder.enumerate(),
         retry_failed=runtime.retry_failed,
     )
-    adapter_cap = adapter_spec.max_batch_size
-    initial_size = (
-        runtime.target_batch_size
-        if adapter_cap is None
-        else min(runtime.target_batch_size, adapter_cap)
+    batch_state = BatchSizeState(
+        initial_batch_size(runtime.target_batch_size, adapter_spec)
     )
-    batch_state = BatchSizeState(initial_size)
-    splitter = BatchSplitter(adapter, batch_state)
     state = _RunState(writer, adapter_spec.model_id)
 
     resolved_logger.info(
         "runtime.started clean=%d chunks=%d batch_size=%d workers=%d",
         len(clean_samples),
         len(chunks),
-        initial_size,
+        batch_state.initial_size,
         runtime.num_workers,
     )
 
@@ -126,8 +166,9 @@ def run_audit(
         fail_fast=runtime.fail_fast,
     )
     _run_batches(
-        Rebatcher(clean_items, batch_state),
-        splitter,
+        clean_items,
+        adapter,
+        batch_state,
         state,
         fail_fast=runtime.fail_fast,
     )
@@ -145,8 +186,9 @@ def run_audit(
         perturbator=perturbator,
     )
     _run_batches(
-        Rebatcher(perturbed_items, batch_state),
-        splitter,
+        perturbed_items,
+        adapter,
+        batch_state,
         state,
         fail_fast=runtime.fail_fast,
     )
@@ -179,9 +221,29 @@ def _iter_clean_items(
     num_workers: int,
     fail_fast: bool,
 ) -> Iterator[CleanInferenceItem]:
-    processor = CleanProcessor(samples, sample_source)
+    """Convert shared clean preparation results into runtime policy actions.
+
+    Args:
+        samples: Ordered pending clean samples.
+        sample_source: Source used by clean workers.
+        state: Mutable runtime dump state.
+        num_workers: Number of data-loading workers.
+        fail_fast: Whether the first load failure aborts execution.
+
+    Yields:
+        Clean items ready for model inference.
+
+    Raises:
+        RuntimeExecutionError: If fail-fast handling aborts the run.
+        RuntimeContractError: If the shared worker stream fails.
+    """
+
     try:
-        for result in iter_worker_results(processor, num_workers=num_workers):
+        for result in iter_clean_preparation_results(
+            samples,
+            sample_source,
+            num_workers=num_workers,
+        ):
             if isinstance(result, LoadError):
                 state.write_clean(
                     CleanDumpRecord(
@@ -196,9 +258,7 @@ def _iter_clean_items(
                     f"clean sample load failed: {result.sample_id}",
                 )
                 continue
-            if not isinstance(result, LoadedSample):
-                raise RuntimeContractError("clean worker returned an unsupported value")
-            yield CleanInferenceItem(result)
+            yield result
     except RuntimeExecutionError:
         raise
     except Exception as error:
@@ -218,96 +278,49 @@ def _iter_perturbed_items(
     region_resolver: RegionResolver | None,
     perturbator: Perturbator | None,
 ) -> Iterator[PerturbedInferenceItem]:
-    processor = ChunkProcessor(
-        chunks,
-        plan_builder,
-        sample_source,
-        global_seed,
-        fail_fast=fail_fast,
-        region_resolver=region_resolver,
-        perturbator=perturbator,
-    )
+    """Apply runtime failure policy to shared perturbed preparation results.
+
+    Args:
+        chunks: Ordered pending chunk metadata.
+        plan_builder: Planner used to materialize complete chunks.
+        sample_source: Source loaded by chunk workers.
+        adapter: Adapter used for source-to-model mask transforms.
+        state: Mutable runtime dump state.
+        global_seed: Global deterministic seed.
+        num_workers: Number of chunk-preparation workers.
+        fail_fast: Whether the first preparation failure aborts execution.
+        region_resolver: Optional resolver injected into chunk workers.
+        perturbator: Optional perturbation facade injected into chunk workers.
+
+    Yields:
+        Perturbed items ready for model inference.
+
+    Raises:
+        RuntimeExecutionError: If fail-fast handling aborts the run.
+        RuntimeContractError: If the shared worker stream fails.
+    """
+
     try:
-        for result in iter_worker_results(processor, num_workers=num_workers):
-            if not isinstance(result, (PreparedChunk, FailedChunk)):
-                raise RuntimeContractError("chunk worker returned an unsupported value")
-            chunk = plan_builder.materialize(result.chunk_id)
-            if isinstance(result, FailedChunk):
-                _validate_failed_chunk(result, chunk)
-                for item in chunk.items:
-                    state.write_perturbed(
-                        _perturbed_failure(
-                            item,
-                            result.reason,
-                            global_seed=global_seed,
-                        )
-                    )
+        for prepared in iter_prepared_work_chunks(
+            chunks,
+            plan_builder,
+            sample_source,
+            adapter,
+            global_seed=global_seed,
+            num_workers=num_workers,
+            fail_fast=fail_fast,
+            region_resolver=region_resolver,
+            perturbator=perturbator,
+        ):
+            for failure in prepared.failures:
+                _write_preparation_failure(failure, state)
+            if prepared.failures:
                 _raise_if_fail_fast(
                     fail_fast,
                     state,
-                    f"chunk load failed: {result.chunk_id}",
+                    prepared.failure_message or "chunk preparation failed",
                 )
-                continue
-
-            work_items = _validate_prepared_chunk(result, chunk, fail_fast=fail_fast)
-            for failed in result.failed_items:
-                item = work_items[failed.item_id]
-                state.write_perturbed(
-                    _perturbed_failure(
-                        item,
-                        failed.status,
-                        global_seed=global_seed,
-                        region_meta=failed.region_meta,
-                    )
-                )
-            if result.failed_items:
-                _raise_if_fail_fast(
-                    fail_fast,
-                    state,
-                    f"chunk preparation failed: {result.chunk_id}",
-                )
-
-            for index, meta in enumerate(result.item_metas):
-                item = work_items[meta.item_id]
-                mask = result.masks[index]
-                try:
-                    transformed = adapter.transform_mask(mask)
-                    if transformed is not None and (
-                        not isinstance(transformed, np.ndarray)
-                        or transformed.dtype != np.bool_
-                        or transformed.ndim != 2
-                    ):
-                        raise TypeError("adapter mask transform must return a 2D bool array")
-                    effective_area = (
-                        None
-                        if transformed is None
-                        else int(np.count_nonzero(transformed))
-                    )
-                except Exception:
-                    state.write_perturbed(
-                        _perturbed_failure(
-                            item,
-                            ItemStatus.PREPARE_FAILED,
-                            global_seed=global_seed,
-                            region_meta=meta.region_meta,
-                        )
-                    )
-                    _raise_if_fail_fast(
-                        fail_fast,
-                        state,
-                        f"adapter mask transform failed: {item.item_id}",
-                    )
-                    continue
-                if meta.region_meta is None:  # protected by ItemMeta validation
-                    raise RuntimeContractError("prepared item lacks region metadata")
-                yield PerturbedInferenceItem(
-                    work_item=item,
-                    array=result.arrays[index],
-                    mask=mask,
-                    region_meta=meta.region_meta,
-                    seed_used=derive(global_seed, item.item_id, item.seed_salt),
-                    effective_area_px=effective_area,
-                )
+            yield from prepared.items
     except RuntimeExecutionError:
         raise
     except Exception as error:
@@ -315,20 +328,31 @@ def _iter_perturbed_items(
 
 
 def _run_batches(
-    batches: Iterable[InferenceBatch],
-    splitter: BatchSplitter,
+    items: Iterable[InferenceItem],
+    adapter: ModelAdapter,
+    batch_size_state: BatchSizeState,
     state: _RunState,
     *,
     fail_fast: bool,
 ) -> None:
+    """Write prediction results while applying runtime fail-fast policy.
+
+    Args:
+        items: Clean or perturbed items ready for prediction.
+        adapter: Model adapter used by the shared inference pipeline.
+        batch_size_state: Mutable OOM-aware batch-size state.
+        state: Mutable runtime dump state.
+        fail_fast: Whether any prediction failure aborts execution.
+
+    Raises:
+        RuntimeExecutionError: If fail-fast handling aborts the run.
+        RuntimeContractError: If the batch stream violates a contract.
+    """
+
     try:
-        for batch in batches:
-            try:
-                results = splitter.predict(batch)
-            except RuntimeContractError:
-                raise
-            except Exception:
-                for item in batch.items:
+        for outcome in iter_prediction_batches(items, adapter, batch_size_state):
+            if outcome.error is not None:
+                for item in outcome.items:
                     _write_prediction_failure(item, state)
                 _raise_if_fail_fast(
                     fail_fast,
@@ -336,23 +360,21 @@ def _run_batches(
                     "adapter prediction failed",
                 )
                 continue
-
-            for result in results:
+            for result in outcome.results:
                 _write_prediction_result(result, state)
-            if any(result.status is not ItemStatus.OK for result in results):
+            if any(
+                result.status is not ItemStatus.OK
+                for result in outcome.results
+            ):
                 message = (
                     "singleton inference ran out of memory"
                     if any(
                         result.status is ItemStatus.SKIPPED_OOM
-                        for result in results
+                        for result in outcome.results
                     )
                     else "adapter prediction failed"
                 )
-                _raise_if_fail_fast(
-                    fail_fast,
-                    state,
-                    message,
-                )
+                _raise_if_fail_fast(fail_fast, state, message)
     except RuntimeExecutionError:
         raise
     except Exception as error:
@@ -360,6 +382,13 @@ def _run_batches(
 
 
 def _write_prediction_result(result: PredictionResult, state: _RunState) -> None:
+    """Convert one shared prediction result into its dump representation.
+
+    Args:
+        result: Ordered prediction result from the shared pipeline.
+        state: Mutable runtime dump state.
+    """
+
     if isinstance(result.item, CleanInferenceItem):
         sample = result.item.sample
         state.write_clean(
@@ -387,7 +416,35 @@ def _write_prediction_result(result: PredictionResult, state: _RunState) -> None
     )
 
 
+def _write_preparation_failure(
+    failure: PreparationFailure,
+    state: _RunState,
+) -> None:
+    """Write one normalized preparation failure.
+
+    Args:
+        failure: Failure produced by the shared preparation pipeline.
+        state: Mutable runtime dump state.
+    """
+
+    state.write_perturbed(
+        PerturbedDumpRecord(
+            work_item=failure.work_item,
+            status=failure.status,
+            seed_used=failure.seed_used,
+            region_meta=failure.region_meta,
+        )
+    )
+
+
 def _write_prediction_failure(item: InferenceItem, state: _RunState) -> None:
+    """Write a failed prediction when a batch cannot produce results.
+
+    Args:
+        item: Clean or perturbed inference item submitted in the failed batch.
+        state: Mutable runtime dump state.
+    """
+
     if isinstance(item, CleanInferenceItem):
         sample = item.sample
         state.write_clean(
@@ -412,65 +469,22 @@ def _write_prediction_failure(item: InferenceItem, state: _RunState) -> None:
     )
 
 
-def _perturbed_failure(
-    item: WorkItem,
-    status: ItemStatus,
-    *,
-    global_seed: int,
-    region_meta: RegionMeta | None = None,
-) -> PerturbedDumpRecord:
-    return PerturbedDumpRecord(
-        work_item=item,
-        status=status,
-        seed_used=derive(global_seed, item.item_id, item.seed_salt),
-        region_meta=region_meta,
-    )
-
-
-def _validate_failed_chunk(result: FailedChunk, chunk: WorkChunk) -> None:
-    expected = tuple(item.item_id for item in chunk.items)
-    if result.reason is not ItemStatus.LOAD_FAILED or result.item_ids != expected:
-        raise RuntimeContractError("failed chunk does not match materialized work")
-
-
-def _validate_prepared_chunk(
-    result: PreparedChunk,
-    chunk: WorkChunk,
-    *,
-    fail_fast: bool,
-) -> dict[str, WorkItem]:
-    work_items = {item.item_id: item for item in chunk.items}
-    returned = tuple(meta.item_id for meta in result.item_metas + result.failed_items)
-    if len(set(returned)) != len(returned) or any(
-        item_id not in work_items for item_id in returned
-    ):
-        raise RuntimeContractError("prepared chunk contains unknown or duplicate item IDs")
-    expected = tuple(item.item_id for item in chunk.items)
-    if fail_fast and result.failed_items:
-        if len(result.failed_items) != 1 or returned != expected[: len(returned)]:
-            raise RuntimeContractError("fail-fast prepared chunk must return one failed prefix")
-    else:
-        failed_ids = {meta.item_id for meta in result.failed_items}
-        expected_success = tuple(
-            item_id for item_id in expected if item_id not in failed_ids
-        )
-        expected_failed = tuple(
-            item_id for item_id in expected if item_id in failed_ids
-        )
-        actual_success = tuple(meta.item_id for meta in result.item_metas)
-        actual_failed = tuple(meta.item_id for meta in result.failed_items)
-        if actual_success != expected_success or actual_failed != expected_failed:
-            raise RuntimeContractError(
-                "prepared chunk omitted or reordered materialized work items"
-            )
-    return work_items
-
-
 def _raise_if_fail_fast(
     fail_fast: bool,
     state: _RunState,
     message: str,
 ) -> None:
+    """Flush durable state and raise when fail-fast mode is enabled.
+
+    Args:
+        fail_fast: Whether failure should abort the current run.
+        state: Mutable runtime dump state.
+        message: Stable execution error message.
+
+    Raises:
+        RuntimeExecutionError: If ``fail_fast`` is enabled.
+    """
+
     if fail_fast:
         state.writer.flush()
         raise RuntimeExecutionError(message)

@@ -1,7 +1,8 @@
-"""Execution cost estimation and clean sanity-check contracts."""
+"""Expose execution cost estimation and clean sanity-check contracts."""
 
 from ssat.core.estimate.errors import EstimationError
-from ssat.core.estimate.estimator import CostEstimator, SanityCheck
+from ssat.core.estimate.estimator import CostEstimator
+from ssat.core.estimate.sanity import SanityCheck
 from ssat.core.estimate.types import (
     Advisory,
     AdvisoryCode,
