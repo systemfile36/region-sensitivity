@@ -34,11 +34,14 @@ class CallableAdapter(ModelAdapter):
         model_name: str | None = None,
         weights_id: str | None = None,
         weights_hash: str | None = None,
+        cleanup_after_oom_fn: Callable[[], None] | None = None,
     ) -> None:
         if not callable(predict_fn):
             raise TypeError("predict_fn must be callable")
         if transform_mask_fn is not None and not callable(transform_mask_fn):
             raise TypeError("transform_mask_fn must be callable when provided")
+        if cleanup_after_oom_fn is not None and not callable(cleanup_after_oom_fn):
+            raise TypeError("cleanup_after_oom_fn must be callable when provided")
         if preprocessor is not None and not isinstance(preprocessor, Preprocessor):
             raise TypeError("preprocessor must implement Preprocessor")
         if output_decoder is not None and not isinstance(output_decoder, OutputDecoder):
@@ -56,6 +59,7 @@ class CallableAdapter(ModelAdapter):
             fingerprint=preprocessing_fingerprint,
         )
         self._output_decoder = output_decoder or LogitsOutputDecoder()
+        self._cleanup_after_oom_fn = cleanup_after_oom_fn
         preprocessing_spec = self._preprocessor.describe()
         self._spec = AdapterSpec(
             model_id=model_id,
@@ -121,3 +125,9 @@ class CallableAdapter(ModelAdapter):
         if transformed is not None:
             self._validate_mask(transformed)
         return transformed
+
+    def cleanup_after_oom(self) -> None:
+        """Invoke the optional user-supplied resource cleanup callback."""
+
+        if self._cleanup_after_oom_fn is not None:
+            self._cleanup_after_oom_fn()

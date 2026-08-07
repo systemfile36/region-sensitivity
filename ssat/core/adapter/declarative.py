@@ -31,6 +31,7 @@ class DeclarativeAdapter(CallableAdapter):
         model_name: str | None = None,
         weights_id: str | None = None,
         weights_hash: str | None = None,
+        cleanup_after_oom_fn: Callable[[], None] | None = None,
     ) -> None:
         self._declarative_preprocessor = DeclarativePreprocessor(preprocessing_ops)
         super().__init__(
@@ -45,6 +46,7 @@ class DeclarativeAdapter(CallableAdapter):
             model_name=model_name,
             weights_id=weights_id,
             weights_hash=weights_hash,
+            cleanup_after_oom_fn=cleanup_after_oom_fn,
         )
 
     @property

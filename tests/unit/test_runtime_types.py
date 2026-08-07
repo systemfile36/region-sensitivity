@@ -6,7 +6,7 @@ import pytest
 from ssat.core.adapter.types import AdapterSpec, RawOutput
 from ssat.core.plan.hashing import compute_item_id
 from ssat.core.plan.types import WorkChunk, WorkChunkMeta, WorkItem
-from ssat.core.region.types import RegionSpec
+from ssat.core.region.types import RegionMeta, RegionSpec
 from ssat.core.runtime.types import ItemMeta, PreparedChunk
 from ssat.core.source.types import LoadedSample
 from ssat.core.types import ItemStatus, PerturbationOp, RegionKind
@@ -66,12 +66,17 @@ def test_work_item_params_are_immutable_and_hashable() -> None:
 
 def test_prepared_chunk_aligns_arrays_and_metadata() -> None:
     arrays = np.zeros((2, 1, 8, 8, 3), dtype=np.uint8)
-    metas = (ItemMeta("a" * 64), ItemMeta("b" * 64))
-    prepared = PreparedChunk(arrays, metas)
+    masks = np.zeros((2, 8, 8), dtype=np.bool_)
+    region_meta = RegionMeta(0, 0.0, "grid", "1.0.0")
+    metas = (
+        ItemMeta("a" * 64, region_meta),
+        ItemMeta("b" * 64, region_meta),
+    )
+    prepared = PreparedChunk("c" * 64, arrays, masks, metas)
     assert len(prepared.item_metas) == 2
 
     with pytest.raises(ValueError, match="aligned"):
-        PreparedChunk(arrays, metas[:1])
+        PreparedChunk("c" * 64, arrays, masks, metas[:1])
 
 
 def test_adapter_contract_is_logits_only() -> None:
@@ -86,5 +91,11 @@ def test_adapter_contract_is_logits_only() -> None:
 
 def test_failed_item_cannot_be_in_success_metadata() -> None:
     arrays = np.zeros((1, 1, 2, 2, 3), dtype=np.uint8)
+    masks = np.zeros((1, 2, 2), dtype=np.bool_)
     with pytest.raises(ValueError, match="successful items only"):
-        PreparedChunk(arrays, (ItemMeta("a" * 64, status=ItemStatus.LOAD_FAILED),))
+        PreparedChunk(
+            "c" * 64,
+            arrays,
+            masks,
+            (ItemMeta("a" * 64, status=ItemStatus.LOAD_FAILED),),
+        )

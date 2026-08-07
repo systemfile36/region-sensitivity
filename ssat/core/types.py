@@ -40,6 +40,7 @@ class ItemStatus(str, Enum):
 
     OK = "ok"
     LOAD_FAILED = "load_failed"
+    PREPARE_FAILED = "prepare_failed"
     PREDICT_FAILED = "predict_failed"
     SKIPPED_OOM = "skipped_oom"
 

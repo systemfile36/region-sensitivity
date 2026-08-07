@@ -1,6 +1,38 @@
-"""Runtime transport types."""
+"""Execution-layer public API."""
 
-from ssat.core.runtime.types import FailedChunk, ItemMeta, PreparedChunk
+from ssat.core.runtime.batching import BatchSplitter, Rebatcher
+from ssat.core.runtime.errors import RuntimeContractError, RuntimeExecutionError
+from ssat.core.runtime.execution import run_audit
+from ssat.core.runtime.processors import ChunkProcessor, CleanProcessor
+from ssat.core.runtime.types import (
+    BatchSizeState,
+    CleanInferenceItem,
+    ExecutionSummary,
+    FailedChunk,
+    InferenceBatch,
+    InferenceItem,
+    ItemMeta,
+    PerturbedInferenceItem,
+    PredictionResult,
+    PreparedChunk,
+)
 
-__all__ = ["FailedChunk", "ItemMeta", "PreparedChunk"]
-
+__all__ = [
+    "BatchSizeState",
+    "BatchSplitter",
+    "ChunkProcessor",
+    "CleanInferenceItem",
+    "CleanProcessor",
+    "ExecutionSummary",
+    "FailedChunk",
+    "InferenceBatch",
+    "InferenceItem",
+    "ItemMeta",
+    "PerturbedInferenceItem",
+    "PredictionResult",
+    "PreparedChunk",
+    "Rebatcher",
+    "RuntimeContractError",
+    "RuntimeExecutionError",
+    "run_audit",
+]

@@ -348,17 +348,38 @@ RNG seed는 128비트 전체를 32자리 hex로 저장한다.
 
 ### 단계 7. 실행 계층 (M6, M7, M9)
 
-**작업.** `ChunkProcessor`, `Rebatcher`, `BatchSplitter`, `loop.py` 통합. 실행 계층은 프레임워크 예외를 직접 알지 않고 `ModelAdapter`와 `AdapterOutOfMemoryError`에만 의존한다.
+**작업.** `CleanProcessor`, `ChunkProcessor`, `Rebatcher`, `BatchSplitter`,
+`run_audit`를 통합한다. 열린 `DumpWriter`와 `ResumeIndex`는 호출자가 주입하고
+runtime은 기록과 flush까지만 책임진다. 실행 계층은 프레임워크 예외를 직접 알지
+않고 `ModelAdapter`와 `AdapterOutOfMemoryError`에만 의존한다.
+
+worker는 sample load, region resolve, 반전, perturbation까지만 수행하며 모델 객체와
+WorkItem은 IPC로 전송하지 않는다. `PreparedChunk`는 chunk_id, 성공 배열, 반전까지
+적용된 `(K,H,W)` bool masks 및 item metadata를 전달한다. main은 chunk_id로 WorkItem을
+재구성하고 adapter mask transform 뒤 effective area를 계산한다. 준비 단계 실패에는
+`prepare_failed`를 사용한다.
+
+DataLoader는 자동 batching을 끄고 identity collate와 고정 순서를 사용한다.
+Rebatcher는 청크 경계를 무시하되 원본 shape 변경 시 버퍼를 flush하며, clean과
+perturbed가 하나의 동적 batch cap을 공유한다. 초기 cap은 target과 adapter 상한의
+최솟값이다. OOM마다 cleanup hook을 호출하고 cap을 영구 축소한다. 일반 adapter
+예외는 분할하지 않고 batch 전체를 `predict_failed`로 기록한다. `fail_fast`는 실패
+레코드를 durable flush한 뒤 `RuntimeExecutionError`를 발생시킨다.
 
 **테스트.**
-- `ChunkProcessor`: 샘플 로드 1회 확인(호출 카운터), 로드 실패 시 전 아이템 `load_failed`
-- `Rebatcher`: 청크 경계 무시하고 `target_batch_size` 유지, 잔여분 처리
-- `BatchSplitter`: 모의 OOM 주입 → 분할 재시도, 크기 1에서 OOM → `skipped_oom`
-- 축소된 배치 크기가 이후 유지됨
-- 실패 아이템이 배치에 포함되지 않고 직접 기록됨
+- `ChunkProcessor`: chunk당 샘플 로드 1회, item-local RNG, 반전 mask 면적,
+  준비 실패 분리, 로드 실패 시 전 아이템 `load_failed`
+- `Rebatcher`: 청크 경계 결합, 잔여분, shape 변경 flush, 동적 cap 반영
+- `BatchSplitter`: 다단계 OOM 분할, cleanup 호출, 순서 보존, singleton
+  `skipped_oom`, 일반 오류 비분할
+- 통합 loop: 실패 item 추론 제외, batch-wide `predict_failed`, fail-fast 기록 후
+  중단, resume 완료 작업 사전 제외
+- committed 합성 fixture 20개(정상 18, 손상 2)를 2 worker CallableAdapter로 실행
+- 같은 전체 fixture를 CPU `TorchvisionAdapter("squeezenet1_0", weights=None)`로
+  실행하고 1000차원 logits 및 effective area 확인
 
 **성공 조건.**
-- 소형 합성 데이터셋에서 end-to-end 실행 완료
+- 외부 다운로드 없이 committed 합성 데이터셋에서 두 adapter end-to-end 실행 완료
 - 모의 OOM 하에서도 실행 완주 및 전 아이템 기록
 
 ---

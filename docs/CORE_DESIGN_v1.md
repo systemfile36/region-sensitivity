@@ -59,7 +59,7 @@
 │   chunk_id ──> PlanBuilder.materialize(chunk_id) ──> WorkChunk │
 │                              │                                 │
 │                              ▼                                 │
-│                   SampleSource.load(sample_id)   [샘플당 1회]  │
+│                   SampleSource.load(sample_id)    [청크당 1회] │
 │                              │                                 │
 │                              ▼                                 │
 │              for item in chunk.items:                          │
@@ -67,14 +67,14 @@
 │                  Perturbator.apply(arr, mask, op, params, rng) │
 │                              │                                 │
 │                              ▼                                 │
-│                   PreparedChunk (stacked arrays + item metas)  │
+│             PreparedChunk (chunk_id + arrays + masks + metas)  │
 │                              │                                 │
 └──────────────────────────────┼─────────────────────────────────┘
-                               │ IPC: 배열 + 메타
+                               │ IPC: 배열 + 실제 적용 mask + 메타
 ┌─ 메인 프로세스 ──────────────▼─────────────────────────────────┐
 │                                                                │
 │                        Rebatcher                               │
-│               (청크 경계 무시, target_batch_size로 재구성)     │
+│             (청크 경계 무시, 동적 batch cap으로 재구성)        │
 │                              │                                 │
 │                              ▼                                 │
 │                   ModelAdapter.predict(batch)                  │
@@ -419,17 +419,26 @@ __getitem__(chunk_index) -> PreparedChunk | FailedChunk
 1. `chunk_id = chunk_ids[chunk_index]`
 2. `chunk = PlanBuilder.materialize(chunk_id)`
 3. `loaded = SampleSource.load(chunk.sample_id)`
-   - 실패 시 → `FailedChunk(reason="load_failed", item_ids=chunk.item_ids)` 반환하고 종료
+   - 실패 시 → `FailedChunk(chunk_id, reason="load_failed", item_ids=...)` 반환하고 종료
 4. 각 아이템에 대해: resolve → 반전 적용 → perturb → 리스트에 누적
-   - 개별 아이템 실패 시 해당 아이템만 실패로 표시하고 계속
+   - 개별 아이템 실패 시 `prepare_failed`로 분리하고 계속
+   - `fail_fast=true`이면 첫 준비 실패에서 worker 처리를 멈춘다
 5. `PreparedChunk` 반환
 
 **PreparedChunk.**
 
 ```
+chunk_id: str
 arrays: np.ndarray         # (k, T, H, W, C) uint8
-item_metas: list[ItemMeta] # item_id, region_meta, 실패 여부
+masks: np.ndarray          # (k, H, W) bool, 반전까지 적용된 실제 교란 mask
+item_metas: list[ItemMeta] # 성공 item_id, region_meta
+failed_items: list[ItemMeta]
 ```
+
+WorkItem은 IPC로 전송하지 않는다. main process는 `chunk_id`로
+`PlanBuilder.materialize()`를 다시 호출해 dump metadata를 복원하고 worker 반환의
+누락·중복·순서를 검증한다. `invert_mask=true`일 때 intended/effective area는 모두
+반전 후 실제 적용 mask를 기준으로 한다.
 
 **메모리 관점.** 반환 크기는 `k × T × H × W × C` 바이트이다. 224×224 이미지, k=16이면 약 2.4MB. 워커 8개 + prefetch 2면 약 40MB로 감당 가능하다. 비디오로 가면 T배가 되므로 k를 줄여야 하며, 이것이 `variants_per_chunk`를 설정으로 노출한 이유이다.
 
@@ -447,21 +456,30 @@ item_metas: list[ItemMeta] # item_id, region_meta, 실패 여부
 
 워커 출력 스트림을 모델 배치로 재구성한다.
 
-**DataLoader 설정.** `batch_size=None` (자동 배칭 끔). 청크가 하나씩 흘러나온다.
+**DataLoader 설정.** `batch_size=None` (자동 배칭 끔), 순서 고정, identity
+collate를 사용한다. NumPy 배열을 tensor로 암묵 변환하지 않으며 모델 객체는 worker에
+전달하지 않는다. clean 입력은 `CleanProcessor`, 교란 입력은 `ChunkProcessor`가
+같은 원칙으로 로드한다.
 
-**동작.** 청크를 버퍼에 누적하다가 `target_batch_size`에 도달하면 잘라서 내보낸다. **청크 경계를 무시**하므로 GPU 활용률이 유지된다.
+**동작.** 성공 item을 버퍼에 누적하다가 공유 `BatchSizeState.current_size`에
+도달하면 잘라서 내보낸다. **청크 경계를 무시**하므로 GPU 활용률이 유지된다.
+source array shape가 바뀌면 stack 전에 현재 버퍼를 작은 batch로 즉시 flush한다.
 
 ```
 buffer = []
 for chunk in loader:
     buffer.extend(chunk.items)
-    while len(buffer) >= target_batch_size:
-        yield buffer[:target_batch_size]
-        buffer = buffer[target_batch_size:]
+    while len(buffer) >= state.current_size:
+        yield buffer[:state.current_size]
+        buffer = buffer[state.current_size:]
 yield buffer  # 잔여분
 ```
 
 **실패 아이템 처리.** `FailedChunk`나 청크 내 실패 아이템은 배치에 넣지 않고 DumpWriter로 직행한다.
+
+공개 `run_audit()`는 ResumeIndex로 완료된 clean sample과 WorkChunk를 먼저 제외한 뒤
+clean inference를 완료하고 perturbed inference를 수행한다. 정상 반환 전 writer를
+flush하지만 close하지 않으며, writer의 정상·비정상 close는 호출자가 책임진다.
 
 ---
 
@@ -484,6 +502,7 @@ THWC uint8 batch
 describe() -> AdapterSpec
 predict(batch: np.ndarray) -> list[RawOutput]
 transform_mask(mask) -> np.ndarray | None    # 선택
+cleanup_after_oom() -> None                  # 기본 no-op
 ```
 
 `transform_mask()`는 adapter가 소유한 Preprocessor에 위임한다. 사용자 callable이
@@ -549,6 +568,9 @@ GPU OOM은 framework adapter가 공통 `AdapterOutOfMemoryError`로 변환한다
 실행 계층은 이 예외만 처리하며 torch/timm 예외 타입을 직접 import하지 않는다.
 `CallableAdapter`의 사용자 함수도 복구 가능한 device OOM을 이 공통 예외로
 변환해 발생시켜야 한다. 그 밖의 예외는 일반 predict 실패로 처리한다.
+매 OOM 뒤 runtime은 `cleanup_after_oom()`을 호출한다. torchvision/timm 구현은
+GC와 CUDA cache 정리를 수행하고 callable/declarative 구현은 선택적 callback을
+호출한다.
 
 #### 단계 10 확장 경계
 
@@ -573,11 +595,11 @@ package entry point 기반 자동 plugin 발견과 ONNX/MMAction2/원격 provide
 def predict_with_recovery(batch, adapter, state):
     try:
         return adapter.predict(batch)
-    except OutOfMemory:
-        cleanup_gpu()
+    except AdapterOutOfMemoryError:
+        adapter.cleanup_after_oom()
+        state.current_size = min(state.current_size, max(1, len(batch) // 2))
         if len(batch) == 1:
             return [Failed(status="skipped_oom")]
-        state.shrink()          # target_batch_size 하향, 유지
         half = len(batch) // 2
         return (predict_with_recovery(batch[:half], adapter, state)
               + predict_with_recovery(batch[half:], adapter, state))
@@ -589,6 +611,8 @@ def predict_with_recovery(batch, adapter, state):
 - GPU OOM만 여기서 처리한다. **시스템 RAM 부족은 별개 문제**이고 워커 수나 k를 줄여야 하므로, v1에서는 명확한 에러 메시지와 권고를 출력하고 중단한다
 - `cleanup_gpu()`는 참조 해제와 캐시 비우기. 이것을 빠뜨리면 파편화로 계속 실패한다
 - 배치 크기 1에서도 OOM이면 그 아이템은 실패 기록하고 넘어간다. 무한 재시도를 막는 종료 조건이다
+- 일반 adapter 예외는 분할하지 않고 해당 batch 전체를 `predict_failed`로 기록한다
+- 축소된 cap은 clean과 perturbed 실행에 공유되어 이후 모든 batch에 유지된다
 
 **근거.** 추론에서는 배치 크기가 결과에 영향을 주지 않으므로(BatchNorm이 eval 모드인 한) 안전하게 조정 가능하다.
 
@@ -687,6 +711,7 @@ Sanity check (소수의 clean 샘플로 추론 후 정확도 보고. 만약 기�
 |---|---|---|
 | `ok` | 정상 | 로짓 벡터 |
 | `load_failed` | 디코드/읽기 실패 | null |
+| `prepare_failed` | region resolve, 교란 또는 mask transform 실패 | null |
 | `predict_failed` | 추론 실패 | null |
 | `skipped_oom` | 배치 크기 1에서도 OOM | null |
 
@@ -697,6 +722,10 @@ Sanity check (소수의 clean 샘플로 추론 후 정확도 보고. 만약 기�
 **재개 시 재시도 여부는 `retry_failed` 설정으로 제어한다.**
 
 **샘플 로드 실패의 전파.** 로드가 실패하면 그 샘플의 **모든 변형에 대해** `load_failed` 레코드를 쓴다. 그래야 "dump에 있으면 완료"라는 단순 규칙이 유지되고, 재개 시 실패한 샘플을 반복 시도하지 않는다.
+
+**fail-fast.** terminal failure 레코드를 먼저 기록하고 flush한 뒤
+`RuntimeExecutionError`를 발생시킨다. worker 반환의 누락·중복 같은 runtime
+invariant 위반은 설정과 관계없이 즉시 중단한다.
 
 ---
 

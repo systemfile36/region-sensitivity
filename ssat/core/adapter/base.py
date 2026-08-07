@@ -53,6 +53,14 @@ class ModelAdapter(ABC):
         self._validate_mask(mask)
         return None
 
+    def cleanup_after_oom(self) -> None:
+        """Release framework caches after a recoverable inference OOM.
+
+        Framework-neutral adapters need no cleanup by default. Implementations
+        that own accelerator resources may override this hook; the runtime calls
+        it after every :class:`AdapterOutOfMemoryError` before retrying.
+        """
+
     @staticmethod
     def _validate_batch(
         batch: NDArray[np.uint8],

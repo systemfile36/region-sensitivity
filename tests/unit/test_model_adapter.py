@@ -410,3 +410,22 @@ def test_adapter_contract_imports_remain_framework_lazy() -> None:
         text=True,
     )
     assert result.returncode == 0, result.stderr
+
+
+def test_callable_adapter_exposes_optional_oom_cleanup_callback() -> None:
+    calls: list[str] = []
+    adapter = CallableAdapter(
+        lambda batch: np.zeros((len(batch), 1), dtype=np.float32),
+        model_id="cleanup",
+        cleanup_after_oom_fn=lambda: calls.append("cleanup"),
+    )
+
+    adapter.cleanup_after_oom()
+
+    assert calls == ["cleanup"]
+    with pytest.raises(TypeError, match="cleanup_after_oom_fn"):
+        CallableAdapter(
+            lambda batch: batch,
+            model_id="invalid-cleanup",
+            cleanup_after_oom_fn=object(),
+        )

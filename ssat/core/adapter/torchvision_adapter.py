@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import gc
 from typing import Any
 
 import numpy as np
@@ -246,3 +247,12 @@ class TorchvisionAdapter(ModelAdapter):
         if transformed is None:  # pragma: no cover - contract is always available
             raise AdapterError("torchvision mask transform is unavailable")
         return transformed
+
+    def cleanup_after_oom(self) -> None:
+        """Release Python and CUDA allocations before a smaller retry."""
+
+        import torch
+
+        gc.collect()
+        if self._device.type == "cuda":
+            torch.cuda.empty_cache()
