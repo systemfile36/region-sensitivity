@@ -2,6 +2,7 @@
 
 from ssat.metrics.dump_reader import DumpHandle, JoinedFrame
 from ssat.metrics.errors import MetricsCorruptionError, MetricsError, MetricsSchemaError
+from ssat.metrics.normalize import NormalizedOutput, normalize_output
 from ssat.metrics.types import (
     ClassMetrics,
     ExclusionReason,
@@ -21,8 +22,10 @@ __all__ = [
     "MetricsCorruptionError",
     "MetricsError",
     "MetricsSchemaError",
+    "NormalizedOutput",
     "RegionGeometryRef",
     "RegionMetrics",
     "SampleMetrics",
     "SpatialProfile",
+    "normalize_output",
 ]
