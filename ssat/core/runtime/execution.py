@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections import Counter
 from collections.abc import Iterable, Iterator
 import logging
+from typing import Callable
 
 from ssat.core.adapter.base import ModelAdapter
 from ssat.core.config.schema import ResolvedConfig
@@ -15,7 +16,11 @@ from ssat.core.plan.builder import PlanBuilder
 from ssat.core.plan.types import WorkChunkMeta
 from ssat.core.region.resolver import RegionResolver
 from ssat.core.resume.index import ResumeIndex
-from ssat.core.runtime.errors import RuntimeContractError, RuntimeExecutionError
+from ssat.core.runtime.errors import (
+    RuntimeCancelledError,
+    RuntimeContractError,
+    RuntimeExecutionError,
+)
 from ssat.core.runtime.pipeline import (
     PreparationFailure,
     initial_batch_size,
@@ -45,7 +50,14 @@ class _RunState:
         model_id: Stable model identifier written to clean records.
     """
 
-    def __init__(self, writer: DumpWriter, model_id: str) -> None:
+    def __init__(
+        self,
+        writer: DumpWriter,
+        model_id: str,
+        *,
+        total_records: int,
+        progress_callback: Callable[[int, int], None] | None,
+    ) -> None:
         """Initialize mutable counters around an open dump writer.
 
         Args:
@@ -58,6 +70,8 @@ class _RunState:
         self.counts: Counter[ItemStatus] = Counter()
         self.clean_records = 0
         self.perturbed_records = 0
+        self.total_records = total_records
+        self.progress_callback = progress_callback
 
     def write_clean(self, record: CleanDumpRecord) -> None:
         """Write and count one clean record.
@@ -69,6 +83,7 @@ class _RunState:
         self.writer.write_clean(record)
         self.clean_records += 1
         self.counts[record.status] += 1
+        self._report_progress()
 
     def write_perturbed(self, record: PerturbedDumpRecord) -> None:
         """Write and count one perturbed record.
@@ -80,6 +95,14 @@ class _RunState:
         self.writer.write_perturbed(record)
         self.perturbed_records += 1
         self.counts[record.status] += 1
+        self._report_progress()
+
+    def _report_progress(self) -> None:
+        if self.progress_callback is not None:
+            self.progress_callback(
+                self.clean_records + self.perturbed_records,
+                self.total_records,
+            )
 
 
 def run_audit(
@@ -93,6 +116,8 @@ def run_audit(
     region_resolver: RegionResolver | None = None,
     perturbator: Perturbator | None = None,
     logger: logging.Logger | None = None,
+    progress_callback: Callable[[int, int], None] | None = None,
+    cancel_requested: Callable[[], bool] | None = None,
 ) -> ExecutionSummary:
     """Run pending clean inference and perturbation work deterministically.
 
@@ -148,7 +173,13 @@ def run_audit(
     batch_state = BatchSizeState(
         initial_batch_size(runtime.target_batch_size, adapter_spec)
     )
-    state = _RunState(writer, adapter_spec.model_id)
+    total_records = len(clean_samples) + sum(chunk.n_items for chunk in chunks)
+    state = _RunState(
+        writer,
+        adapter_spec.model_id,
+        total_records=total_records,
+        progress_callback=progress_callback,
+    )
 
     resolved_logger.info(
         "runtime.started clean=%d chunks=%d batch_size=%d workers=%d",
@@ -164,6 +195,7 @@ def run_audit(
         state,
         num_workers=runtime.num_workers,
         fail_fast=runtime.fail_fast,
+        cancel_requested=cancel_requested,
     )
     _run_batches(
         clean_items,
@@ -171,6 +203,7 @@ def run_audit(
         batch_state,
         state,
         fail_fast=runtime.fail_fast,
+        cancel_requested=cancel_requested,
     )
 
     perturbed_items = _iter_perturbed_items(
@@ -184,6 +217,7 @@ def run_audit(
         fail_fast=runtime.fail_fast,
         region_resolver=region_resolver,
         perturbator=perturbator,
+        cancel_requested=cancel_requested,
     )
     _run_batches(
         perturbed_items,
@@ -191,7 +225,9 @@ def run_audit(
         batch_state,
         state,
         fail_fast=runtime.fail_fast,
+        cancel_requested=cancel_requested,
     )
+    _raise_if_cancelled(cancel_requested, state)
     writer.flush()
 
     summary = ExecutionSummary(
@@ -220,6 +256,7 @@ def _iter_clean_items(
     *,
     num_workers: int,
     fail_fast: bool,
+    cancel_requested: Callable[[], bool] | None,
 ) -> Iterator[CleanInferenceItem]:
     """Convert shared clean preparation results into runtime policy actions.
 
@@ -244,6 +281,7 @@ def _iter_clean_items(
             sample_source,
             num_workers=num_workers,
         ):
+            _raise_if_cancelled(cancel_requested, state)
             if isinstance(result, LoadError):
                 state.write_clean(
                     CleanDumpRecord(
@@ -277,6 +315,7 @@ def _iter_perturbed_items(
     fail_fast: bool,
     region_resolver: RegionResolver | None,
     perturbator: Perturbator | None,
+    cancel_requested: Callable[[], bool] | None,
 ) -> Iterator[PerturbedInferenceItem]:
     """Apply runtime failure policy to shared perturbed preparation results.
 
@@ -312,6 +351,7 @@ def _iter_perturbed_items(
             region_resolver=region_resolver,
             perturbator=perturbator,
         ):
+            _raise_if_cancelled(cancel_requested, state)
             for failure in prepared.failures:
                 _write_preparation_failure(failure, state)
             if prepared.failures:
@@ -334,6 +374,7 @@ def _run_batches(
     state: _RunState,
     *,
     fail_fast: bool,
+    cancel_requested: Callable[[], bool] | None,
 ) -> None:
     """Write prediction results while applying runtime fail-fast policy.
 
@@ -351,6 +392,7 @@ def _run_batches(
 
     try:
         for outcome in iter_prediction_batches(items, adapter, batch_size_state):
+            _raise_if_cancelled(cancel_requested, state)
             if outcome.error is not None:
                 for item in outcome.items:
                     _write_prediction_failure(item, state)
@@ -379,6 +421,15 @@ def _run_batches(
         raise
     except Exception as error:
         raise RuntimeContractError("runtime batch stream failed") from error
+
+
+def _raise_if_cancelled(
+    cancel_requested: Callable[[], bool] | None,
+    state: _RunState,
+) -> None:
+    if cancel_requested is not None and cancel_requested():
+        state.writer.flush()
+        raise RuntimeCancelledError("audit execution was cancelled")
 
 
 def _write_prediction_result(result: PredictionResult, state: _RunState) -> None:

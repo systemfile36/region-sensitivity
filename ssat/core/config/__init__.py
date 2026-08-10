@@ -11,6 +11,7 @@ from ssat.core.config.schema import (
     ResolvedConfig,
     ResolvedRegionConfig,
     RuntimeConfig,
+    SourceProvenance,
 )
 from ssat.core.config.stats import DatasetStatsError, compute_dataset_stats
 
@@ -26,6 +27,7 @@ __all__ = [
     "ResolvedConfig",
     "ResolvedRegionConfig",
     "RuntimeConfig",
+    "SourceProvenance",
     "DatasetStatsError",
     "compute_dataset_stats",
 ]

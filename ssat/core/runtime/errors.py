@@ -7,3 +7,7 @@ class RuntimeExecutionError(RuntimeError):
 
 class RuntimeContractError(RuntimeExecutionError):
     """Indicate invalid data crossing a worker/main-process boundary."""
+
+
+class RuntimeCancelledError(RuntimeExecutionError):
+    """Indicate cooperative cancellation after durable runtime flush."""

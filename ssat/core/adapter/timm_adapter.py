@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import gc
 import json
+from pathlib import Path
 from typing import Any
 
 import numpy as np
@@ -14,6 +15,7 @@ from ssat.core.adapter._torch_helpers import (
     transform_mask_with_ops,
     validate_image_classifier_batch,
 )
+from ssat.core.adapter.checkpoint import load_state_dict_checkpoint
 from ssat.core.adapter.base import (
     AdapterError,
     AdapterOutOfMemoryError,
@@ -83,11 +85,16 @@ class TimmAdapter(ModelAdapter):
         init_seed: int = 0,
         output_decoder: OutputDecoder | None = None,
         weights_hash: str | None = None,
+        checkpoint_path: str | Path | None = None,
+        checkpoint_state_dict_key: str | None = None,
+        checkpoint_strict: bool = True,
     ) -> None:
         if not model_name:
             raise ValueError("model_name must not be empty")
         if isinstance(init_seed, bool) or not 0 <= init_seed <= 2**63 - 1:
             raise ValueError("init_seed must be between 0 and 2**63 - 1")
+        if pretrained and checkpoint_path is not None:
+            raise ValueError("pretrained and checkpoint_path are mutually exclusive")
         try:
             import timm
             import torch
@@ -99,6 +106,13 @@ class TimmAdapter(ModelAdapter):
                     model_name,
                     pretrained=pretrained,
                     **(model_kwargs or {}),
+                )
+            if checkpoint_path is not None:
+                load_state_dict_checkpoint(
+                    model,
+                    checkpoint_path,
+                    state_dict_key=checkpoint_state_dict_key,
+                    strict=checkpoint_strict,
                 )
             data_config = resolve_model_data_config(model)
             preprocessing = create_transform(**data_config, is_training=False)
@@ -118,10 +132,19 @@ class TimmAdapter(ModelAdapter):
         if not isinstance(self._output_decoder, OutputDecoder):
             raise TypeError("output_decoder must implement OutputDecoder")
         preprocessing_spec = self._preprocessor.describe()
-        default_model_id = f"timm:{model_name}:pretrained={str(pretrained).lower()}"
-        if not pretrained:
+        checkpoint_name = None if checkpoint_path is None else Path(checkpoint_path).name
+        default_model_id = (
+            f"timm:{model_name}:checkpoint={checkpoint_name}"
+            if checkpoint_name is not None
+            else f"timm:{model_name}:pretrained={str(pretrained).lower()}"
+        )
+        if not pretrained and checkpoint_path is None:
             default_model_id += f":init_seed={init_seed}"
-        weights_id = self._weights_id(model, model_name, pretrained, init_seed)
+        weights_id = (
+            f"checkpoint:{checkpoint_name}"
+            if checkpoint_name is not None
+            else self._weights_id(model, model_name, pretrained, init_seed)
+        )
         self._spec = AdapterSpec(
             model_id=model_id or default_model_id,
             deterministic=deterministic and preprocessing_spec.deterministic,

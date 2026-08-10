@@ -12,7 +12,10 @@ EXAMPLES = Path(__file__).parents[2] / "configs" / "examples"
 
 @pytest.mark.parametrize("path", sorted(EXAMPLES.glob("*.yaml")))
 def test_example_configs_are_valid(path: Path) -> None:
-    config = AuditConfig.model_validate(yaml.safe_load(path.read_text()))
+    value = yaml.safe_load(path.read_text())
+    value.pop("source")
+    value.pop("adapter")
+    config = AuditConfig.model_validate(value)
     assert config.schema_version == "1.0.0"
 
 
@@ -82,4 +85,3 @@ def test_config_is_frozen() -> None:
     config = AuditConfig.model_validate(minimal_config())
     with pytest.raises(ValidationError):
         config.runtime = config.runtime
-

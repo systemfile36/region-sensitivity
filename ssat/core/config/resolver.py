@@ -16,6 +16,7 @@ from ssat.core.config.schema import (
     RegionConfig,
     ResolvedConfig,
     ResolvedRegionConfig,
+    SourceProvenance,
 )
 from ssat.core.config.stats import DatasetStatsError, compute_dataset_stats
 from ssat.core.perturb.base import PerturbationError, PerturbationOperator
@@ -96,6 +97,8 @@ class ConfigResolver:
         sample_source: SampleSource,
         *,
         base_dir: str | Path | None = None,
+        config_source: str | Path | None = None,
+        source_provenance: SourceProvenance | None = None,
     ) -> ResolvedConfig:
         """Resolve configuration before work enumeration starts.
 
@@ -104,6 +107,8 @@ class ConfigResolver:
             adapter: Adapter metadata provider checked for determinism.
             sample_source: Dataset source used when statistics must be computed.
             base_dir: Path base for in-memory configurations.
+            config_source: Optional original path for an already parsed config.
+            source_provenance: Optional resolved application source identity.
 
         Returns:
             A frozen, JSON-serializable resolved configuration.
@@ -118,10 +123,26 @@ class ConfigResolver:
             type(config).__name__,
         )
         try:
-            audit_config, config_source, config_base_dir = self._load_config(
+            requested_config_source = config_source
+            audit_config, loaded_config_source, config_base_dir = self._load_config(
                 config,
                 base_dir=base_dir,
             )
+            resolved_config_source = loaded_config_source
+            if requested_config_source is not None:
+                supplied_source = (
+                    Path(requested_config_source).expanduser().resolve(strict=True)
+                )
+                if not supplied_source.is_file():
+                    raise ConfigResolutionError(
+                        f"configuration source is not a file: {supplied_source}"
+                    )
+                if isinstance(config, (str, Path)):
+                    if supplied_source != Path(config).expanduser().resolve(strict=True):
+                        raise ConfigResolutionError(
+                            "config_source disagrees with the configuration path"
+                        )
+                resolved_config_source = supplied_source
             adapter_spec = self._describe_adapter(adapter)
             self._validate_adapter_determinism(audit_config, adapter_spec)
 
@@ -160,7 +181,7 @@ class ConfigResolver:
             )
             resolved = ResolvedConfig(
                 schema_version=audit_config.schema_version,
-                config_source=config_source,
+                config_source=resolved_config_source,
                 config_base_dir=config_base_dir,
                 regions=regions,
                 perturbations=perturbations,
@@ -169,6 +190,7 @@ class ConfigResolver:
                 dump=audit_config.dump,
                 dataset_stats=dataset_stats,
                 adapter_spec=adapter_spec,
+                source_provenance=source_provenance,
             )
         except ConfigResolutionError:
             raise

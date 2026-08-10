@@ -12,6 +12,14 @@ from typing import Any
 import yaml
 
 
+def sha256_bytes(value: bytes) -> str:
+    """Return the lowercase SHA-256 digest of an in-memory byte string."""
+
+    if not isinstance(value, bytes):
+        raise TypeError("value must be bytes")
+    return hashlib.sha256(value).hexdigest()
+
+
 def load_yaml(path: str | Path) -> Any:
     """Load one UTF-8 YAML document with safe constructors.
 
@@ -110,4 +118,3 @@ def write_json_atomic(
         if temporary_path is not None:
             temporary_path.unlink(missing_ok=True)
         raise
-

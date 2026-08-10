@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import gc
+from pathlib import Path
 from typing import Any
 
 import numpy as np
@@ -12,6 +13,7 @@ from ssat.core.adapter._torch_helpers import (
     transform_mask_with_ops,
     validate_image_classifier_batch,
 )
+from ssat.core.adapter.checkpoint import load_state_dict_checkpoint
 from ssat.core.adapter.base import (
     AdapterError,
     AdapterOutOfMemoryError,
@@ -116,11 +118,16 @@ class TorchvisionAdapter(ModelAdapter):
         init_seed: int = 0,
         output_decoder: OutputDecoder | None = None,
         weights_hash: str | None = None,
+        checkpoint_path: str | Path | None = None,
+        checkpoint_state_dict_key: str | None = None,
+        checkpoint_strict: bool = True,
     ) -> None:
         if not model_name:
             raise ValueError("model_name must not be empty")
         if isinstance(init_seed, bool) or not 0 <= init_seed <= 2**63 - 1:
             raise ValueError("init_seed must be between 0 and 2**63 - 1")
+        if weights is not None and checkpoint_path is not None:
+            raise ValueError("weights and checkpoint_path are mutually exclusive")
         try:
             import torch
             from torchvision import models
@@ -135,6 +142,13 @@ class TorchvisionAdapter(ModelAdapter):
                     model_name,
                     weights=resolved_weights,
                     **(model_kwargs or {}),
+                )
+            if checkpoint_path is not None:
+                load_state_dict_checkpoint(
+                    model,
+                    checkpoint_path,
+                    state_dict_key=checkpoint_state_dict_key,
+                    strict=checkpoint_strict,
                 )
         except Exception as error:
             raise AdapterError(
@@ -155,7 +169,12 @@ class TorchvisionAdapter(ModelAdapter):
             raise TypeError("output_decoder must implement OutputDecoder")
         preprocessing_spec = self._preprocessor.describe()
 
-        weight_name = "none" if resolved_weights is None else str(resolved_weights)
+        checkpoint_name = None if checkpoint_path is None else Path(checkpoint_path).name
+        weight_name = (
+            f"checkpoint:{checkpoint_name}"
+            if checkpoint_name is not None
+            else ("none" if resolved_weights is None else str(resolved_weights))
+        )
         categories = (
             resolved_weights.meta.get("categories")
             if resolved_weights is not None
@@ -163,10 +182,10 @@ class TorchvisionAdapter(ModelAdapter):
         )
         class_names = tuple(categories) if categories else None
         default_model_id = f"torchvision:{model_name}:weights={weight_name}"
-        if resolved_weights is None:
+        if resolved_weights is None and checkpoint_path is None:
             default_model_id += f":init_seed={init_seed}"
         weights_id = (
-            f"none:init_seed={init_seed}"
+            (f"checkpoint:{checkpoint_name}" if checkpoint_name is not None else f"none:init_seed={init_seed}")
             if resolved_weights is None
             else str(resolved_weights)
         )

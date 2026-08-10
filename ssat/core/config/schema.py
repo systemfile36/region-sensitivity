@@ -154,6 +154,21 @@ class DatasetStats(FrozenModel):
         return value
 
 
+class SourceProvenance(FrozenModel):
+    """Record the resolved identity of an application-provided sample source."""
+
+    kind: str
+    manifest: Path
+    manifest_hash: str = Field(pattern=r"^[0-9a-f]{64}$")
+
+    @field_validator("manifest")
+    @classmethod
+    def validate_manifest(cls, value: Path) -> Path:
+        if not value.is_absolute():
+            raise ValueError("source manifest must be absolute")
+        return value
+
+
 class AuditConfig(FrozenModel):
     """Represent the complete audit specification loaded from YAML.
 
@@ -271,6 +286,7 @@ class ResolvedConfig(FrozenModel):
     dump: DumpConfig
     dataset_stats: DatasetStats | None = None
     adapter_spec: AdapterSpec
+    source_provenance: SourceProvenance | None = None
 
     @field_validator("config_source")
     @classmethod

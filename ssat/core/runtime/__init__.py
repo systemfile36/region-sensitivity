@@ -1,7 +1,11 @@
 """Execution-layer public API."""
 
 from ssat.core.runtime.batching import BatchSplitter, Rebatcher
-from ssat.core.runtime.errors import RuntimeContractError, RuntimeExecutionError
+from ssat.core.runtime.errors import (
+    RuntimeCancelledError,
+    RuntimeContractError,
+    RuntimeExecutionError,
+)
 from ssat.core.runtime.execution import run_audit
 from ssat.core.runtime.processors import ChunkProcessor, CleanProcessor
 from ssat.core.runtime.types import (
@@ -33,6 +37,7 @@ __all__ = [
     "PreparedChunk",
     "Rebatcher",
     "RuntimeContractError",
+    "RuntimeCancelledError",
     "RuntimeExecutionError",
     "run_audit",
 ]

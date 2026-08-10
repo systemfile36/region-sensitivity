@@ -17,13 +17,27 @@ from ssat.core.adapter.preprocessor import (
     Preprocessor,
 )
 from ssat.core.adapter.types import AdapterSpec, PreprocessingSpec, RawOutput
+from ssat.core.adapter.provider import (
+    AdapterProvider,
+    AdapterProviderError,
+    AdapterProviderRegistry,
+    CheckpointConfig,
+    ProviderConfig,
+    TimmProviderConfig,
+    TorchvisionProviderConfig,
+    default_adapter_provider_registry,
+)
 
 __all__ = [
     "AdapterError",
     "AdapterOutOfMemoryError",
+    "AdapterProvider",
+    "AdapterProviderError",
+    "AdapterProviderRegistry",
     "AdapterSpec",
     "CallableAdapter",
     "CallablePreprocessor",
+    "CheckpointConfig",
     "CenterCrop",
     "ChannelsFirst",
     "DeclarativeAdapter",
@@ -35,15 +49,19 @@ __all__ = [
     "OutputDecoder",
     "PreprocessingSpec",
     "Preprocessor",
+    "ProviderConfig",
     "RawOutput",
     "Resize",
     "SqueezeTime",
     "SupportsDescribe",
     "TimmAdapter",
+    "TimmProviderConfig",
     "TimmPreprocessor",
     "ToFloat",
     "TorchvisionAdapter",
+    "TorchvisionProviderConfig",
     "TorchvisionPreprocessor",
+    "default_adapter_provider_registry",
 ]
 
 
