@@ -91,6 +91,18 @@ class MetricRegistry:
             raise MetricsRegistryError(f"metric already registered: {metric.name}")
         self._metrics[metric.name] = metric
 
+    def get(self, name: str) -> Metric:
+        """Return one registered metric by name.
+
+        Raises:
+            MetricsRegistryError: If no metric is registered under ``name``.
+        """
+
+        try:
+            return self._metrics[name]
+        except KeyError:
+            raise MetricsRegistryError(f"metric not registered: {name}") from None
+
     def compute_item_metrics(
         self, joined: JoinedFrame, *, adapter_spec: AdapterSpec
     ) -> list[ItemMetrics]:

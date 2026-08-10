@@ -1,5 +1,10 @@
 """Metrics-engine contracts for the SSAT toolkit."""
 
+from ssat.metrics.aggregate import (
+    AggregationResult,
+    DEFAULT_PRIMARY_METRIC,
+    aggregate_item_metrics,
+)
 from ssat.metrics.builtin_metrics import (
     DEFAULT_TOPK,
     FlipCorrectToWrong,
@@ -34,7 +39,9 @@ from ssat.metrics.types import (
 )
 
 __all__ = [
+    "AggregationResult",
     "ClassMetrics",
+    "DEFAULT_PRIMARY_METRIC",
     "DEFAULT_TOPK",
     "DumpHandle",
     "ExclusionReason",
@@ -62,6 +69,7 @@ __all__ = [
     "SampleMetrics",
     "SpatialProfile",
     "TopkExit",
+    "aggregate_item_metrics",
     "default_metric_registry",
     "normalize_output",
 ]
