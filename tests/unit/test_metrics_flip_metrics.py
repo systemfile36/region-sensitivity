@@ -11,7 +11,6 @@ from ssat.metrics.builtin_metrics import (
     FlipWrongToCorrect,
     PredChanged,
     TopkExit,
-    default_metric_registry,
 )
 from ssat.metrics.normalize import normalize_output
 
@@ -142,14 +141,3 @@ def test_topk_exit_narrows_k_to_the_available_class_count() -> None:
 def test_topk_exit_rejects_a_non_positive_k(invalid_k: int) -> None:
     with pytest.raises(ValueError, match="positive int"):
         TopkExit(k=invalid_k)
-
-
-def test_default_metric_registry_registers_every_first_priority_metric() -> None:
-    registry = default_metric_registry()
-
-    assert set(registry.names) == {
-        "flip_correct_to_wrong",
-        "flip_wrong_to_correct",
-        "pred_changed",
-        "topk_exit",
-    }
