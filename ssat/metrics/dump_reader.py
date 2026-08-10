@@ -74,7 +74,26 @@ class DumpHandle:
         *,
         expected_schema_version: str = SCHEMA_VERSION,
     ) -> None:
+        self._root = Path(root)
         self._reader = DumpReader(root, expected_schema_version=expected_schema_version)
+
+    @property
+    def root(self) -> Path:
+        """Return the dump directory this handle wraps."""
+
+        return self._root
+
+    @property
+    def manifest_path(self) -> Path:
+        """Return the path to this dump's run_manifest.json file.
+
+        Exists so that MetricsStore (metrics/store.py) can hash the
+        manifest's actual on-disk bytes for ``source_run_manifest_hash``,
+        without importing ``ssat.core.dump`` itself — this remains the only
+        module in the metrics engine that touches it.
+        """
+
+        return self._root / "run_manifest.json"
 
     @property
     def manifest(self) -> RunManifest:

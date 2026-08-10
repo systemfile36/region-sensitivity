@@ -28,6 +28,15 @@ from ssat.metrics.errors import (
 )
 from ssat.metrics.normalize import NormalizedOutput, normalize_output
 from ssat.metrics.registry import Metric, MetricRegistry, MetricResult
+from ssat.metrics.schema import METRICS_SCHEMA_VERSION
+from ssat.metrics.store import (
+    MetricConfig,
+    MetricsManifest,
+    RegisteredMetricInfo,
+    load_metrics,
+    save_metrics,
+    verify_source_dump,
+)
 from ssat.metrics.types import (
     ClassMetrics,
     ExclusionReason,
@@ -54,22 +63,29 @@ __all__ = [
     "JoinedFrame",
     "LOSS_EPSILON",
     "LossIncrease",
+    "METRICS_SCHEMA_VERSION",
     "MarginDrop",
     "Metric",
+    "MetricConfig",
     "MetricRegistry",
     "MetricResult",
     "MetricsCorruptionError",
     "MetricsError",
+    "MetricsManifest",
     "MetricsRegistryError",
     "MetricsSchemaError",
     "NormalizedOutput",
     "PredChanged",
     "RegionGeometryRef",
     "RegionMetrics",
+    "RegisteredMetricInfo",
     "SampleMetrics",
     "SpatialProfile",
     "TopkExit",
     "aggregate_item_metrics",
     "default_metric_registry",
+    "load_metrics",
     "normalize_output",
+    "save_metrics",
+    "verify_source_dump",
 ]

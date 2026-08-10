@@ -22,9 +22,10 @@ from synthetic_dump_builder import (
 
 from ssat.core.config.schema import ResolvedRegionConfig
 from ssat.core.types import ItemStatus, RegionKind
-from ssat.metrics.aggregate import aggregate_item_metrics
+from ssat.metrics.aggregate import DEFAULT_PRIMARY_METRIC, aggregate_item_metrics
 from ssat.metrics.builtin_metrics import default_metric_registry
 from ssat.metrics.dump_reader import DumpHandle
+from ssat.metrics.store import load_metrics, save_metrics, verify_source_dump
 
 CORRECT = np.array([2.0, 0.0])
 WRONG = np.array([0.0, 2.0])
@@ -196,3 +197,39 @@ def test_clean_failure_excludes_the_whole_sample_from_every_aggregate(tmp_path: 
     assert set(joined["sample_id"]) == {"sample-ok"}
     assert all(item.sample_id == "sample-ok" for item in item_metrics)
     assert all(row.sample_id == "sample-ok" for row in result.sample_metrics)
+
+
+def test_saved_metrics_reload_to_the_same_aggregation_result(tmp_path: Path) -> None:
+    """End-to-end: dump -> ItemMetrics -> aggregation -> N4 store -> reload."""
+
+    config = build_resolved_config(tmp_path, regions=_REGIONS)
+    clean_records = (clean_record("sample-a", logits=CORRECT),)
+    perturbed_records = tuple(
+        perturbed_record(
+            index, sample_id="sample-a", region_id="grid", region_instance_id=column, logits=CORRECT
+        )
+        for index, column in enumerate(_COLUMNS)
+    )
+    write_dump(
+        tmp_path / "dump", config, clean_records=clean_records, perturbed_records=perturbed_records
+    )
+
+    handle = DumpHandle(tmp_path / "dump")
+    registry = default_metric_registry()
+    joined, item_metrics, result = _run_pipeline(tmp_path / "dump")
+
+    manifest = save_metrics(
+        tmp_path / "dump" / "metrics",
+        item_metrics,
+        result,
+        registry=registry,
+        primary_metric=DEFAULT_PRIMARY_METRIC,
+        source_run_manifest_path=handle.manifest_path,
+        exclusion_summary=handle.summary(),
+    )
+    verify_source_dump(manifest, handle.manifest_path)  # the dump has not changed since save
+
+    loaded_items, loaded_result, loaded_manifest = load_metrics(tmp_path / "dump" / "metrics")
+    assert loaded_items == item_metrics
+    assert loaded_result == result
+    assert loaded_manifest == manifest
