@@ -7,22 +7,20 @@ adapter:
   model_name: squeezenet1_0
   weights: null
   device: cpu
+  max_batch_size: 4
 regions:
-  - region_id: grid_2x2
+  - region_id: grid2x2
     kind: grid
     params:
       rows: 2
       cols: 2
-# 4 concrete cells x 2 perturbations x 1 default seed = 8 variants per sample.
 perturbations:
   - op: constant_fill
     params:
       value: [0, 0, 0]
-  - op: mean_fill
 runtime:
-  variants_per_chunk: 16
-  target_batch_size: 32
+  variants_per_chunk: 2
+  target_batch_size: 4
+  num_workers: 0
 dump:
-  flush_every: 1000
-dataset_stats:
-  channel_mean: [123.675, 116.28, 103.53]
+  flush_every: 8

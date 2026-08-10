@@ -1,4 +1,12 @@
 schema_version: 1.0.0
+source:
+  kind: image_manifest
+  manifest: ../../tests/fixtures/synthetic_classification/manifest.json
+adapter:
+  provider: torchvision
+  model_name: squeezenet1_0
+  weights: null
+  device: cpu
 regions:
   - region_id: grid_2x2
     kind: grid
