@@ -11,3 +11,7 @@ class MetricsSchemaError(MetricsError):
 
 class MetricsCorruptionError(MetricsError):
     """Indicate inconsistent or missing dump records required by a metric."""
+
+
+class MetricsRegistryError(MetricsError):
+    """Indicate invalid metric registration, such as a duplicate name."""
