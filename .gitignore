@@ -25,6 +25,8 @@ outputs/
 checkpoints/
 logs/
 tensorboard/
+data/
+dump/
 
 # etc 
 temp/

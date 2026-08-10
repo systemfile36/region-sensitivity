@@ -1,0 +1,13 @@
+services:
+  ssat:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: local/ssat:1.0.0
+    working_dir: /app
+    gpus: all
+    shm_size: "32G"
+    volumes:
+      - ${SSAT_CONFIG_DIR:-./configs}:/config:ro
+      - ${SSAT_DATA_DIR:-./tests/fixtures/synthetic_classification}:/data:ro
+      - ${SSAT_DUMP_DIR:-./dump}:/dumps

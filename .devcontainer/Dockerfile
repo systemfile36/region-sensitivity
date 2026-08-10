@@ -11,3 +11,7 @@ RUN bash ./install_deps.sh
 # Install python dependencies from txt
 COPY requirements.txt requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
+
+COPY pyproject.toml README.md /tmp/ssat-package/
+COPY ssat /tmp/ssat-package/ssat
+RUN pip install --no-cache-dir --no-deps /tmp/ssat-package
