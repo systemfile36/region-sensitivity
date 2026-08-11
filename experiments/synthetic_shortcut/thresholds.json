@@ -1,0 +1,6 @@
+{
+  "primary_metric": "margin_drop",
+  "q2_multiplier": 3.0,
+  "q4_min_fill_strategies": 2,
+  "q5_min_margin_points": 10.0
+}
