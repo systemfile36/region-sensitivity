@@ -41,13 +41,38 @@ def _app():
     return create_app(registry)
 
 
-def _write_config(path: Path) -> None:
+def _write_two_class_manifest(path: Path) -> None:
+    """Write a subset of the shared FIXTURE manifest restricted to gt_label in {0, 1}.
+
+    The shared manifest also has a real gt_label=2 class and two
+    intentionally corrupted (gt_label=None) entries (used elsewhere to
+    exercise the "load_failed" status path). _CliProvider's fixture adapter
+    only scores 2 classes, so feeding it a gt_label it can't index into
+    would fail metrics computation with an error unrelated to what
+    test_cli_metrics_command actually checks -- this subset keeps that test
+    focused on the metrics command itself.
+    """
+
+    fixture_manifest = json.loads((FIXTURE / "manifest.json").read_text(encoding="utf-8"))
+    samples = [
+        {
+            "sample_id": sample["sample_id"],
+            "path": str(FIXTURE / sample["path"]),
+            "gt_label": sample["gt_label"],
+        }
+        for sample in fixture_manifest["samples"]
+        if sample["gt_label"] in (0, 1)
+    ]
+    path.write_text(json.dumps({"samples": samples}), encoding="utf-8")
+
+
+def _write_config(path: Path, *, manifest: Path = FIXTURE / "manifest.json") -> None:
     path.write_text(
         "\n".join(
             [
                 "source:",
                 "  kind: image_manifest",
-                f"  manifest: {FIXTURE / 'manifest.json'}",
+                f"  manifest: {manifest}",
                 "adapter:",
                 "  provider: cli_fixture",
                 "regions:",
@@ -95,6 +120,39 @@ def test_cli_json_run_inspect_and_rebuild(tmp_path: Path) -> None:
     rebuild = runner.invoke(app, ["rebuild-index", str(output)])
     assert rebuild.exit_code == 0, rebuild.output
     assert "indexed items: 20" in rebuild.stdout
+
+
+def test_cli_metrics_command(tmp_path: Path) -> None:
+    manifest = tmp_path / "two_class_manifest.json"
+    _write_two_class_manifest(manifest)
+    config = tmp_path / "audit.yaml"
+    output = tmp_path / "dump"
+    _write_config(config, manifest=manifest)
+    runner = CliRunner()
+    app = _app()
+
+    run = runner.invoke(app, ["run", str(config), "--output", str(output)])
+    assert run.exit_code == 0, run.output
+
+    metrics = runner.invoke(app, ["metrics", str(output), "--json"])
+    assert metrics.exit_code == 0, metrics.output
+    payload = json.loads(metrics.stdout)
+    assert payload["primary_metric"] == "margin_drop"
+    assert len(payload["metric_names"]) == 9
+    assert Path(payload["metrics_dir"]) == (output / "metrics").resolve()
+    assert (output / "metrics" / "metrics_manifest.json").is_file()
+
+    # A non-JSON invocation should print the same information as readable text.
+    text_metrics = runner.invoke(
+        app, ["metrics", str(output), "--metrics-dir", str(tmp_path / "metrics-again")]
+    )
+    assert text_metrics.exit_code == 0, text_metrics.output
+    assert "SSAT metrics computed" in text_metrics.stdout
+    assert "primary metric: margin_drop" in text_metrics.stdout
+
+    bad_metric = runner.invoke(app, ["metrics", str(output), "--primary-metric", "nope"])
+    assert bad_metric.exit_code == 1
+    assert "metrics_error" in bad_metric.stderr
 
 
 def test_cli_help_and_version() -> None:

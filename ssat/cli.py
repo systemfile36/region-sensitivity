@@ -11,6 +11,7 @@ from ssat import __version__
 from ssat.application import (
     ApplicationError,
     AuditApplication,
+    ComputeMetricsRequest,
     EstimateRequest,
     InspectRequest,
     RebuildIndexRequest,
@@ -18,9 +19,11 @@ from ssat.application import (
 )
 from ssat.core.adapter import AdapterProviderRegistry
 from ssat.core.estimate import EstimateOptions
+from ssat.metrics.aggregate import DEFAULT_PRIMARY_METRIC
 from ssat.presentation import (
     format_dump_summary,
     format_estimate,
+    format_metrics,
     format_rebuild,
     format_run,
     json_text,
@@ -119,6 +122,27 @@ def create_app(
                 )
             )
             typer.echo(json_text(result) if json_output else format_estimate(result))
+        except Exception as error:
+            _fail(error)
+
+    @app.command("metrics")
+    def metrics_command(
+        dump: Path = typer.Argument(..., exists=True, file_okay=False),
+        metrics_dir: Path | None = typer.Option(
+            None, "--metrics-dir", help="Defaults to <dump>/metrics."
+        ),
+        primary_metric: str = typer.Option(
+            DEFAULT_PRIMARY_METRIC,
+            "--primary-metric",
+            help="Registered metric name to record as this run's vulnerability-score source.",
+        ),
+        json_output: bool = typer.Option(False, "--json", help="Emit stable JSON."),
+    ) -> None:
+        try:
+            result = service.compute_metrics(
+                ComputeMetricsRequest(dump, metrics_dir, primary_metric)
+            )
+            typer.echo(json_text(result) if json_output else format_metrics(result))
         except Exception as error:
             _fail(error)
 

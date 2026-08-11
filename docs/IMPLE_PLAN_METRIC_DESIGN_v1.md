@@ -41,9 +41,15 @@
 
 **결정.** `ssat/metrics/`는 pandas `DataFrame`을 `JoinedFrame`/`ItemMetrics` 등의 내부 표현으로 사용한다. `requirements.txt`, `scripts/install_deps.sh`, `.devcontainer/Dockerfile`은 변경하지 않는다.
 
-### 2.2 새 CLI 표면은 v1 범위에 넣지 않는다
+### 2.2 새 CLI 표면 (v1 범위 밖으로 미뤘다가 후속 도입함)
 
-설계서는 CLI 명령을 전혀 언급하지 않는다(`ssat run`/`estimate`/`inspect`만 코어 CLI에 존재). 본 계획도 동일하게 지표 엔진을 **라이브러리 API + 스크립트**로만 제공하고, `ssat metrics ...` 같은 Typer 명령 추가는 v1 범위 밖으로 둔다(§8 잔여 결정 사항에 기록). 필요해지면 코어의 단계 10과 같은 방식으로 후속 도입한다.
+설계서는 CLI 명령을 전혀 언급하지 않는다(`ssat run`/`estimate`/`inspect`만 코어 CLI에 존재). 이 계획 역시 처음에는 지표 엔진을 **라이브러리 API + 스크립트**로만 제공하고 `ssat metrics ...` 같은 Typer 명령 추가를 v1 범위 밖으로 두었다(§8 잔여 결정 사항에 "미정"으로 기록).
+
+**후속 결정(단계 9 완료 후).** `experiments/synthetic_shortcut/run_audit.py`와 `tests/fixtures/synthetic_dump_builder.py`가 각자 `DumpHandle`을 직접 열어 동일한 지표 계산 로직을 중복 구현하고 있는 것이 확인되어, 이 CLI 표면을 실제로 추가했다. 코어의 단계 10과 같은 방식(Application 계층에 메서드를 먼저 추가하고 CLI는 그 위의 얇은 Typer 래퍼로만 구현)을 그대로 따랐다:
+
+- `AuditApplication.compute_metrics(ComputeMetricsRequest) -> ComputeMetricsResult`(`ssat/application/application.py`) — 기존 `inspect`/`rebuild_index`처럼 이미 존재하는 dump 디렉터리 하나를 입력으로 받아, 지표 계산·저장 책임을 dump 생성(`execute_run`)과 분리했다. 항상 `default_metric_registry()`(내장 9개 전부)를 쓴다 — 지표 선택 플래그는 이번에도 범위에 넣지 않았다.
+- CLI: `ssat metrics <dump> [--metrics-dir DIR] [--primary-metric NAME] [--json]`(`ssat/cli.py`) — `inspect`/`rebuild-index`와 동일한 모양.
+- 테스트: `tests/integration/test_application_api.py`, `tests/integration/test_cli.py`에 Application/CLI 경로로 지표를 계산하는 케이스를 추가(기존에는 두 파일 모두 지표 엔진을 전혀 다루지 않았다).
 
 ---
 
@@ -371,7 +377,7 @@ L1·L2는 코어의 `unit`/`integration` 계층과 동일하게 기본 `pytest` 
 | `topk_exit`의 k 기본값 | 단계 3 | 기본 5, `min(5, num_classes)`로 자동 축소 (제안값, 변경 가능) |
 | 확률 입력에서 logit 복원 허용 여부 | 단계 2 | 현재는 허용하지 않음 — 코어가 `probs`를 지원하지 않으므로 논의 유보 |
 | `SpatialProfile`의 저장 형식(long vs wide) | 단계 6 | long-form |
-| CLI 표면(`ssat metrics ...`) 추가 여부 | v1 범위 밖, 필요 시 별도 계획 | 미정 |
+| CLI 표면(`ssat metrics ...`) 추가 여부 | v1 범위 밖 → 단계 9 완료 후 후속 도입(§2.2) | 구현됨 — 독립 명령 `ssat metrics <dump>`, 항상 내장 9개 전부 계산 |
 | Q2의 배수 k, Q5의 임계 | 단계 9 착수 전(사전 등록) | 미정 |
 | 합성 패치의 크기·위치·개수 | 단계 9 설계 시 | 미정 |
 | L3에 사용할 데이터셋·모델 | 단계 9 설계 시 | 미정 |

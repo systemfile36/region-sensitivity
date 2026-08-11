@@ -5,7 +5,13 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from ssat.application import DumpSummary, EstimateResult, IndexRebuildResult, RunResult
+from ssat.application import (
+    ComputeMetricsResult,
+    DumpSummary,
+    EstimateResult,
+    IndexRebuildResult,
+    RunResult,
+)
 
 
 def json_text(value: Any) -> str:
@@ -75,6 +81,20 @@ def format_dump_summary(summary: DumpSummary) -> str:
             f"  resumes: {summary.resume_count:,}",
             f"  finished: {summary.finished_at or 'no'}",
             f"  manifest counts match: {'yes' if summary.manifest_counts_match else 'no'}",
+        ]
+    )
+
+
+def format_metrics(result: ComputeMetricsResult) -> str:
+    return "\n".join(
+        [
+            "SSAT metrics computed",
+            f"  dump: {result.dump}",
+            f"  metrics dir: {result.metrics_dir}",
+            f"  primary metric: {result.primary_metric}",
+            f"  metrics: {', '.join(result.metric_names)}",
+            f"  item-metric rows: {result.n_item_metric_rows:,}",
+            f"  computed at: {result.computed_at}",
         ]
     )
 

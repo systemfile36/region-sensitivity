@@ -10,6 +10,7 @@ from typing import Any, Callable, Literal, Mapping, TypeAlias
 
 from ssat.core.estimate import EstimateOptions, EstimateReport
 from ssat.core.runtime import ExecutionSummary
+from ssat.metrics.aggregate import DEFAULT_PRIMARY_METRIC
 
 
 ConfigValue: TypeAlias = str | Path | Mapping[str, Any]
@@ -25,6 +26,7 @@ class ApplicationErrorCode(str, Enum):
     CANCELLED = "cancelled"
     EXECUTION = "execution_error"
     CORRUPTION = "dump_corruption"
+    METRICS = "metrics_error"
 
 
 class ApplicationError(RuntimeError):
@@ -100,6 +102,55 @@ class RebuildIndexRequest:
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "dump", Path(self.dump))
+
+
+@dataclass(frozen=True, slots=True)
+class ComputeMetricsRequest:
+    """Ask for every built-in metric to be computed and persisted for one dump.
+
+    ``metrics_dir`` defaults to ``<dump>/metrics`` when omitted -- co-located
+    with the dump itself, matching how ``inspect``/``rebuild-index`` only
+    need the dump path and nothing else. Overriding it lets a caller
+    recompute metrics (e.g. with a different ``primary_metric``) into a
+    fresh location without disturbing a previous computation.
+    """
+
+    dump: Path
+    metrics_dir: Path | None = None
+    primary_metric: str = DEFAULT_PRIMARY_METRIC
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "dump", Path(self.dump))
+        if self.metrics_dir is not None:
+            object.__setattr__(self, "metrics_dir", Path(self.metrics_dir))
+
+
+@dataclass(frozen=True, slots=True)
+class ComputeMetricsResult:
+    """Summarize one persisted metrics-computation run.
+
+    This intentionally does not carry the full ``ssat.metrics.store
+    .MetricsManifest`` object -- that dataclass has a ``datetime`` field,
+    which ``to_primitive`` below cannot serialize (the same reason
+    ``DumpSummary`` stores its timestamps as pre-formatted ISO strings
+    rather than passing datetimes through). ``computed_at`` is therefore
+    already isoformat()-ted by the caller before this is constructed.
+    """
+
+    dump: Path
+    metrics_dir: Path
+    primary_metric: str
+    metric_names: tuple[str, ...]
+    # Count of persisted item_metrics.parquet rows -- one row per (perturbed
+    # item, applicable metric), i.e. up to len(metric_names) rows per audited
+    # item, not a count of distinct items. Named to match what it literally
+    # measures rather than implying a 1:1 item count, which would
+    # under-describe what registry.compute_item_metrics() actually returns.
+    n_item_metric_rows: int
+    computed_at: str
+
+    def to_dict(self) -> dict[str, Any]:
+        return to_primitive(self)
 
 
 @dataclass(frozen=True, slots=True)

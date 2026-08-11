@@ -15,6 +15,7 @@ from ssat.application import (
     ApplicationEvent,
     AuditApplication,
     CancellationToken,
+    ComputeMetricsRequest,
     InspectRequest,
     RebuildIndexRequest,
     RunRequest,
@@ -27,6 +28,7 @@ from ssat.core.adapter import (
     ProviderConfig,
 )
 from ssat.core.estimate import EstimateOptions, EstimationLimits
+from ssat.metrics.store import load_metrics
 
 
 FIXTURE = Path(__file__).parents[1] / "fixtures" / "synthetic_classification"
@@ -60,6 +62,31 @@ def _application() -> AuditApplication:
     registry = AdapterProviderRegistry()
     registry.register(_FixtureProvider())
     return AuditApplication(registry, code_version="application-test")
+
+
+def _write_two_class_manifest(path: Path) -> None:
+    """Write a subset of the shared FIXTURE manifest restricted to gt_label in {0, 1}.
+
+    The shared manifest also has a real gt_label=2 class and two
+    intentionally corrupted (gt_label=None) entries (used elsewhere to
+    exercise the "load_failed" status path). _FixtureProvider's adapter
+    above only scores 2 classes ("positive"/"negative"), so a gt_label it
+    can't index into would fail metrics computation with an error unrelated
+    to what the compute_metrics tests below actually check -- this subset
+    keeps those tests focused on compute_metrics itself.
+    """
+
+    fixture_manifest = json.loads((FIXTURE / "manifest.json").read_text(encoding="utf-8"))
+    samples = [
+        {
+            "sample_id": sample["sample_id"],
+            "path": str(FIXTURE / sample["path"]),
+            "gt_label": sample["gt_label"],
+        }
+        for sample in fixture_manifest["samples"]
+        if sample["gt_label"] in (0, 1)
+    ]
+    path.write_text(json.dumps({"samples": samples}), encoding="utf-8")
 
 
 def _config(manifest: Path = FIXTURE / "manifest.json") -> dict:
@@ -110,6 +137,78 @@ def test_application_prepare_execute_resume_inspect_and_rebuild(tmp_path: Path) 
         resumed_result = application.execute_run(resumed)
     assert resumed_result.summary is not None
     assert resumed_result.summary.records_written == 0
+
+
+def test_application_compute_metrics_persists_every_builtin_metric(
+    tmp_path: Path,
+) -> None:
+    application = _application()
+    manifest = tmp_path / "two_class_manifest.json"
+    _write_two_class_manifest(manifest)
+    output = tmp_path / "dump"
+    with application.prepare_run(
+        RunRequest(_config(manifest), output, base_dir=tmp_path)
+    ) as prepared:
+        application.execute_run(prepared)
+
+    result = application.compute_metrics(ComputeMetricsRequest(output))
+
+    assert result.dump == output.resolve()
+    assert result.metrics_dir == output.resolve() / "metrics"
+    assert result.primary_metric == "margin_drop"
+    # default_metric_registry() always registers all 9 v1 built-ins, and
+    # this fixture adapter's output_kind is "logits" (the only value v1
+    # supports -- ssat/core/adapter/types.py), so every metric's
+    # available_when() is True and none get silently dropped for this run.
+    assert sorted(result.metric_names) == sorted(
+        [
+            "flip_correct_to_wrong",
+            "flip_wrong_to_correct",
+            "pred_changed",
+            "topk_exit",
+            "gt_prob_drop",
+            "gt_logit_drop",
+            "margin_drop",
+            "loss_increase",
+            "gt_rank_worsening",
+        ]
+    )
+    # One item_metrics row per (perturbed item, metric): 12 perturbed items
+    # (the two-class manifest subset has 6 gt_label=0 + 6 gt_label=1
+    # samples, one region, one perturbation each) x 9 metrics.
+    assert result.n_item_metric_rows == 12 * 9
+
+    # Reload through the public metrics-engine API to confirm the files this
+    # method wrote are actually well-formed, not just that it returned a
+    # plausible-looking summary.
+    item_metrics, aggregation, manifest = load_metrics(result.metrics_dir)
+    assert len(item_metrics) == result.n_item_metric_rows
+    assert {metric.name for metric in manifest.registered_metrics} == set(
+        result.metric_names
+    )
+    assert any(row.metric_name == "margin_drop" for row in aggregation.region_metrics)
+
+
+def test_application_compute_metrics_rejects_unknown_primary_metric(
+    tmp_path: Path,
+) -> None:
+    application = _application()
+    manifest = tmp_path / "two_class_manifest.json"
+    _write_two_class_manifest(manifest)
+    output = tmp_path / "dump"
+    with application.prepare_run(
+        RunRequest(_config(manifest), output, base_dir=tmp_path)
+    ) as prepared:
+        application.execute_run(prepared)
+
+    with pytest.raises(ApplicationError) as caught:
+        application.compute_metrics(
+            ComputeMetricsRequest(output, primary_metric="not_a_real_metric")
+        )
+    assert caught.value.code is ApplicationErrorCode.METRICS
+    # Failing fast (before the expensive compute_item_metrics scan) means no
+    # metrics directory should have been created at all.
+    assert not (output / "metrics").exists()
 
 
 def test_confirmation_is_application_policy_and_does_not_create_dump(
