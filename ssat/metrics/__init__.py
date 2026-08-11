@@ -21,6 +21,7 @@ from ssat.metrics.builtin_metrics import (
 )
 from ssat.metrics.dump_reader import DumpHandle, JoinedFrame
 from ssat.metrics.errors import (
+    DebugVizError,
     MetricsCorruptionError,
     MetricsError,
     MetricsRegistryError,
@@ -52,6 +53,7 @@ __all__ = [
     "ClassMetrics",
     "DEFAULT_PRIMARY_METRIC",
     "DEFAULT_TOPK",
+    "DebugVizError",
     "DumpHandle",
     "ExclusionReason",
     "FlipCorrectToWrong",

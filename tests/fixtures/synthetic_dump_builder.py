@@ -6,6 +6,13 @@ adapter — every record is constructed by hand and written straight to
 않고 의도적으로 구성한 dump", §5 단계 5). This keeps L2 failures attributable
 to the metrics engine rather than to the core execution path. It generalizes
 the ad hoc helpers already proven in tests/unit/test_metrics_dump_reader.py.
+
+``compute_and_save_metrics`` additionally wires the downstream N2-N4 metrics
+pipeline (``ssat.metrics.*``) over one already-written dump — this is the
+metrics engine consuming its own contract, not the core execution path, so
+it does not conflict with the constraint above; it exists so DebugViz V2/V3
+tests can get a ready-to-load ``metrics_dir`` without repeating that wiring
+in every test module.
 """
 
 from __future__ import annotations
@@ -23,11 +30,17 @@ from ssat.core.config.schema import (
     ResolvedConfig,
     ResolvedRegionConfig,
     RuntimeConfig,
+    SourceProvenance,
 )
 from ssat.core.dump import CleanDumpRecord, DumpWriter, EnvironmentSpec, PerturbedDumpRecord
 from ssat.core.plan.types import WorkItem
 from ssat.core.region.types import RegionMeta, RegionSpec
 from ssat.core.types import ItemStatus, JsonValue, PerturbationOp, RegionKind
+from ssat.metrics.aggregate import aggregate_item_metrics
+from ssat.metrics.dump_reader import DumpHandle
+from ssat.metrics.registry import MetricRegistry
+from ssat.metrics.store import MetricsManifest, save_metrics
+from ssat.utils.io import sha256_file
 
 ENVIRONMENT = EnvironmentSpec(python_version="3.11.0", platform="test-platform")
 
@@ -40,6 +53,7 @@ def build_resolved_config(
         PerturbationConfig(op=PerturbationOp.CONSTANT_FILL, params={"value": 0.0}),
     ),
     mask_transform_available: bool = True,
+    source_provenance: SourceProvenance | None = None,
 ) -> ResolvedConfig:
     """Build a minimal, valid ResolvedConfig for a synthetic dump."""
 
@@ -58,6 +72,22 @@ def build_resolved_config(
             preprocessing_fingerprint="b" * 64,
             mask_transform_available=mask_transform_available,
         ),
+        source_provenance=source_provenance,
+    )
+
+
+def image_manifest_source_provenance(manifest_path: Path) -> SourceProvenance:
+    """Build a SourceProvenance pointing at a real, committed image manifest.
+
+    Lets L2/DebugViz tests build synthetic dumps that reference actual images
+    (e.g. tests/fixtures/synthetic_classification/manifest.json) instead of
+    the placeholder logits-only records the rest of this module produces.
+    """
+
+    return SourceProvenance(
+        kind="image_manifest",
+        manifest=manifest_path.resolve(),
+        manifest_hash=sha256_file(manifest_path),
     )
 
 
@@ -101,7 +131,11 @@ def perturbed_record(
     perturb_params: Mapping[str, JsonValue] | None = None,
     status: ItemStatus = ItemStatus.OK,
     is_control: bool = False,
-    seed_used: int = 7,
+    # Default deliberately contains hex letters (unlike a plain digits-only
+    # value such as 7) so any code that mistakenly parses the dump's
+    # persisted seed_used with int(..., base=10) instead of base=16 fails
+    # loudly in tests instead of getting silently masked.
+    seed_used: int = 0xDEADBEEF,
     intended_area_px: int = 4,
     effective_area_px: int | None = 4,
 ) -> PerturbedDumpRecord:
@@ -154,3 +188,43 @@ def write_dump(
     ) as writer:
         writer.write_clean_many(clean_records)
         writer.write_perturbed_many(perturbed_records)
+
+
+def compute_and_save_metrics(
+    dump_root: Path,
+    config: ResolvedConfig,
+    metrics_dir: Path,
+    *,
+    registry: MetricRegistry,
+    primary_metric: str,
+) -> MetricsManifest:
+    """Run the N2-N4 metrics pipeline over one already-written dump and persist it.
+
+    Args:
+        dump_root: Root directory of a dump previously written by ``write_dump``.
+        config: The same ``ResolvedConfig`` the dump was written with.
+        metrics_dir: Destination directory for the stored aggregation run.
+        registry: Registered metrics to compute (e.g. from ``_registry()``
+            test helpers).
+        primary_metric: Registered metric name whose degradation defines
+            ``vulnerability_score``.
+
+    Returns:
+        The ``MetricsManifest`` that was written to ``metrics_dir``.
+    """
+
+    handle = DumpHandle(dump_root)
+    joined = handle.joined()
+    item_metrics = registry.compute_item_metrics(joined, adapter_spec=config.adapter_spec)
+    result = aggregate_item_metrics(
+        item_metrics, joined, registry, config, primary_metric=primary_metric
+    )
+    return save_metrics(
+        metrics_dir,
+        item_metrics,
+        result,
+        registry=registry,
+        primary_metric=primary_metric,
+        source_run_manifest_path=handle.manifest_path,
+        exclusion_summary=handle.summary(),
+    )
