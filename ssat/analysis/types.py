@@ -736,6 +736,59 @@ class CoverageReport:
                 raise ValueError(f"{name} must be non-negative")
 
 
+# --- Reader availability report (A0 output) --------------------------------
+
+
+@dataclass(frozen=True, slots=True)
+class AvailableAnalyses:
+    """Report which stability/control analyses one dump+metrics pair supports.
+
+    Produced by ``analysis.reader.AnalysisReader.available_analyses()``
+    (design §A0, IMPLE_PLAN_CONTROL_STABILITY_v1.md §5 단계1). Every field
+    is a plain ``bool`` — validated explicitly here because pandas/numpy
+    reductions (``Series.any()``, comparisons on numpy scalars) produce
+    ``numpy.bool_``, which is not a ``bool`` subclass; a caller that forgot
+    to wrap one in ``bool(...)`` should fail loudly here rather than
+    silently leak a numpy scalar into what is documented as a pure Python
+    contract type.
+
+    Attributes:
+        control_comparison: True if the item context contains at least one
+            ``is_control=True`` row.
+        fill_strategy_stability: True if non-control items exercise two or
+            more distinct ``perturb_op`` values.
+        seed_stability: True if any group of items sharing
+            ``(AnchorKey, ConditionKey)`` has size >= 2 — i.e. at least one
+            anchor/condition pair was run under more than one seed.
+        jitter_stability: Always False. The core has no jitter axis at all
+            (IMPLE_PLAN_CONTROL_STABILITY_v1.md §1 항목2) — kept as an
+            explicit fourth field, rather than omitted, so every consumer
+            gets one uniform four-key availability report, and so a future
+            core jitter feature has a single field to flip.
+    """
+
+    control_comparison: bool
+    fill_strategy_stability: bool
+    seed_stability: bool
+    jitter_stability: bool
+
+    def __post_init__(self) -> None:
+        """Validate every field is a genuine bool, not a numpy/int lookalike.
+
+        Raises:
+            TypeError: If any field is not exactly a bool.
+        """
+
+        for name in (
+            "control_comparison",
+            "fill_strategy_stability",
+            "seed_stability",
+            "jitter_stability",
+        ):
+            if not isinstance(getattr(self, name), bool):
+                raise TypeError(f"{name} must be a bool")
+
+
 # --- Shared private validators -------------------------------------------
 
 

@@ -144,7 +144,8 @@ def _build_context(
     Raises:
         MetricsCorruptionError: If a concrete region (``region_key``) reports
             a different ``region_kind`` or a conflicting non-null area across
-            the items that reference it.
+            the items that reference it, or if an EXPLICIT-kind row's
+            ``region_id`` has no matching family in ``region_families``.
     """
 
     context: dict[str, _ItemContext] = {}
@@ -154,11 +155,22 @@ def _build_context(
     for row in joined.itertuples(index=False):
         region_key = f"{row.region_id}::{row.region_instance_id}"
         region_kind = RegionKind(row.region_kind)
-        family = region_families[row.region_id]
         if region_kind is RegionKind.EXPLICIT:
+            family = region_families.get(row.region_id)
+            if family is None:
+                raise MetricsCorruptionError(
+                    f"region_id {row.region_id!r} not found in resolved "
+                    "config's region families"
+                )
             ref = family.ref.as_posix() if family.ref is not None else None
             ref_hash = family.ref_hash
         else:
+            # Non-EXPLICIT regions (GRID, BBOX_PARTITION, SKELETON_PARTS,
+            # RANDOM_AREA_MATCH -- including every control item, whose
+            # region_id is a PlanBuilder-generated synthetic id that is
+            # never itself a configured family) never carry ref/ref_hash
+            # (RegionGeometryRef.__post_init__ forbids it), so no family
+            # lookup is needed or performed here.
             ref = None
             ref_hash = None
         geometry_ref = RegionGeometryRef(

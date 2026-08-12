@@ -5,10 +5,12 @@ from ssat.analysis.errors import (
     AnalysisError,
     AnalysisSchemaError,
 )
+from ssat.analysis.reader import AnalysisReader
 from ssat.analysis.types import (
     Alignment,
     AnchorKey,
     AnchorRow,
+    AvailableAnalyses,
     ConditionKey,
     ControlComparisonRow,
     ControlPairRow,
@@ -28,9 +30,11 @@ __all__ = [
     "Alignment",
     "AnalysisCorruptionError",
     "AnalysisError",
+    "AnalysisReader",
     "AnalysisSchemaError",
     "AnchorKey",
     "AnchorRow",
+    "AvailableAnalyses",
     "ConditionKey",
     "ControlComparisonRow",
     "ControlPairRow",

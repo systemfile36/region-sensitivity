@@ -257,6 +257,57 @@ def test_control_items_are_excluded_from_every_aggregate(tmp_path: Path) -> None
     assert {r.region_key for r in result.region_metrics} == {"grid::grid/r0/c0"}
 
 
+def test_control_item_with_unconfigured_region_id_does_not_raise(tmp_path: Path) -> None:
+    # PlanBuilder never adds its generated control region_id
+    # (f"control:{match_area_of}:{control_request_index}") to the resolved
+    # config's region families -- it is a synthetic id, not a configured
+    # one. A control item is always RegionKind.RANDOM_AREA_MATCH, which
+    # never needs a family lookup (only EXPLICIT does), so this must not
+    # raise KeyError even though "control:grid:0" is absent from
+    # _resolved_config(tmp_path)'s single "grid" family.
+    joined = _joined(
+        [
+            _joined_row("a" * 64, sample_id="s1"),
+            _joined_row(
+                "b" * 64,
+                sample_id="s1",
+                region_id="control:grid:0",
+                region_instance_id="control:grid/r0/c0:0:0",
+                region_kind=RegionKind.RANDOM_AREA_MATCH,
+                is_control=True,
+            ),
+        ]
+    )
+    item_metrics = [
+        _item("a" * 64, "s1", "fake_continuous", degradation=1.0),
+        _item("b" * 64, "s1", "fake_continuous", degradation=1000.0),
+    ]
+
+    result = aggregate_item_metrics(item_metrics, joined, _registry(), _resolved_config(tmp_path))
+
+    row = next(r for r in result.sample_metrics if r.metric_name == "fake_continuous")
+    assert row.n_items == 1
+    assert row.metric_mean == pytest.approx(1.0)
+    assert {r.region_key for r in result.region_metrics} == {"grid::grid/r0/c0"}
+
+
+def test_explicit_region_missing_family_raises(tmp_path: Path) -> None:
+    joined = _joined(
+        [
+            _joined_row(
+                "a" * 64,
+                sample_id="s1",
+                region_id="unknown-mask",
+                region_kind=RegionKind.EXPLICIT,
+            ),
+        ]
+    )
+    item_metrics = [_item("a" * 64, "s1", "fake_continuous", degradation=1.0)]
+
+    with pytest.raises(MetricsCorruptionError, match="not found in resolved config"):
+        aggregate_item_metrics(item_metrics, joined, _registry(), _resolved_config(tmp_path))
+
+
 def test_region_metrics_use_region_id_and_instance_id_as_the_key(tmp_path: Path) -> None:
     joined = _joined(
         [
