@@ -11,6 +11,7 @@ import numpy as np
 from numpy.random import Generator
 from numpy.typing import NDArray
 
+from ssat.core.region.skeleton_store import SkeletonBBoxStore
 from ssat.core.region.types import RegionSpec
 
 
@@ -73,10 +74,14 @@ class MaskResolutionContext:
     Attributes:
         explicit_cache: Bounded cache shared by explicit mask generators.
         resolve_target: Callback dispatching an embedded deterministic target.
+        skeleton_store: Optional pre-computed body-part bbox data shared by
+            ``SkeletonPartsMaskGenerator``. ``None`` unless the caller loads
+            and injects a store, since v1 does not wire one by default.
     """
 
     explicit_cache: ExplicitMaskCache
     resolve_target: TargetMaskResolver
+    skeleton_store: SkeletonBBoxStore | None = None
 
 
 class RegionMaskGenerator(ABC):

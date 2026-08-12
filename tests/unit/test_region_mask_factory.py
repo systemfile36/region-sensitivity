@@ -20,6 +20,7 @@ from ssat.core.region.mask_generators import (
     GridMaskGenerator,
     RandomAreaMatchMaskGenerator,
 )
+from ssat.core.region.skeleton_mask_generator import SkeletonPartsMaskGenerator
 from ssat.core.types import RegionKind
 
 
@@ -220,6 +221,7 @@ def test_region_mask_generator_contract_is_abstract() -> None:
     [
         (GridMaskGenerator, RegionKind.GRID),
         (ExplicitMaskGenerator, RegionKind.EXPLICIT),
+        (SkeletonPartsMaskGenerator, RegionKind.SKELETON_PARTS),
         (RandomAreaMatchMaskGenerator, RegionKind.RANDOM_AREA_MATCH),
     ],
 )
@@ -230,8 +232,11 @@ def test_builtin_mask_generators_support_exact_kind(
     """Every built-in generator advertises only its concrete kind."""
 
     generator = generator_type(_context())
+    other_kind = (
+        RegionKind.GRID if kind is RegionKind.SKELETON_PARTS else RegionKind.SKELETON_PARTS
+    )
     assert generator.supports(_spec(kind))
-    assert not generator.supports(_spec(RegionKind.SKELETON_PARTS))
+    assert not generator.supports(_spec(other_kind))
 
 
 def test_mask_factory_builds_fresh_generators_in_stable_order() -> None:
@@ -242,6 +247,7 @@ def test_mask_factory_builds_fresh_generators_in_stable_order() -> None:
     expected = [
         GridMaskGenerator,
         ExplicitMaskGenerator,
+        SkeletonPartsMaskGenerator,
         RandomAreaMatchMaskGenerator,
     ]
     assert [type(generator) for generator in first] == expected
@@ -358,18 +364,20 @@ def test_random_area_match_rejects_per_frame_targets() -> None:
         resolve_target=resolver._resolve_target,
     )
     # Append a permissive generator behind the resolver's real dispatch chain
-    # so the embedded SKELETON_PARTS target resolves to a (T, H, W) mask.
+    # so the embedded GT_BBOX target resolves to a (T, H, W) mask. GT_BBOX
+    # (unlike SKELETON_PARTS) still has no default built-in generator, so
+    # this fake is guaranteed to be the one dispatch reaches.
     resolver._mask_generators = resolver._mask_generators + (
         PerFrameMaskGenerator(bound_context, per_frame_mask),
     )
     target = RegionSpec(
-        region_id="skeleton",
-        region_instance_id="skeleton/torso",
-        kind=RegionKind.SKELETON_PARTS,
+        region_id="gt_bbox",
+        region_instance_id="gt_bbox/torso",
+        kind=RegionKind.GT_BBOX,
     )
     control = RegionSpec(
-        region_id="control:skeleton:0",
-        region_instance_id="control:skeleton/torso:0:0",
+        region_id="control:gt_bbox:0",
+        region_instance_id="control:gt_bbox/torso:0:0",
         kind=RegionKind.RANDOM_AREA_MATCH,
         params={
             "target_region": {

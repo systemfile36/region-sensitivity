@@ -10,12 +10,14 @@ from ssat.core.region.mask_generators import (
     GridMaskGenerator,
     RandomAreaMatchMaskGenerator,
 )
+from ssat.core.region.skeleton_mask_generator import SkeletonPartsMaskGenerator
 
 MaskGeneratorType = type[RegionMaskGenerator]
 
 _DEFAULT_GENERATOR_TYPES: tuple[MaskGeneratorType, ...] = (
     GridMaskGenerator,
     ExplicitMaskGenerator,
+    SkeletonPartsMaskGenerator,
     RandomAreaMatchMaskGenerator,
 )
 

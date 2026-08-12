@@ -331,10 +331,11 @@ confidence: float | None   # 자동 생성기인 경우
 `(T, H, W)` 마스크에 대해 프레임별 nonzero 개수의 평균을 사용해, 브로드캐스트
 마스크의 정확한 픽셀 수와 값이 비교 가능하도록 정의한다.
 
-v1의 내장 region kind(`grid`, `explicit`, `random_area_match`)는 여전히
-`(H, W)`만 반환한다. `(T, H, W)`를 실제로 만들어내는 provider(예: skeleton 부위
-추적)는 아직 없으며, 이는 향후 확장(`docs/VIDEO_SKELETON_EXTENSION_ANALYSIS_v1.md`
-3단계)에서 추가된다. `random_area_match`의 embedded target이 `(T, H, W)`로
+v1의 내장 region kind 중 `grid`/`explicit`/`random_area_match`는 여전히
+`(H, W)`만 반환한다. `skeleton_parts`는 `(T, H, W)`를 실제로 만들어내는 첫
+provider로, `SkeletonPartsMaskGenerator`가 사전 계산된 프레임별 bbox를
+읽어 프레임마다 다른 마스크를 래스터화한다(아래 "sample-dependent region
+확장" 절 참고). `random_area_match`의 embedded target이 `(T, H, W)`로
 resolve되면 `RegionResolutionError`로 명시적으로 거부한다 — 면적-매칭 대조군의
 프레임별 의미가 아직 정의되지 않았기 때문이다.
 
@@ -347,12 +348,28 @@ resolve되면 `RegionResolutionError`로 명시적으로 거부한다 — 면적
 
 #### sample-dependent region 확장
 
-`skeleton_parts`, `gt_bbox`, `bbox_partition`은 향후 확장용 kind로 예약한다.
-`SampleMeta`에는 annotation 전문을 넣지 않고, 별도 `SampleRegionProvider`가
+`skeleton_parts`, `gt_bbox`, `bbox_partition`은 향후 확장용 kind로 예약되어
+있다. `SampleMeta`에는 annotation 전문을 넣지 않고, 별도 `SampleRegionProvider`가
 sample metadata와 resolved family를 받아 deterministic RegionSpec 목록을
-제공한다. skeleton 정보·부위 정의·가릴 부위 목록이나 GT bbox 목록은 provider의
-구체 구현이 담당하며 픽셀 로딩에는 의존하지 않는다. 현재 v1 코어에서는 이 세
-kind를 명시적인 not-implemented 오류로 거부한다.
+제공한다. `gt_bbox`/`bbox_partition`은 provider가 주입되지 않으면 여전히
+명시적인 not-implemented 오류로 거부된다.
+
+`skeleton_parts`는 참조 구현이 존재한다(`ssat/core/region/skeleton_store.py`,
+`skeleton_provider.py`, `skeleton_mask_generator.py`). `SkeletonBBoxStore`가
+`sample_id -> {part_name: [프레임별 (x1,y1,x2,y2) | null]}` 형태의 사전 계산된
+JSON 파일을 로드해 메모리에 보관하고(원본 skeleton/joint 파싱은 이 store의
+책임이 아니다), `SkeletonRegionProvider`가 이를 이용해 `family.params.body_part`
+하나당 concrete `RegionSpec` 1개(`params`에 `sample_id`/`body_part`/`bbox_scale`만
+담아 해시 payload를 작게 유지)로 확장하며, `SkeletonPartsMaskGenerator`가
+`MaskResolutionContext.skeleton_store`에서 해당 sample·부위의 bbox를 조회해
+bbox 중심 기준 `bbox_scale` 배로 확대한 사각형을 `(T, H, W)` 마스크로
+래스터화한다(프레임 값이 `null`이면 그 프레임은 전부 `False`). 이 generator는
+기본 생성기 목록에 포함되어 있지만, `skeleton_store`가 주입되지 않으면
+명확한 오류로 거부한다. **아직 CLI/YAML 설정으로는 연결되어 있지 않다** —
+현재는 `RegionExpander(SkeletonRegionProvider(store))`와 store를 아는
+`MaskResolutionContext`로 구성한 `RegionResolver`를 Python 코드로 직접
+주입해야 하며(`tests/unit/test_skeleton_integration.py` 참고), Application/CLI
+config 배선은 `docs/VIDEO_SKELETON_EXTENSION_ANALYSIS_v1.md` 4단계로 남아 있다.
 
 #### explicit 마스크 캐싱
 

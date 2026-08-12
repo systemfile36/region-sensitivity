@@ -203,12 +203,25 @@ def test_invalid_shapes_are_rejected(shape: tuple[int, ...]) -> None:
 
 
 def test_reserved_region_kind_is_not_materialized() -> None:
-    """Future annotation kinds fail explicitly until generators exist."""
+    """Still-reserved annotation kinds fail explicitly until generators exist."""
+
+    spec = RegionSpec(
+        region_id="people",
+        region_instance_id="people/torso",
+        kind=RegionKind.BBOX_PARTITION,
+    )
+    with pytest.raises(RegionResolutionError, match="not implemented"):
+        RegionResolver().resolve((1, 3, 3, 3), spec)
+
+
+def test_skeleton_parts_requires_a_configured_store() -> None:
+    """SKELETON_PARTS has a built-in generator but needs an injected store."""
 
     spec = RegionSpec(
         region_id="people",
         region_instance_id="people/torso",
         kind=RegionKind.SKELETON_PARTS,
+        params={"sample_id": "s", "body_part": "left_arm", "bbox_scale": 1.0},
     )
-    with pytest.raises(RegionResolutionError, match="not implemented"):
+    with pytest.raises(RegionResolutionError, match="SkeletonBBoxStore"):
         RegionResolver().resolve((1, 3, 3, 3), spec)
