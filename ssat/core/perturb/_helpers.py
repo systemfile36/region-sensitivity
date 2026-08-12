@@ -24,14 +24,16 @@ def composite(
     Args:
         source: Original source array.
         candidate: Full-frame perturbation candidate.
-        mask: Source-space pixels to replace.
+        mask: Source-space pixels to replace, as ``(H, W)`` broadcast across
+            every frame or ``(T, H, W)`` selected per frame.
 
     Returns:
         A new array containing the masked composite.
     """
 
     result = source.copy()
-    np.copyto(result, candidate, where=mask[np.newaxis, :, :, np.newaxis])
+    where = mask[np.newaxis, :, :, np.newaxis] if mask.ndim == 2 else mask[:, :, :, np.newaxis]
+    np.copyto(result, candidate, where=where)
     return result
 
 

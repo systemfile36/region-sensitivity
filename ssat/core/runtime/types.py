@@ -38,11 +38,17 @@ class ItemMeta:
 
 @dataclass(frozen=True, slots=True)
 class PreparedChunk:
-    """Transfer prepared variants and source-space masks from one worker."""
+    """Transfer prepared variants and source-space masks from one worker.
+
+    ``masks`` is a tuple rather than one stacked array because each item's
+    mask may independently be ``(H, W)`` (broadcast across every frame) or
+    ``(T, H, W)`` (selected per frame); a single ndarray cannot hold both
+    ranks.
+    """
 
     chunk_id: str
     arrays: NDArray[np.uint8]
-    masks: NDArray[np.bool_]
+    masks: tuple[NDArray[np.bool_], ...]
     item_metas: tuple[ItemMeta, ...]
     failed_items: tuple[ItemMeta, ...] = ()
 
@@ -54,18 +60,21 @@ class PreparedChunk:
             raise TypeError("arrays must have dtype uint8")
         if self.arrays.ndim != 5:
             raise ValueError("arrays must use (K, T, H, W, C) layout")
-        if not isinstance(self.masks, np.ndarray):
-            raise TypeError("masks must be a numpy ndarray")
-        if self.masks.dtype != np.bool_:
-            raise TypeError("masks must have dtype bool")
-        if self.masks.ndim != 3:
-            raise ValueError("masks must use (K, H, W) layout")
-        if self.arrays.shape[0] != len(self.item_metas) or self.masks.shape[0] != len(
+        if not isinstance(self.masks, tuple):
+            raise TypeError("masks must be a tuple of per-item mask arrays")
+        if self.arrays.shape[0] != len(self.item_metas) or len(self.masks) != len(
             self.item_metas
         ):
             raise ValueError("arrays, masks, and successful item_metas must be aligned")
-        if self.arrays.shape[2:4] != self.masks.shape[1:3]:
-            raise ValueError("mask spatial dimensions must match prepared arrays")
+        frame_count, height, width = self.arrays.shape[1:4]
+        for mask in self.masks:
+            if not isinstance(mask, np.ndarray) or mask.dtype != np.bool_:
+                raise TypeError("each mask must be a boolean numpy ndarray")
+            if mask.shape not in ((height, width), (frame_count, height, width)):
+                raise ValueError(
+                    "each mask must use (H, W) or (T, H, W) layout matching "
+                    "prepared arrays"
+                )
         if any(meta.status is not ItemStatus.OK for meta in self.item_metas):
             raise ValueError("item_metas may contain successful items only")
         if any(
@@ -118,8 +127,12 @@ class PerturbedInferenceItem:
     def __post_init__(self) -> None:
         if self.array.dtype != np.uint8 or self.array.ndim != 4:
             raise ValueError("array must be (T, H, W, C) uint8")
-        if self.mask.dtype != np.bool_ or self.mask.shape != self.array.shape[1:3]:
-            raise ValueError("mask must be (H, W) bool matching array")
+        frame_count, height, width = self.array.shape[:3]
+        if self.mask.dtype != np.bool_ or self.mask.shape not in (
+            (height, width),
+            (frame_count, height, width),
+        ):
+            raise ValueError("mask must be (H, W) or (T, H, W) bool matching array")
         if not 0 <= self.seed_used < 2**128:
             raise ValueError("seed_used must be an unsigned 128-bit integer")
         if self.effective_area_px is not None and self.effective_area_px < 0:

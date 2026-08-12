@@ -14,6 +14,7 @@ from ssat.core.region.mask_base import (
     MaskResolutionContext,
     RegionMaskGenerator,
     RegionResolutionError,
+    mean_frame_area,
 )
 from ssat.core.region.mask_dispatch import dispatch_mask_generator
 from ssat.core.region.mask_factory import build_mask_generators
@@ -76,7 +77,10 @@ class RegionResolver:
             rng: Item-local generator required by random controls.
 
         Returns:
-            A ``(H, W)`` boolean mask and its measured metadata.
+            A ``(H, W)`` or ``(T, H, W)`` boolean mask and its measured
+            metadata. ``intended_area_px``/``intended_area_ratio`` report the
+            mean per-frame nonzero count for a ``(T, H, W)`` mask, so they
+            stay comparable to a broadcast ``(H, W)`` mask's exact count.
 
         Raises:
             RegionResolutionError: If the shape, recipe, dispatch, or returned
@@ -84,10 +88,14 @@ class RegionResolver:
         """
 
         try:
-            _, height, width, _ = self._validate_shape(shape)
+            time, height, width, _ = self._validate_shape(shape)
             if not isinstance(spec, RegionSpec):
                 raise RegionResolutionError("spec must be a RegionSpec")
             mask = self._get_mask(height, width, spec, rng)
+            if mask.ndim == 3 and mask.shape[0] != time:
+                raise RegionResolutionError(
+                    "mask frame count does not match the source sample"
+                )
         except RegionResolutionError:
             raise
         except Exception as error:
@@ -96,9 +104,9 @@ class RegionResolver:
                 f"region_instance_id={getattr(spec, 'region_instance_id', None)!r}"
             ) from error
 
-        area = int(np.count_nonzero(mask))
+        area = mean_frame_area(mask)
         return mask, RegionMeta(
-            intended_area_px=area,
+            intended_area_px=int(round(area)),
             intended_area_ratio=area / (height * width),
             generator_kind=spec.kind.value,
             generator_version=REGION_GENERATOR_VERSION,
@@ -121,7 +129,7 @@ class RegionResolver:
             rng: Optional item-local generator.
 
         Returns:
-            Validated boolean mask in ``(H, W)`` layout.
+            Validated boolean mask in ``(H, W)`` or ``(T, H, W)`` layout.
 
         Raises:
             RegionResolutionError: If dispatch fails or output is invalid.
@@ -134,11 +142,21 @@ class RegionResolver:
             spec,
             rng,
         )
-        if (
-            not isinstance(mask, np.ndarray)
-            or mask.dtype != np.bool_
-            or mask.shape != (height, width)
-        ):
+        if not isinstance(mask, np.ndarray) or mask.dtype != np.bool_:
+            raise RegionResolutionError(
+                "mask generator produced an invalid output mask"
+            )
+        if mask.ndim == 2:
+            if mask.shape != (height, width):
+                raise RegionResolutionError(
+                    "mask generator produced an invalid output mask"
+                )
+        elif mask.ndim == 3:
+            if mask.shape[0] <= 0 or mask.shape[1:] != (height, width):
+                raise RegionResolutionError(
+                    "mask generator produced an invalid output mask"
+                )
+        else:
             raise RegionResolutionError(
                 "mask generator produced an invalid output mask"
             )
@@ -158,10 +176,20 @@ class RegionResolver:
             spec: Embedded target recipe.
 
         Returns:
-            Validated target mask.
+            Validated ``(H, W)`` target mask.
+
+        Raises:
+            RegionResolutionError: If the target resolves to a per-frame
+                ``(T, H, W)`` mask, which area-matched controls do not
+                support yet.
         """
 
-        return self._get_mask(height, width, spec, None)
+        mask = self._get_mask(height, width, spec, None)
+        if mask.ndim == 3:
+            raise RegionResolutionError(
+                "random_area_match does not support per-frame (T, H, W) targets"
+            )
+        return mask
 
     @staticmethod
     def _validate_shape(

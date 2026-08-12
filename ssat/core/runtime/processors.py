@@ -10,6 +10,7 @@ from ssat.core.perturb.perturbator import Perturbator
 from ssat.core.perturb.rng import derive
 from ssat.core.plan.builder import PlanBuilder
 from ssat.core.plan.types import WorkChunkMeta
+from ssat.core.region.mask_base import mean_frame_area
 from ssat.core.region.resolver import RegionResolver
 from ssat.core.region.types import RegionMeta
 from ssat.core.runtime.errors import RuntimeContractError
@@ -120,10 +121,11 @@ class ChunkProcessor:
                 )
                 if item.invert_mask:
                     mask = np.logical_not(mask)
-                    area = int(np.count_nonzero(mask))
+                    height, width = mask.shape[-2:]
+                    area = mean_frame_area(mask)
                     region_meta = RegionMeta(
-                        intended_area_px=area,
-                        intended_area_ratio=area / mask.size,
+                        intended_area_px=int(round(area)),
+                        intended_area_ratio=area / (height * width),
                         generator_kind=region_meta.generator_kind,
                         generator_version=region_meta.generator_version,
                         confidence=region_meta.confidence,
@@ -153,17 +155,14 @@ class ChunkProcessor:
 
         if arrays:
             stacked_arrays = np.stack(arrays)
-            stacked_masks = np.stack(masks)
         else:
             stacked_arrays = np.empty((0, *loaded.array.shape), dtype=np.uint8)
-            stacked_masks = np.empty(
-                (0, loaded.array.shape[1], loaded.array.shape[2]),
-                dtype=np.bool_,
-            )
         return PreparedChunk(
             chunk_id=chunk.chunk_id,
             arrays=stacked_arrays,
-            masks=stacked_masks,
+            # Kept as a tuple, not stacked: items in one chunk may mix
+            # broadcast (H, W) masks with per-frame (T, H, W) masks.
+            masks=tuple(masks),
             item_metas=tuple(successful),
             failed_items=tuple(failed),
         )

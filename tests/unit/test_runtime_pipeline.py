@@ -18,6 +18,9 @@ from ssat.core.config.schema import (
 )
 from ssat.core.perturb.rng import derive
 from ssat.core.plan import PlanBuilder
+from ssat.core.region import MaskResolutionContext, RegionMaskGenerator, RegionResolver
+from ssat.core.region.mask_base import ExplicitMaskCache
+from ssat.core.region.types import RegionSpec
 from ssat.core.runtime.errors import RuntimeContractError
 from ssat.core.runtime.pipeline import (
     iter_clean_preparation_results,
@@ -178,6 +181,71 @@ def test_perturbed_pipeline_normalizes_items_failures_and_memory(
         ItemStatus.LOAD_FAILED,
         ItemStatus.LOAD_FAILED,
     ]
+
+
+class _MultiFrameSource(MemorySource):
+    """Load a fixed three-frame clip instead of a single-frame image."""
+
+    def load(self, sample_id: str) -> LoadedSample | LoadError | object:
+        if self.invalid or self.fail:
+            return super().load(sample_id)
+        array = np.full((3, 4, 4, 3), 255, dtype=np.uint8)
+        return LoadedSample(array, sample_id, array.shape, "a" * 64)
+
+
+class _PerFrameGridGenerator(RegionMaskGenerator):
+    """Return a fixed (T, H, W) mask regardless of the requested grid cell."""
+
+    def supports(self, spec: RegionSpec) -> bool:
+        return spec.kind is RegionKind.GRID
+
+    def get_mask(self, height: int, width: int, spec: RegionSpec, rng=None):
+        mask = np.zeros((3, height, width), dtype=np.bool_)
+        mask[0] = True  # full frame
+        mask[1, :2, :] = True  # half frame
+        # frame 2 stays empty -> mean = (16 + 8 + 0) / 3 = 8
+        return mask
+
+
+def test_perturbed_pipeline_reports_mean_area_for_per_frame_masks(
+    tmp_path: Path,
+) -> None:
+    """A (T, H, W) transformed mask reports the mean per-frame effective area."""
+
+    adapter = _adapter(transform_mask_fn=lambda mask: mask)
+    source = _MultiFrameSource()
+    config = _config(tmp_path, adapter)
+    builder = PlanBuilder(config, source)
+    chunk_meta = builder.enumerate()[0]
+
+    def _unused_resolve_target(*_args: object, **_kwargs: object) -> np.ndarray:
+        raise NotImplementedError("this test never resolves an embedded target")
+
+    resolver = RegionResolver(
+        mask_generators=(
+            _PerFrameGridGenerator(
+                MaskResolutionContext(
+                    explicit_cache=ExplicitMaskCache(1),
+                    resolve_target=_unused_resolve_target,
+                )
+            ),
+        )
+    )
+
+    prepared = list(
+        iter_prepared_work_chunks(
+            (chunk_meta,),
+            builder,
+            source,
+            adapter,
+            global_seed=config.runtime.global_seed,
+            num_workers=0,
+            fail_fast=False,
+            region_resolver=resolver,
+        )
+    )[0]
+
+    assert [item.effective_area_px for item in prepared.items] == [8, 8]
 
 
 def test_perturbed_pipeline_converts_mask_transform_failures(

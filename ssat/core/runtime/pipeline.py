@@ -13,6 +13,7 @@ from ssat.core.perturb.perturbator import Perturbator
 from ssat.core.perturb.rng import derive
 from ssat.core.plan.builder import PlanBuilder
 from ssat.core.plan.types import WorkChunk, WorkChunkMeta, WorkItem
+from ssat.core.region.mask_base import mean_frame_area
 from ssat.core.region.resolver import RegionResolver
 from ssat.core.region.types import RegionMeta
 from ssat.core.runtime.batching import BatchSplitter, Rebatcher
@@ -217,7 +218,9 @@ def iter_prepared_work_chunks(
                 chunk,
                 fail_fast=fail_fast,
             )
-            prepared_bytes = int(result.arrays.nbytes + result.masks.nbytes)
+            prepared_bytes = int(
+                result.arrays.nbytes + sum(mask.nbytes for mask in result.masks)
+            )
             max_item_bytes = max(
                 (
                     int(result.arrays[index].nbytes + result.masks[index].nbytes)
@@ -346,7 +349,9 @@ def _effective_mask_area(
         mask: Source-space boolean mask.
 
     Returns:
-        The transformed nonzero area, or ``None`` when unavailable.
+        The transformed nonzero area (mean per-frame count for a ``(T, H,
+        W)`` mask, matching the ``RegionMeta`` convention), or ``None`` when
+        unavailable.
 
     Raises:
         TypeError: If the adapter returns an invalid transformed mask.
@@ -358,10 +363,12 @@ def _effective_mask_area(
     if (
         not isinstance(transformed, np.ndarray)
         or transformed.dtype != np.bool_
-        or transformed.ndim != 2
+        or transformed.ndim not in (2, 3)
     ):
-        raise TypeError("adapter mask transform must return a 2D bool array")
-    return int(np.count_nonzero(transformed))
+        raise TypeError(
+            "adapter mask transform must return a (H, W) or (T, H, W) bool array"
+        )
+    return int(round(mean_frame_area(transformed)))
 
 
 def _preparation_failure(

@@ -129,7 +129,11 @@ class DeclarativePreprocessor(Preprocessor):
         return apply_preprocessing(batch, self._ops)
 
     def transform_mask(self, mask: NDArray[np.bool_]) -> NDArray[np.bool_]:
-        """Apply only declared geometry with nearest-neighbor interpolation."""
+        """Apply only declared geometry with nearest-neighbor interpolation.
+
+        Accepts and returns ``(H, W)`` or ``(T, H, W)`` masks; per-frame
+        masks are transformed frame by frame.
+        """
 
         validate_mask(mask)
         return transform_mask_geometry(mask, self._ops)
@@ -268,15 +272,27 @@ def transform_mask_geometry(
     mask: NDArray[np.bool_],
     ops: Sequence[PreprocessingOp],
 ) -> NDArray[np.bool_]:
-    """Apply only resize/crop operations with nearest-neighbor interpolation."""
+    """Apply only resize/crop operations with nearest-neighbor interpolation.
 
-    result: NDArray[Any] = mask[None, None, :, :, None].astype(np.uint8)
+    Args:
+        mask: ``(H, W)`` or ``(T, H, W)`` boolean mask.
+        ops: Declared pipeline; only ``Resize``/``CenterCrop`` apply.
+
+    Returns:
+        A mask with the same rank as ``mask``, geometry-transformed frame by
+        frame.
+    """
+
+    stacked = mask.ndim == 3
+    frames = mask if stacked else mask[None, :, :]
+    result: NDArray[Any] = frames[None, :, :, :, None].astype(np.uint8)
     for op in ops:
         if isinstance(op, Resize):
             result = _resize_batch(result, op.size, interpolation=cv2.INTER_NEAREST)
         elif isinstance(op, CenterCrop):
             result = _center_crop_batch(result, op.size)
-    return np.asarray(result[0, 0, :, :, 0], dtype=np.bool_)
+    transformed = np.asarray(result[0, :, :, :, 0], dtype=np.bool_)
+    return transformed if stacked else transformed[0]
 
 
 def _output_size(height: int, width: int, size: Size) -> tuple[int, int]:

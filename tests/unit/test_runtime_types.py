@@ -66,7 +66,7 @@ def test_work_item_params_are_immutable_and_hashable() -> None:
 
 def test_prepared_chunk_aligns_arrays_and_metadata() -> None:
     arrays = np.zeros((2, 1, 8, 8, 3), dtype=np.uint8)
-    masks = np.zeros((2, 8, 8), dtype=np.bool_)
+    masks = (np.zeros((8, 8), dtype=np.bool_), np.zeros((8, 8), dtype=np.bool_))
     region_meta = RegionMeta(0, 0.0, "grid", "1.0.0")
     metas = (
         ItemMeta("a" * 64, region_meta),
@@ -77,6 +77,32 @@ def test_prepared_chunk_aligns_arrays_and_metadata() -> None:
 
     with pytest.raises(ValueError, match="aligned"):
         PreparedChunk("c" * 64, arrays, masks, metas[:1])
+
+
+def test_prepared_chunk_accepts_per_frame_masks() -> None:
+    """A (T, H, W) mask is valid alongside (H, W) masks in the same chunk."""
+
+    arrays = np.zeros((2, 4, 8, 8, 3), dtype=np.uint8)
+    masks = (
+        np.zeros((8, 8), dtype=np.bool_),
+        np.zeros((4, 8, 8), dtype=np.bool_),
+    )
+    region_meta = RegionMeta(0, 0.0, "grid", "1.0.0")
+    metas = (
+        ItemMeta("a" * 64, region_meta),
+        ItemMeta("b" * 64, region_meta),
+    )
+    prepared = PreparedChunk("c" * 64, arrays, masks, metas)
+    assert prepared.masks[0].shape == (8, 8)
+    assert prepared.masks[1].shape == (4, 8, 8)
+
+    with pytest.raises(ValueError, match="H, W"):
+        PreparedChunk(
+            "c" * 64,
+            arrays,
+            (np.zeros((8, 8), dtype=np.bool_), np.zeros((3, 8, 8), dtype=np.bool_)),
+            metas,
+        )
 
 
 def test_adapter_contract_is_logits_only() -> None:
@@ -91,7 +117,7 @@ def test_adapter_contract_is_logits_only() -> None:
 
 def test_failed_item_cannot_be_in_success_metadata() -> None:
     arrays = np.zeros((1, 1, 2, 2, 3), dtype=np.uint8)
-    masks = np.zeros((1, 2, 2), dtype=np.bool_)
+    masks = (np.zeros((2, 2), dtype=np.bool_),)
     with pytest.raises(ValueError, match="successful items only"):
         PreparedChunk(
             "c" * 64,

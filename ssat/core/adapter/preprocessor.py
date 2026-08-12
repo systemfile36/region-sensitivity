@@ -117,16 +117,20 @@ class CallablePreprocessor(Preprocessor):
 
 
 def validate_mask(mask: NDArray[np.bool_]) -> None:
-    """Validate the shared source/model-space binary mask contract."""
+    """Validate the shared source/model-space binary mask contract.
+
+    Accepts ``(H, W)`` masks broadcast across every frame, or ``(T, H, W)``
+    masks that vary per frame.
+    """
 
     if not isinstance(mask, np.ndarray):
         raise TypeError("mask must be a numpy ndarray")
     if mask.dtype != np.bool_:
         raise TypeError("mask must have dtype bool")
-    if mask.ndim != 2:
-        raise ValueError("mask must be two-dimensional")
+    if mask.ndim not in (2, 3):
+        raise ValueError("mask must be (H, W) or (T, H, W)")
     if any(size <= 0 for size in mask.shape):
-        raise ValueError("mask height and width must be positive")
+        raise ValueError("mask dimensions must be positive")
 
 
 def fingerprint_payload(value: Any) -> str:

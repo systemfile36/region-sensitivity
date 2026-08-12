@@ -321,14 +321,29 @@ confidence: float | None   # 자동 생성기인 경우
 
 #### 마스크 형태
 
-`(H, W)` bool. 시간 축은 v1에서 전 프레임 공통으로 브로드캐스트한다. 비디오 확장 시 `(T, H, W)`를 허용하되, 코어는 브로드캐스트 규칙만 알면 된다.
+`(H, W)` 또는 `(T, H, W)` bool. `RegionMaskGenerator.get_mask`가 `(H, W)`를
+반환하면 모든 프레임에 동일하게 브로드캐스트되고, `(T, H, W)`를 반환하면
+프레임마다 다른 선택을 표현한다(`T`는 `RegionResolver.resolve`가 원본 샘플의
+프레임 수와 일치하는지 검증한다). `Perturbator`/연산자/`ChunkProcessor`/
+어댑터 mask geometry 변환까지 코어 전 계층이 두 형태를 모두 받아들이며,
+분기 로직은 "마지막 두 축이 `(H, W)`인가, 앞에 `T` 축이 붙는가"라는 브로드캐스트
+규칙 하나로 통일되어 있다. `RegionMeta.intended_area_px`/`intended_area_ratio`는
+`(T, H, W)` 마스크에 대해 프레임별 nonzero 개수의 평균을 사용해, 브로드캐스트
+마스크의 정확한 픽셀 수와 값이 비교 가능하도록 정의한다.
+
+v1의 내장 region kind(`grid`, `explicit`, `random_area_match`)는 여전히
+`(H, W)`만 반환한다. `(T, H, W)`를 실제로 만들어내는 provider(예: skeleton 부위
+추적)는 아직 없으며, 이는 향후 확장(`docs/VIDEO_SKELETON_EXTENSION_ANALYSIS_v1.md`
+3단계)에서 추가된다. `random_area_match`의 embedded target이 `(T, H, W)`로
+resolve되면 `RegionResolutionError`로 명시적으로 거부한다 — 면적-매칭 대조군의
+프레임별 의미가 아직 정의되지 않았기 때문이다.
 
 #### random_area_match
 
 내장된 concrete target recipe를 먼저 resolve한 뒤 전체 `(H,W)` 픽셀에서 target과
 동일한 개수를 균등 비복원 추출한다. rng가 필요하므로 `resolve`에 rng를 넘기고,
 그 rng는 item_id에서 유도된다. nested random target은 허용하지 않는다. 이로써
-대조군도 완전히 재현 가능하다.
+대조군도 완전히 재현 가능하다. embedded target은 `(H, W)`만 지원한다.
 
 #### sample-dependent region 확장
 

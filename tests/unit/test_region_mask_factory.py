@@ -113,6 +113,35 @@ class RecordingMaskGenerator(RegionMaskGenerator):
         return np.full((height, width), self._value, dtype=np.bool_)
 
 
+class PerFrameMaskGenerator(RegionMaskGenerator):
+    """Return a caller-supplied mask, used to probe the (T, H, W) contract.
+
+    Args:
+        context: Shared mask resolution services.
+        mask: Mask returned unchanged for every request.
+    """
+
+    def __init__(self, context: MaskResolutionContext, mask: NDArray[np.bool_]) -> None:
+        super().__init__(context)
+        self._mask = mask
+
+    def supports(self, spec: RegionSpec) -> bool:
+        """Support every recipe so it can stand in for any reserved kind."""
+
+        return True
+
+    def get_mask(
+        self,
+        height: int,
+        width: int,
+        spec: RegionSpec,
+        rng: Generator | None = None,
+    ) -> NDArray[np.bool_]:
+        """Return the configured mask, ignoring the requested geometry."""
+
+        return self._mask
+
+
 class InvalidMaskGenerator(RecordingMaskGenerator):
     """Return a mask with an invalid dtype."""
 
@@ -278,3 +307,83 @@ def test_mask_facade_rejects_empty_and_invalid_generator_lists() -> None:
         RegionResolver(mask_generators=())
     with pytest.raises(TypeError, match="RegionMaskGenerator"):
         RegionResolver(mask_generators=(object(),))  # type: ignore[arg-type]
+
+
+def test_resolver_accepts_and_measures_per_frame_masks() -> None:
+    """A (T, H, W) mask is validated and reduced to a mean per-frame area."""
+
+    context = _context()
+    mask = np.zeros((3, 2, 2), dtype=np.bool_)
+    mask[0] = True  # 4 px
+    mask[1, 0, :] = True  # 2 px
+    # frame 2 stays empty -> mean = (4 + 2 + 0) / 3 = 2
+    resolver = RegionResolver(mask_generators=(PerFrameMaskGenerator(context, mask),))
+
+    resolved, meta = resolver.resolve((3, 2, 2, 1), _spec())
+
+    assert resolved.shape == (3, 2, 2)
+    assert meta.intended_area_px == 2
+    assert meta.intended_area_ratio == 2 / 4
+
+
+def test_resolver_rejects_per_frame_mask_with_wrong_frame_count() -> None:
+    """A (T, H, W) mask must match the source sample's frame count."""
+
+    context = _context()
+    mask = np.zeros((2, 2, 2), dtype=np.bool_)
+    resolver = RegionResolver(mask_generators=(PerFrameMaskGenerator(context, mask),))
+
+    with pytest.raises(RegionResolutionError, match="frame count"):
+        resolver.resolve((3, 2, 2, 1), _spec())
+
+
+def test_resolver_rejects_invalid_mask_rank() -> None:
+    """Masks outside (H, W)/(T, H, W) are rejected as invalid output."""
+
+    context = _context()
+    mask = np.zeros((2,), dtype=np.bool_)
+    resolver = RegionResolver(mask_generators=(PerFrameMaskGenerator(context, mask),))
+
+    with pytest.raises(RegionResolutionError, match="invalid output"):
+        resolver.resolve((3, 2, 2, 1), _spec())
+
+
+def test_random_area_match_rejects_per_frame_targets() -> None:
+    """Embedded targets that resolve to (T, H, W) are not supported yet."""
+
+    resolver = RegionResolver()
+    per_frame_mask = np.ones((3, 2, 2), dtype=np.bool_)
+    bound_context = MaskResolutionContext(
+        explicit_cache=ExplicitMaskCache(1),
+        resolve_target=resolver._resolve_target,
+    )
+    # Append a permissive generator behind the resolver's real dispatch chain
+    # so the embedded SKELETON_PARTS target resolves to a (T, H, W) mask.
+    resolver._mask_generators = resolver._mask_generators + (
+        PerFrameMaskGenerator(bound_context, per_frame_mask),
+    )
+    target = RegionSpec(
+        region_id="skeleton",
+        region_instance_id="skeleton/torso",
+        kind=RegionKind.SKELETON_PARTS,
+    )
+    control = RegionSpec(
+        region_id="control:skeleton:0",
+        region_instance_id="control:skeleton/torso:0:0",
+        kind=RegionKind.RANDOM_AREA_MATCH,
+        params={
+            "target_region": {
+                "region_id": target.region_id,
+                "region_instance_id": target.region_instance_id,
+                "kind": target.kind.value,
+                "params": {},
+                "ref": None,
+                "ref_hash": None,
+            },
+            "control_request_index": 0,
+            "control_index": 0,
+        },
+    )
+
+    with pytest.raises(RegionResolutionError, match="per-frame"):
+        resolver.resolve((3, 2, 2, 1), control, np.random.default_rng(0))

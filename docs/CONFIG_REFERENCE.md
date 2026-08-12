@@ -39,10 +39,14 @@ source:
 프레임 수입니다. 클립 길이가 `num_frames`보다 짧으면 낮은 인덱스가 반복
 샘플링됩니다. 로드된 배열은 `(num_frames, H, W, 3)` uint8이며, 이후의 region·
 perturbation·adapter 계층은 이미지(`T=1`)와 동일한 `(T, H, W, C)` 계약을 그대로
-사용하므로 별도 처리가 필요 없습니다. 다만 v1의 region/perturbation 마스크는
-샘플당 `(H, W)` 한 장을 전 프레임에 동일하게 적용합니다(예: `grid`, `explicit`).
-프레임마다 달라지는 마스크(예: skeleton 부위 추적)는 아직 지원하지 않습니다 —
-자세한 내용은 `docs/VIDEO_SKELETON_EXTENSION_ANALYSIS_v1.md`를 참고하세요.
+사용하므로 별도 처리가 필요 없습니다.
+
+region/perturbation 마스크는 `(H, W)`(전 프레임 공통 브로드캐스트) 또는
+`(T, H, W)`(프레임별로 다른 선택)를 모두 지원하도록 코어가 확장되어 있습니다.
+다만 v1에 내장된 region kind(`grid`, `explicit`, `random_area_match`)는 아직
+`(H, W)`만 반환합니다 — 실제로 프레임마다 달라지는 마스크(예: skeleton 부위
+추적)를 만들어내는 provider는 향후 확장입니다. 자세한 내용은
+`docs/VIDEO_SKELETON_EXTENSION_ANALYSIS_v1.md`를 참고하세요.
 
 ## Adapter
 

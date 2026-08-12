@@ -49,7 +49,8 @@ class Perturbator:
 
         Args:
             array: Original pixels in ``(T, H, W, C)`` uint8 layout.
-            mask: ``(H, W)`` boolean selection in source pixel space.
+            mask: ``(H, W)`` boolean selection broadcast across every frame,
+                or ``(T, H, W)`` for a selection that varies per frame.
             op: Supported perturbation operation.
             params: Fully resolved operation-specific parameters.
             rng: Item-local generator required by stochastic operations.
@@ -106,8 +107,14 @@ class Perturbator:
             raise PerturbationError("array dimensions must be positive")
         if not isinstance(mask, np.ndarray):
             raise PerturbationError("mask must be a numpy ndarray")
-        if mask.dtype != np.bool_ or mask.shape != array.shape[1:3]:
-            raise PerturbationError("mask must be (H, W) bool matching array")
+        frame_count, height, width = array.shape[:3]
+        if mask.dtype != np.bool_ or mask.shape not in (
+            (height, width),
+            (frame_count, height, width),
+        ):
+            raise PerturbationError(
+                "mask must be (H, W) or (T, H, W) bool matching array"
+            )
         if not isinstance(op, PerturbationOp):
             raise PerturbationError("op must be a PerturbationOp")
         if not isinstance(params, Mapping):

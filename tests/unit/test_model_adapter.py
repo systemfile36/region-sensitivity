@@ -95,6 +95,19 @@ def test_preprocessor_contracts_and_callable_metadata() -> None:
     )
 
 
+def test_identity_and_callable_preprocessors_accept_per_frame_masks() -> None:
+    """The shared mask contract accepts (T, H, W) alongside (H, W)."""
+
+    mask = np.zeros((3, 4, 5), dtype=np.bool_)
+    assert IdentityPreprocessor().transform_mask(mask) is None
+
+    callable_preprocessor = CallablePreprocessor(transform_mask_fn=np.logical_not)
+    assert np.array_equal(callable_preprocessor.transform_mask(mask), ~mask)
+
+    with pytest.raises(ValueError, match="H, W"):
+        IdentityPreprocessor().transform_mask(np.zeros((5,), dtype=np.bool_))
+
+
 def test_declarative_preprocessing_fingerprint_is_canonical_and_sensitive() -> None:
     """Equivalent op syntax hashes equally and a changed op changes identity."""
 
@@ -274,6 +287,21 @@ def test_declarative_adapter_applies_pixels_but_only_geometry_to_mask() -> None:
     assert transformed.sum() == 24
 
 
+def test_declarative_preprocessor_transforms_per_frame_masks() -> None:
+    """A (T, H, W) mask keeps its per-frame rank through resize/crop."""
+
+    preprocessor = DeclarativePreprocessor((Resize((8, 12)), CenterCrop((6, 8))))
+    mask = np.zeros((2, 4, 6), dtype=np.bool_)
+    mask[0, :, :3] = True  # frame 1 stays empty
+
+    transformed = preprocessor.transform_mask(mask)
+
+    assert transformed.shape == (2, 6, 8)
+    assert transformed.dtype == np.bool_
+    assert transformed[0].sum() == 24
+    assert not transformed[1].any()
+
+
 def test_declarative_adapter_accepts_mapping_ops_and_rejects_unknown_ops() -> None:
     """JSON-style declarations resolve to the same strict operation contract."""
 
@@ -362,6 +390,26 @@ def test_torchvision_video_adapter_accepts_clips_and_shares_mask_geometry() -> N
     transformed = adapter.transform_mask(mask)
     assert transformed.shape == (32, 32)
     assert transformed.dtype == np.bool_
+
+
+def test_torchvision_video_adapter_transforms_per_frame_masks() -> None:
+    """A (T, H, W) mask is resized/cropped frame by frame, not broadcast."""
+
+    adapter = TorchvisionVideoAdapter(
+        "r3d_18", device="cpu", resize_size=40, crop_size=32
+    )
+    mask = np.zeros((3, 40, 40), dtype=np.bool_)
+    mask[0, :20, :20] = True
+    mask[1, :, :] = True
+    # frame 2 stays empty
+
+    transformed = adapter.transform_mask(mask)
+
+    assert transformed.shape == (3, 32, 32)
+    assert transformed.dtype == np.bool_
+    assert transformed[0].sum() > 0
+    assert np.all(transformed[1])
+    assert not transformed[2].any()
 
 
 def test_untrained_framework_model_initialization_is_reproducible() -> None:

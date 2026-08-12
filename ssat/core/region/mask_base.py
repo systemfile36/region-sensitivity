@@ -117,8 +117,32 @@ class RegionMaskGenerator(ABC):
             rng: Item-local generator required by stochastic generators.
 
         Returns:
-            A boolean mask in ``(H, W)`` layout.
+            A boolean mask in ``(H, W)`` layout, broadcast across every
+            source frame by the perturb/runtime layers. Generators that
+            need a different selection per frame (e.g. a future
+            skeleton-tracking provider) may instead return ``(T, H, W)``;
+            ``RegionResolver`` validates ``T`` against the source sample.
 
         Raises:
             RegionResolutionError: If the recipe or runtime input is invalid.
         """
+
+
+def mean_frame_area(mask: NDArray[np.bool_]) -> float:
+    """Measure a mask's nonzero pixel count under the shared time-axis rule.
+
+    A ``(H, W)`` mask reports its exact pixel count. A ``(T, H, W)`` mask
+    reports the mean nonzero count across frames, so area and ratio
+    statistics stay comparable whether a region is broadcast across every
+    frame or varies per frame.
+
+    Args:
+        mask: A ``(H, W)`` or ``(T, H, W)`` boolean mask.
+
+    Returns:
+        The (possibly fractional) mean per-frame nonzero pixel count.
+    """
+
+    if mask.ndim == 2:
+        return float(np.count_nonzero(mask))
+    return float(mask.reshape(mask.shape[0], -1).sum(axis=1).mean())

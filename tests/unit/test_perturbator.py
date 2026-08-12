@@ -24,6 +24,21 @@ def _mask() -> np.ndarray:
     return mask
 
 
+def _two_frame_array() -> np.ndarray:
+    """Create a two-frame non-uniform RGB source array."""
+
+    return np.arange(2 * 6 * 7 * 3, dtype=np.uint8).reshape(2, 6, 7, 3)
+
+
+def _per_frame_mask() -> np.ndarray:
+    """Create a (T, H, W) mask selecting a different region per frame."""
+
+    mask = np.zeros((2, 6, 7), dtype=np.bool_)
+    mask[0, 1:5, 2:6] = True
+    mask[1, 0:2, 0:2] = True
+    return mask
+
+
 @pytest.mark.parametrize(
     ("op", "params", "seed"),
     [
@@ -54,6 +69,62 @@ def test_operations_preserve_pixels_outside_mask_and_inputs(
     assert np.array_equal(result[:, ~mask, :], array[:, ~mask, :])
     assert np.array_equal(array, original)
     assert np.array_equal(mask, original_mask)
+
+
+@pytest.mark.parametrize(
+    ("op", "params", "seed"),
+    [
+        (PerturbationOp.CONSTANT_FILL, {"value": 17}, None),
+        (PerturbationOp.MEAN_FILL, {"value": [10.2, 20.5, 30.8]}, None),
+        (PerturbationOp.BLUR, {"sigma": 1.0}, None),
+        (PerturbationOp.GAUSSIAN_NOISE, {"sigma": 20.0}, 3),
+        (PerturbationOp.PATCH_SHUFFLE, {"patch_size": 2}, 0),
+    ],
+)
+def test_operations_support_per_frame_masks(
+    op: PerturbationOp,
+    params: Mapping[str, Any],
+    seed: int | None,
+) -> None:
+    """A (T, H, W) mask selects an independent region in each frame."""
+
+    array = _two_frame_array()
+    original = array.copy()
+    mask = _per_frame_mask()
+    rng = np.random.default_rng(seed) if seed is not None else None
+
+    result = Perturbator().apply(array, mask, op, params, rng)
+
+    assert result is not array
+    assert result.dtype == np.uint8
+    assert np.array_equal(result[0][~mask[0]], array[0][~mask[0]])
+    assert np.array_equal(result[1][~mask[1]], array[1][~mask[1]])
+    assert np.array_equal(array, original)
+
+
+def test_per_frame_fill_applies_only_within_each_frames_mask() -> None:
+    """(T, H, W) masks fill exactly the selected region in each frame."""
+
+    array = np.zeros((2, 3, 3, 3), dtype=np.uint8)
+    mask = np.zeros((2, 3, 3), dtype=np.bool_)
+    mask[0, 0, :] = True
+    mask[1, :, 0] = True
+
+    result = Perturbator().apply(array, mask, PerturbationOp.CONSTANT_FILL, {"value": 9})
+
+    assert np.all(result[0, 0, :, :] == 9)
+    assert np.all(result[0, 1:, :, :] == 0)
+    assert np.all(result[1, :, 0, :] == 9)
+    assert np.all(result[1, :, 1:, :] == 0)
+
+
+def test_per_frame_mask_frame_count_must_match_array() -> None:
+    """A (T, H, W) mask with a mismatched frame count is rejected."""
+
+    array = _array()  # T = 1
+    mask = np.zeros((2, 6, 7), dtype=np.bool_)
+    with pytest.raises(PerturbationError, match="matching"):
+        Perturbator().apply(array, mask, PerturbationOp.CONSTANT_FILL, {"value": 0})
 
 
 def test_fill_rounds_scalar_and_channel_values() -> None:

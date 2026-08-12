@@ -32,7 +32,7 @@ def _apply_fill(
 
     Args:
         array: Validated source pixels.
-        mask: Validated selection mask.
+        mask: Validated ``(H, W)`` or ``(T, H, W)`` selection mask.
         params: Mapping containing exactly ``value``.
         op_name: Concrete fill operation name used in errors.
 
@@ -43,7 +43,10 @@ def _apply_fill(
     require_keys(params, {"value"}, op_name)
     fill = fill_value(params["value"], array.shape[-1], op_name)
     result = array.copy()
-    result[:, mask, :] = fill
+    if mask.ndim == 2:
+        result[:, mask, :] = fill
+    else:
+        result[mask] = fill
     return result
 
 
