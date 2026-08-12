@@ -1,8 +1,8 @@
 # Spatial Sensitivity Audit Toolkit (SSAT)
 
-SSAT는 이미지 분류 모델의 예측이 공간 영역별 교란에 얼마나 민감한지 감사하고,
-재현 가능한 raw logits dump를 생성하는 도구입니다. CLI, Python 코드, 향후 WebUI가
-같은 `AuditApplication` 계층을 사용합니다.
+SSAT는 이미지·비디오 분류 모델의 예측이 공간 영역별 교란에 얼마나 민감한지
+감사하고, 재현 가능한 raw logits dump를 생성하는 도구입니다. CLI, Python 코드,
+향후 WebUI가 같은 `AuditApplication` 계층을 사용합니다.
 
 ## 빠른 시작
 
@@ -16,7 +16,9 @@ ssat inspect /tmp/ssat-quickstart
 ```
 
 quickstart는 committed synthetic fixture와 CPU torchvision 모델의 무작위 초기화
-가중치를 사용하므로 네트워크 다운로드가 없습니다.
+가중치를 사용하므로 네트워크 다운로드가 없습니다. 비디오 입력(`source.kind:
+video_manifest`)과 action recognition 모델(`adapter.provider: torchvision_video`)도
+같은 방식으로 동작하며 `configs/examples/video_quickstart.yaml`을 참고하세요.
 
 Python에서도 같은 실행 정책을 사용할 수 있습니다.
 

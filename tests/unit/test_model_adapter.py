@@ -30,6 +30,7 @@ from ssat.core.adapter import (
     TimmAdapter,
     ToFloat,
     TorchvisionAdapter,
+    TorchvisionVideoAdapter,
 )
 
 
@@ -338,6 +339,29 @@ def test_framework_adapters_reject_video_input() -> None:
     video = np.zeros((1, 2, 16, 16, 3), dtype=np.uint8)
     with pytest.raises(AdapterError, match="require T=1"):
         adapter.predict(video)
+
+
+def test_torchvision_video_adapter_accepts_clips_and_shares_mask_geometry() -> None:
+    """Unlike image adapters, the video adapter accepts T>1 clips."""
+
+    adapter = TorchvisionVideoAdapter(
+        "r3d_18", device="cpu", resize_size=40, crop_size=32
+    )
+    spec = adapter.describe()
+    assert spec.adapter_kind == "torchvision_video"
+    assert spec.deterministic is True
+    assert spec.mask_transform_available is True
+    assert spec.weights_id == "none:init_seed=0"
+
+    outputs = adapter.predict(_batch(count=1, height=40, width=40).repeat(4, axis=1))
+    assert len(outputs) == 1
+    assert outputs[0].logits.shape == (400,)  # Kinetics-400 head
+
+    mask = np.zeros((40, 40), dtype=np.bool_)
+    mask[:20, :20] = True
+    transformed = adapter.transform_mask(mask)
+    assert transformed.shape == (32, 32)
+    assert transformed.dtype == np.bool_
 
 
 def test_untrained_framework_model_initialization_is_reproducible() -> None:

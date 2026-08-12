@@ -1,0 +1,185 @@
+{
+  "classes": [
+    {
+      "id": 0,
+      "name": "sweep"
+    },
+    {
+      "id": 1,
+      "name": "pulse"
+    },
+    {
+      "id": 2,
+      "name": "bounce"
+    }
+  ],
+  "corrupt_count": 2,
+  "description": "Deterministic procedural video clips for SSAT video source tests.",
+  "fixture_version": "1.0.0",
+  "fps": 8,
+  "frame_size": [
+    64,
+    64
+  ],
+  "generator": "generate_synthetic_video_fixture.py",
+  "samples": [
+    {
+      "class_name": "sweep",
+      "content_sha256": "fda086ed0ee19b300c16c39f204356b4dd6d0796cb7c6569a907b5ebf0b32835",
+      "expected_status": "ok",
+      "gt_label": 0,
+      "height": 64,
+      "num_source_frames": 13,
+      "path": "videos/sample_000.mp4",
+      "sample_id": "synthetic-video-000",
+      "width": 64
+    },
+    {
+      "class_name": "pulse",
+      "content_sha256": "c6d1f412dc3dbf81a4cc87841b146f910d44be9193f2486f5163020137045075",
+      "expected_status": "ok",
+      "gt_label": 1,
+      "height": 64,
+      "num_source_frames": 14,
+      "path": "videos/sample_001.mp4",
+      "sample_id": "synthetic-video-001",
+      "width": 64
+    },
+    {
+      "class_name": "bounce",
+      "content_sha256": "eb8c62bc2389be7bad1560e8c8e56b6514c0bdf269f28bfe8e9ed7dd4bfda3a6",
+      "expected_status": "ok",
+      "gt_label": 2,
+      "height": 64,
+      "num_source_frames": 16,
+      "path": "videos/sample_002.mp4",
+      "sample_id": "synthetic-video-002",
+      "width": 64
+    },
+    {
+      "class_name": "sweep",
+      "content_sha256": "ffe0435d19f20a86980e1d02ec8765f713e61b43858f89459e5f8bc7aad88411",
+      "expected_status": "ok",
+      "gt_label": 0,
+      "height": 64,
+      "num_source_frames": 13,
+      "path": "videos/sample_003.mp4",
+      "sample_id": "synthetic-video-003",
+      "width": 64
+    },
+    {
+      "class_name": "pulse",
+      "content_sha256": "20ac008886430bb77603d95cb08a08b6ee01c7301de15adbe41187bfc2973de5",
+      "expected_status": "ok",
+      "gt_label": 1,
+      "height": 64,
+      "num_source_frames": 15,
+      "path": "videos/sample_004.mp4",
+      "sample_id": "synthetic-video-004",
+      "width": 64
+    },
+    {
+      "class_name": "bounce",
+      "content_sha256": "be7ab36c7ee9dbd46a8bea08c1f889788dcae4cfc7e6cbfd71e914cefcdbcda3",
+      "expected_status": "ok",
+      "gt_label": 2,
+      "height": 64,
+      "num_source_frames": 10,
+      "path": "videos/sample_005.mp4",
+      "sample_id": "synthetic-video-005",
+      "width": 64
+    },
+    {
+      "class_name": "sweep",
+      "content_sha256": "4a9e1429e64d3065e59582bde4dac49651f7d93116d29e8b3eff99cb21dd2c00",
+      "expected_status": "ok",
+      "gt_label": 0,
+      "height": 64,
+      "num_source_frames": 15,
+      "path": "videos/sample_006.mp4",
+      "sample_id": "synthetic-video-006",
+      "width": 64
+    },
+    {
+      "class_name": "pulse",
+      "content_sha256": "5ce631b74fd46b6bcedb0c5f19fa55795bd055a47f9aa232bc977438b439b62e",
+      "expected_status": "ok",
+      "gt_label": 1,
+      "height": 64,
+      "num_source_frames": 16,
+      "path": "videos/sample_007.mp4",
+      "sample_id": "synthetic-video-007",
+      "width": 64
+    },
+    {
+      "class_name": "bounce",
+      "content_sha256": "1de0fc3348b3a99e6d3e32951ad32db3d89255392c5b5b522df82c4d7429cdc2",
+      "expected_status": "ok",
+      "gt_label": 2,
+      "height": 64,
+      "num_source_frames": 13,
+      "path": "videos/sample_008.mp4",
+      "sample_id": "synthetic-video-008",
+      "width": 64
+    },
+    {
+      "class_name": "sweep",
+      "content_sha256": "e871222c1480685174b1fdbbf632df2534e2ac69df6b77847f6aeb49f322de35",
+      "expected_status": "ok",
+      "gt_label": 0,
+      "height": 64,
+      "num_source_frames": 10,
+      "path": "videos/sample_009.mp4",
+      "sample_id": "synthetic-video-009",
+      "width": 64
+    },
+    {
+      "class_name": "pulse",
+      "content_sha256": "91f981743a8b57c35485cc6e9ee04ad3745436754f850bd5f4201fea374e18c6",
+      "expected_status": "ok",
+      "gt_label": 1,
+      "height": 64,
+      "num_source_frames": 14,
+      "path": "videos/sample_010.mp4",
+      "sample_id": "synthetic-video-010",
+      "width": 64
+    },
+    {
+      "class_name": "bounce",
+      "content_sha256": "87e8db852c9a2cd1e5fe691de4573bf1721b9c2a2f6c6fd259514e1a3502f88f",
+      "expected_status": "ok",
+      "gt_label": 2,
+      "height": 64,
+      "num_source_frames": 12,
+      "path": "videos/sample_011.mp4",
+      "sample_id": "synthetic-video-011",
+      "width": 64
+    },
+    {
+      "class_name": null,
+      "content_sha256": "6ce96b9a8a85843463744b43ff4281354c9f539cf1fe2f2066fe5eef811cbebf",
+      "expected_error_kind": "truncated_mp4",
+      "expected_status": "load_failed",
+      "gt_label": null,
+      "height": null,
+      "num_source_frames": null,
+      "path": "corrupt/truncated.mp4",
+      "sample_id": "synthetic-corrupt-truncated",
+      "width": null
+    },
+    {
+      "class_name": null,
+      "content_sha256": "fa5757f2b003645e5a3f9077db238373325659286440eebc99156797a7716cf6",
+      "expected_error_kind": "invalid_video_bytes",
+      "expected_status": "load_failed",
+      "gt_label": null,
+      "height": null,
+      "num_source_frames": null,
+      "path": "corrupt/invalid.mp4",
+      "sample_id": "synthetic-corrupt-invalid",
+      "width": null
+    }
+  ],
+  "seed": 20260812,
+  "valid_count": 12
+}

@@ -1,0 +1,27 @@
+schema_version: 1.0.0
+source:
+  kind: video_manifest
+  manifest: ../../tests/fixtures/synthetic_video/manifest.json
+  num_frames: 8
+adapter:
+  provider: torchvision_video
+  model_name: r3d_18
+  weights: null
+  device: cpu
+  max_batch_size: 2
+regions:
+  - region_id: grid2x2
+    kind: grid
+    params:
+      rows: 2
+      cols: 2
+perturbations:
+  - op: constant_fill
+    params:
+      value: [0, 0, 0]
+runtime:
+  variants_per_chunk: 2
+  target_batch_size: 2
+  num_workers: 0
+dump:
+  flush_every: 8

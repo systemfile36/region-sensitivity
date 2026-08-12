@@ -46,7 +46,7 @@ from ssat.core.plan import PlanBuilder
 from ssat.core.plan.hashing import canonical_json
 from ssat.core.resume import ResumeIndex
 from ssat.core.runtime import RuntimeCancelledError, run_audit
-from ssat.core.source import ImageFolderSource
+from ssat.core.source.base import SampleSource
 from ssat.core.types import ItemStatus
 from ssat.metrics.aggregate import aggregate_item_metrics
 from ssat.metrics.builtin_metrics import default_metric_registry
@@ -65,7 +65,7 @@ class _ExecutionContext:
     loaded: LoadedApplicationConfig
     adapter: ModelAdapter
     resolved: ResolvedConfig
-    source: ImageFolderSource
+    source: SampleSource
     builder: PlanBuilder
 
 

@@ -25,6 +25,7 @@ from ssat.core.adapter.provider import (
     ProviderConfig,
     TimmProviderConfig,
     TorchvisionProviderConfig,
+    TorchvisionVideoProviderConfig,
     default_adapter_provider_registry,
 )
 
@@ -61,6 +62,8 @@ __all__ = [
     "TorchvisionAdapter",
     "TorchvisionProviderConfig",
     "TorchvisionPreprocessor",
+    "TorchvisionVideoAdapter",
+    "TorchvisionVideoProviderConfig",
     "default_adapter_provider_registry",
 ]
 
@@ -97,6 +100,10 @@ def __getattr__(name: str) -> Any:
         from ssat.core.adapter.torchvision_adapter import TorchvisionPreprocessor
 
         return TorchvisionPreprocessor
+    if name == "TorchvisionVideoAdapter":
+        from ssat.core.adapter.torchvision_video_adapter import TorchvisionVideoAdapter
+
+        return TorchvisionVideoAdapter
     if name == "TimmAdapter":
         from ssat.core.adapter.timm_adapter import TimmAdapter
 

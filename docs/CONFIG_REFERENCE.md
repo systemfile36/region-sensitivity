@@ -25,6 +25,25 @@ manifest는 다음 형식의 JSON object입니다.
 `gt_label`은 선택적인 0-based class index입니다. 부가 필드는 허용하지만 v1에서는
 무시합니다. manifest 경로와 SHA-256은 run manifest에 기록됩니다.
 
+비디오 입력은 `kind: video_manifest`로 사용합니다. manifest의 `samples` 형식은
+image_manifest와 동일하며 `path`가 비디오 파일(mp4 등)을 가리킵니다.
+
+```yaml
+source:
+  kind: video_manifest
+  manifest: ../data/video_manifest.json
+  num_frames: 16
+```
+
+`num_frames`(기본 16, 양의 정수)은 decord로 클립마다 균등 간격으로 샘플링할
+프레임 수입니다. 클립 길이가 `num_frames`보다 짧으면 낮은 인덱스가 반복
+샘플링됩니다. 로드된 배열은 `(num_frames, H, W, 3)` uint8이며, 이후의 region·
+perturbation·adapter 계층은 이미지(`T=1`)와 동일한 `(T, H, W, C)` 계약을 그대로
+사용하므로 별도 처리가 필요 없습니다. 다만 v1의 region/perturbation 마스크는
+샘플당 `(H, W)` 한 장을 전 프레임에 동일하게 적용합니다(예: `grid`, `explicit`).
+프레임마다 달라지는 마스크(예: skeleton 부위 추적)는 아직 지원하지 않습니다 —
+자세한 내용은 `docs/VIDEO_SKELETON_EXTENSION_ANALYSIS_v1.md`를 참고하세요.
+
 ## Adapter
 
 Torchvision:
@@ -40,6 +59,26 @@ adapter:
   init_seed: 0
   model_kwargs: {}
 ```
+
+Torchvision video (action recognition, `T>1` 클립 입력):
+
+```yaml
+adapter:
+  provider: torchvision_video
+  model_name: r3d_18      # torchvision.models.video의 모델명
+  weights: null            # null이면 다운로드 없는 무작위 초기화
+  device: auto
+  max_batch_size: 8
+  resize_size: 128          # 기본값은 r3d_18/mc3_18/s3d의 Kinetics-400 preset
+  crop_size: 112
+  mean: [0.43216, 0.394666, 0.37645]
+  std: [0.22803, 0.22145, 0.216989]
+```
+
+`resize_size`/`crop_size`/`mean`/`std`는 아키텍처별 preprocessing 통계가 다른
+모델(예: `mvit_v2_s`, `swin3d_t`)을 사용할 때 조정합니다. 나머지 필드
+(`checkpoint`, `init_seed`, `model_kwargs` 등)는 `torchvision` provider와
+동일한 의미입니다.
 
 Timm:
 

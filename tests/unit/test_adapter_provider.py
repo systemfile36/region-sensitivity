@@ -12,6 +12,7 @@ from ssat.core.adapter import (
     ProviderConfig,
     TimmProviderConfig,
     TorchvisionProviderConfig,
+    TorchvisionVideoProviderConfig,
     default_adapter_provider_registry,
 )
 from ssat.application import ApplicationError, ApplicationErrorCode, AuditApplication, EstimateRequest
@@ -39,7 +40,7 @@ def test_default_registry_is_fresh_and_contains_only_builtins() -> None:
     first = default_adapter_provider_registry()
     second = default_adapter_provider_registry()
     assert first is not second
-    assert first.names == ("torchvision", "timm")
+    assert first.names == ("torchvision", "torchvision_video", "timm")
 
 
 def test_custom_provider_requires_explicit_registration(tmp_path: Path) -> None:
@@ -65,6 +66,15 @@ def test_builtin_checkpoint_selectors_are_mutually_exclusive() -> None:
         TimmProviderConfig(
             model_name="resnet18",
             pretrained=True,
+            checkpoint={"path": "model.pt"},
+        )
+
+
+def test_video_checkpoint_selector_is_mutually_exclusive_with_weights() -> None:
+    with pytest.raises(ValueError, match="mutually exclusive"):
+        TorchvisionVideoProviderConfig(
+            model_name="r3d_18",
+            weights="DEFAULT",
             checkpoint={"path": "model.pt"},
         )
 
@@ -124,3 +134,32 @@ def test_torchvision_provider_loads_local_checkpoint_without_network(
     assert adapter.describe().weights_id == "checkpoint:squeezenet.pt"
     outputs = adapter.predict(np.zeros((1, 1, 64, 64, 3), dtype=np.uint8))
     assert outputs[0].logits.shape == (1000,)
+
+
+def test_torchvision_video_provider_loads_local_checkpoint_without_network(
+    tmp_path: Path,
+) -> None:
+    import torch
+    from torchvision.models import video
+
+    checkpoint = tmp_path / "r3d18.pt"
+    torch.save({"state_dict": video.r3d_18(weights=None).state_dict()}, checkpoint)
+    registry = default_adapter_provider_registry()
+    config = registry.parse(
+        {
+            "provider": "torchvision_video",
+            "model_name": "r3d_18",
+            "device": "cpu",
+            "resize_size": 40,
+            "crop_size": 32,
+            "checkpoint": {
+                "path": checkpoint.name,
+                "state_dict_key": "state_dict",
+            },
+        }
+    )
+    adapter = registry.build(config, base_dir=tmp_path)
+    assert adapter.describe().weights_hash == sha256_file(checkpoint)
+    assert adapter.describe().weights_id == "checkpoint:r3d18.pt"
+    outputs = adapter.predict(np.zeros((1, 4, 40, 40, 3), dtype=np.uint8))
+    assert outputs[0].logits.shape == (400,)

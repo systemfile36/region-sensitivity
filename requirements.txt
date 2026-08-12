@@ -16,6 +16,9 @@ timm
 opencv-python-headless
 pillow
 
+# Video
+decord
+
 # Others
 tqdm
 matplotlib

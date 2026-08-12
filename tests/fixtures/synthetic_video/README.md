@@ -1,0 +1,28 @@
+# Synthetic video fixture
+
+This directory is the default output of
+`scripts/generate_synthetic_video_fixture.py`.
+
+The generator creates 12 deterministic 64×64 mp4v-encoded MP4 clips (10-17
+frames each, a moving shape over a per-class background so frame content
+differs across time), two intentionally corrupt video files, and
+`manifest.json`. The generated binary artifacts are committed only after
+review; CI consumes the committed files and does not run the generator.
+
+From the repository root:
+
+```bash
+python scripts/generate_synthetic_video_fixture.py
+```
+
+The command refuses to replace generated targets by default. To deliberately
+regenerate them after reviewing generator changes:
+
+```bash
+python scripts/generate_synthetic_video_fixture.py --force
+```
+
+No external videos or network access are used. Frame size is fixed at 64×64
+because decord's mp4v `get_batch` path raises a spurious size-mismatch error
+for a handful of small resolutions (e.g. 16, 24, 48, 72) — 64 decodes
+reliably and keeps clips tiny.

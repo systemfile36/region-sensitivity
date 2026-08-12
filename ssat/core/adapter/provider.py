@@ -57,6 +57,34 @@ class TorchvisionProviderConfig(ProviderConfig):
         return self
 
 
+class TorchvisionVideoProviderConfig(ProviderConfig):
+    """Configuration accepted by :class:`TorchvisionVideoProvider`."""
+
+    provider: Literal["torchvision_video"] = "torchvision_video"
+    model_name: str
+    weights: str | None = None
+    checkpoint: CheckpointConfig | None = None
+    device: str = "auto"
+    deterministic: bool = True
+    max_batch_size: int | None = Field(default=None, gt=0)
+    model_id: str | None = None
+    model_kwargs: dict[str, Any] = Field(default_factory=dict)
+    init_seed: int = Field(default=0, ge=0, le=2**63 - 1)
+    weights_hash: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
+    resize_size: int = Field(default=128, gt=0)
+    crop_size: int = Field(default=112, gt=0)
+    mean: tuple[float, ...] = (0.43216, 0.394666, 0.37645)
+    std: tuple[float, ...] = (0.22803, 0.22145, 0.216989)
+
+    @model_validator(mode="after")
+    def validate_weights(self) -> TorchvisionVideoProviderConfig:
+        if self.weights is not None and self.checkpoint is not None:
+            raise ValueError("weights and checkpoint are mutually exclusive")
+        if self.checkpoint is not None and self.weights_hash is not None:
+            raise ValueError("checkpoint hash is computed and cannot be supplied")
+        return self
+
+
 class TimmProviderConfig(ProviderConfig):
     """Configuration accepted by :class:`TimmProvider`."""
 
@@ -113,6 +141,42 @@ class TorchvisionProvider(AdapterProvider):
             model_id=config.model_id,
             model_kwargs=config.model_kwargs,
             init_seed=config.init_seed,
+            weights_hash=checkpoint_hash or config.weights_hash,
+            checkpoint_path=checkpoint,
+            checkpoint_state_dict_key=(
+                None if config.checkpoint is None else config.checkpoint.state_dict_key
+            ),
+            checkpoint_strict=(
+                True if config.checkpoint is None else config.checkpoint.strict
+            ),
+        )
+
+
+class TorchvisionVideoProvider(AdapterProvider):
+    """Build torchvision.models.video action-recognition adapters."""
+
+    name = "torchvision_video"
+    config_model = TorchvisionVideoProviderConfig
+
+    def build(self, config: ProviderConfig, *, base_dir: Path) -> ModelAdapter:
+        from ssat.core.adapter.torchvision_video_adapter import TorchvisionVideoAdapter
+
+        if not isinstance(config, TorchvisionVideoProviderConfig):
+            raise TypeError("config must be TorchvisionVideoProviderConfig")
+        checkpoint, checkpoint_hash = _resolve_checkpoint(config.checkpoint, base_dir)
+        return TorchvisionVideoAdapter(
+            config.model_name,
+            weights=config.weights,
+            device=None if config.device == "auto" else config.device,
+            deterministic=config.deterministic,
+            max_batch_size=config.max_batch_size,
+            model_id=config.model_id,
+            model_kwargs=config.model_kwargs,
+            init_seed=config.init_seed,
+            resize_size=config.resize_size,
+            crop_size=config.crop_size,
+            mean=config.mean,
+            std=config.std,
             weights_hash=checkpoint_hash or config.weights_hash,
             checkpoint_path=checkpoint,
             checkpoint_state_dict_key=(
@@ -221,6 +285,7 @@ def default_adapter_provider_registry() -> AdapterProviderRegistry:
 
     registry = AdapterProviderRegistry()
     registry.register(TorchvisionProvider())
+    registry.register(TorchvisionVideoProvider())
     registry.register(TimmProvider())
     return registry
 
