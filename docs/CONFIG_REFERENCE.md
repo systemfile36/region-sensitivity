@@ -43,10 +43,64 @@ perturbation·adapter 계층은 이미지(`T=1`)와 동일한 `(T, H, W, C)` 계
 
 region/perturbation 마스크는 `(H, W)`(전 프레임 공통 브로드캐스트) 또는
 `(T, H, W)`(프레임별로 다른 선택)를 모두 지원하도록 코어가 확장되어 있습니다.
-다만 v1에 내장된 region kind(`grid`, `explicit`, `random_area_match`)는 아직
-`(H, W)`만 반환합니다 — 실제로 프레임마다 달라지는 마스크(예: skeleton 부위
-추적)를 만들어내는 provider는 향후 확장입니다. 자세한 내용은
-`docs/VIDEO_SKELETON_EXTENSION_ANALYSIS_v1.md`를 참고하세요.
+`grid`/`explicit`/`random_area_match`는 여전히 `(H, W)`만 반환하고, 프레임마다
+달라지는 마스크는 아래 `skeleton_parts` region kind가 제공합니다. 자세한
+설계 배경은 `docs/VIDEO_SKELETON_EXTENSION_ANALYSIS_v1.md`를 참고하세요.
+
+### Skeleton 부위 추적(skeleton_parts)
+
+사전 계산된 프레임별 신체 부위 bounding box를 따라가며 가리려면 최상위
+`skeleton_source`와 `regions[].kind: skeleton_parts`를 함께 설정합니다.
+
+```yaml
+skeleton_source:
+  bbox_data: ../data/skeleton_bbox.json
+  bbox_data_hash: null   # 선택: 지정하면 로드 시 SHA-256이 일치해야 함
+
+regions:
+  - region_id: occlude_left_arm
+    kind: skeleton_parts
+    params:
+      body_part: left_arm
+      bbox_scale: 1.15    # 선택, 기본 1.0. bbox 중심 기준 확대 배율
+```
+
+`skeleton_source.bbox_data`가 가리키는 JSON은 다음 형식입니다(전체 스키마와
+검증 규칙은 `ssat/core/region/skeleton_store.py` 참고).
+
+```json
+{
+  "<sample_id>": {
+    "frame_size": [width, height],
+    "parts": {
+      "<part_name>": [[x1, y1, x2, y2] , null, "... 프레임 수만큼"]
+    }
+  }
+}
+```
+
+- `sample_id`는 source manifest의 `sample_id`와 일치해야 합니다. source가
+  로드하는 모든 sample(로드에 실패하는 손상 파일 포함)에 대해 항목이 있어야
+  합니다 — planning 단계는 픽셀을 읽기 전에 region을 확장하기 때문입니다.
+- `frame_size`는 `[width, height]`이며 source가 실제로 디코딩하는 프레임
+  크기(예: `video_manifest`의 `num_frames`로 샘플링된 이후 크기가 아니라
+  원본 디코딩 크기)와 정확히 일치해야 합니다.
+- 각 부위의 리스트 길이(프레임 수)는 그 sample의 모든 부위가 동일해야 하며,
+  개별 프레임 값은 추적 실패를 표시하는 `null`이거나 `[x1, y1, x2, y2]`
+  (`0 <= x1 < x2`, `0 <= y1 < y2`)입니다.
+- 이 JSON 생성(원본 skeleton/joint 파싱, 부위별 bbox 계산)은 SSAT 범위 밖의
+  오프라인 전처리이며, `ssat.core.region.skeleton_store`는 이미 계산된
+  결과만 로드합니다.
+
+region 1개는 `body_part` 1개에 대응하며, 샘플당 정확히 1개의 concrete
+region으로 확장됩니다(grid의 셀별 확장과 달리 부위 하나가 이미 시간축 전체를
+포괄하는 단위이기 때문). 여러 부위를 가리려면 `region_id`가 다른 여러
+`skeleton_parts` region을 나열하세요. `random_area_match`의 대조군은
+`skeleton_parts` target에 대해서는 아직 지원하지 않습니다 — target이
+`(T, H, W)`로 resolve되면 명시적인 오류가 발생합니다.
+
+동작하는 전체 예시는 `configs/examples/skeleton_quickstart.yaml`(및 함께
+커밋된 `tests/fixtures/synthetic_video/skeleton_bbox.json`)을 참고하세요.
 
 ## Adapter
 
@@ -108,7 +162,9 @@ checkpoint는 신뢰할 수 있는 파일만 사용하며 SHA-256이 자동 기�
 
 ## 감사 공간
 
-- `regions`: `grid` 또는 `explicit` region family. grid는 `rows`, `cols`를 사용합니다.
+- `regions`: `grid`, `explicit`, `skeleton_parts` region family. grid는
+  `rows`, `cols`를 사용하고, `skeleton_parts`는 위 "Skeleton 부위 추적" 절을
+  참고하며 최상위 `skeleton_source`가 함께 있어야 합니다.
 - `perturbations`: `constant_fill`, `mean_fill`, `blur`, `gaussian_noise`,
   `patch_shuffle`과 params, `invert_mask`, `seed_salts`를 정의합니다.
 - `controls`: `match_area_of`와 `n_samples`로 random area-matched control을 요청합니다.

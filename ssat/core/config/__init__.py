@@ -10,7 +10,9 @@ from ssat.core.config.schema import (
     RegionConfig,
     ResolvedConfig,
     ResolvedRegionConfig,
+    ResolvedSkeletonSourceConfig,
     RuntimeConfig,
+    SkeletonSourceConfig,
     SourceProvenance,
 )
 from ssat.core.config.stats import DatasetStatsError, compute_dataset_stats
@@ -26,7 +28,9 @@ __all__ = [
     "RegionConfig",
     "ResolvedConfig",
     "ResolvedRegionConfig",
+    "ResolvedSkeletonSourceConfig",
     "RuntimeConfig",
+    "SkeletonSourceConfig",
     "SourceProvenance",
     "DatasetStatsError",
     "compute_dataset_stats",

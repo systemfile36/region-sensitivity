@@ -25,8 +25,6 @@ from ssat.core.config.schema import (
 )
 from ssat.core.plan import PlanBuilder
 from ssat.core.plan.region_expander import RegionExpander
-from ssat.core.region.mask_base import ExplicitMaskCache, MaskResolutionContext
-from ssat.core.region.mask_factory import build_mask_generators
 from ssat.core.region.resolver import RegionResolver
 from ssat.core.region.skeleton_provider import SkeletonRegionProvider
 from ssat.core.region.skeleton_store import load_skeleton_bbox_store
@@ -72,23 +70,9 @@ def _write_store(tmp_path: Path):
 
 
 def _resolver_with_store(store) -> RegionResolver:
-    """Build a resolver whose SkeletonPartsMaskGenerator can see real data.
+    """Build a resolver whose default SkeletonPartsMaskGenerator sees real data."""
 
-    Follows the established pattern (tests/unit/test_region_mask_factory.py
-    ``test_random_area_match_rejects_per_frame_targets``) of constructing a
-    default resolver first so ``resolve_target`` can bind to its own
-    ``_resolve_target`` method, then rebuilding its generator set with a
-    context carrying the shared skeleton store.
-    """
-
-    resolver = RegionResolver()
-    context = MaskResolutionContext(
-        explicit_cache=ExplicitMaskCache(128),
-        resolve_target=resolver._resolve_target,
-        skeleton_store=store,
-    )
-    resolver._mask_generators = tuple(build_mask_generators(context))
-    return resolver
+    return RegionResolver(skeleton_store=store)
 
 
 def _config(tmp_path: Path, adapter: CallableAdapter) -> ResolvedConfig:

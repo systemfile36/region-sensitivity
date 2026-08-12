@@ -18,6 +18,7 @@ from ssat.core.region.mask_base import (
 )
 from ssat.core.region.mask_dispatch import dispatch_mask_generator
 from ssat.core.region.mask_factory import build_mask_generators
+from ssat.core.region.skeleton_store import SkeletonBBoxStore
 from ssat.core.region.types import RegionMeta, RegionSpec
 
 REGION_GENERATOR_VERSION = "1.0.0"
@@ -30,6 +31,10 @@ class RegionResolver:
         explicit_cache_size: Maximum decoded explicit masks retained per
             resolver instance.
         mask_generators: Optional generators in dispatch-priority order.
+        skeleton_store: Optional pre-computed skeleton body-part bbox data,
+            shared with the default ``SkeletonPartsMaskGenerator``. Ignored
+            when ``mask_generators`` is supplied explicitly, since the
+            caller then owns each generator's context directly.
 
     Raises:
         TypeError: If a supplied value is not a mask generator.
@@ -41,6 +46,7 @@ class RegionResolver:
         *,
         explicit_cache_size: int = 128,
         mask_generators: Sequence[RegionMaskGenerator] | None = None,
+        skeleton_store: SkeletonBBoxStore | None = None,
     ) -> None:
         cache = ExplicitMaskCache(explicit_cache_size)
         self._mask_generators: tuple[RegionMaskGenerator, ...] = ()
@@ -48,6 +54,7 @@ class RegionResolver:
             context = MaskResolutionContext(
                 explicit_cache=cache,
                 resolve_target=self._resolve_target,
+                skeleton_store=skeleton_store,
             )
             resolved = tuple(build_mask_generators(context))
         else:

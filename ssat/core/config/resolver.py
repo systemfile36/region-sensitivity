@@ -16,6 +16,8 @@ from ssat.core.config.schema import (
     RegionConfig,
     ResolvedConfig,
     ResolvedRegionConfig,
+    ResolvedSkeletonSourceConfig,
+    SkeletonSourceConfig,
     SourceProvenance,
 )
 from ssat.core.config.stats import DatasetStatsError, compute_dataset_stats
@@ -150,6 +152,9 @@ class ConfigResolver:
                 self._resolve_region(region, config_base_dir)
                 for region in audit_config.regions
             )
+            skeleton_source = self._resolve_skeleton_source(
+                audit_config.skeleton_source, config_base_dir
+            )
             perturbation_handlers = tuple(
                 (
                     perturbation,
@@ -191,6 +196,7 @@ class ConfigResolver:
                 dataset_stats=dataset_stats,
                 adapter_spec=adapter_spec,
                 source_provenance=source_provenance,
+                skeleton_source=skeleton_source,
             )
         except ConfigResolutionError:
             raise
@@ -256,6 +262,9 @@ class ConfigResolver:
             and region.ref is not None
             and not region.ref.expanduser().is_absolute()
             for region in config.regions
+        ) or (
+            config.skeleton_source is not None
+            and not config.skeleton_source.bbox_data.expanduser().is_absolute()
         )
         if base_dir is None:
             if has_relative_ref:
@@ -355,6 +364,61 @@ class ConfigResolver:
             params=region.params,
             ref=resolved_ref,
             ref_hash=actual_hash,
+        )
+
+    def _resolve_skeleton_source(
+        self,
+        skeleton_source: SkeletonSourceConfig | None,
+        base_dir: Path,
+    ) -> ResolvedSkeletonSourceConfig | None:
+        """Resolve and verify the optional skeleton bbox data reference.
+
+        Mirrors explicit-mask reference resolution: only the path and
+        content hash are verified here. The bbox data itself is loaded
+        lazily by the caller (e.g. the Application layer), not eagerly
+        embedded in this frozen, hashable configuration.
+
+        Args:
+            skeleton_source: User-configured reference, or ``None``.
+            base_dir: Base directory for relative paths.
+
+        Returns:
+            The resolved reference, or ``None`` if none was configured.
+
+        Raises:
+            ConfigResolutionError: If the file is missing or its hash
+                does not match the configured expectation.
+        """
+
+        if skeleton_source is None:
+            return None
+        candidate = skeleton_source.bbox_data.expanduser()
+        if not candidate.is_absolute():
+            candidate = base_dir / candidate
+        try:
+            resolved_path = candidate.resolve(strict=True)
+        except OSError as error:
+            raise ConfigResolutionError(
+                f"skeleton_source.bbox_data does not exist: {candidate}"
+            ) from error
+        if not resolved_path.is_file():
+            raise ConfigResolutionError(
+                f"skeleton_source.bbox_data is not a file: {resolved_path}"
+            )
+        actual_hash = sha256_file(resolved_path)
+        if (
+            skeleton_source.bbox_data_hash is not None
+            and skeleton_source.bbox_data_hash.lower() != actual_hash
+        ):
+            raise ConfigResolutionError("skeleton_source.bbox_data_hash mismatch")
+        self._logger.debug(
+            "skeleton_source.reference_resolved bbox_data=%s bbox_data_hash=%s",
+            resolved_path,
+            actual_hash,
+        )
+        return ResolvedSkeletonSourceConfig(
+            bbox_data=resolved_path,
+            bbox_data_hash=actual_hash,
         )
 
     def _validate_region_family(self, region: RegionConfig) -> None:

@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from math import isfinite
+from typing import Any
 
 from ssat.core.config.schema import ResolvedRegionConfig
 from ssat.core.plan.expansion_base import RegionExpansionError
@@ -13,6 +14,48 @@ from ssat.core.source.types import SampleMeta
 
 _ALLOWED_PARAMS = {"body_part", "bbox_scale"}
 _DEFAULT_BBOX_SCALE = 1.0
+
+
+def validate_skeleton_family_params(params: Mapping[str, Any]) -> tuple[str, float]:
+    """Validate a ``skeleton_parts`` family's ``body_part``/``bbox_scale``.
+
+    Shared by config-time validation (``SampleDependentRegionExpander``) and
+    per-sample expansion (``SkeletonRegionProvider``), so both layers enforce
+    the identical structural recipe.
+
+    Args:
+        params: Family or resolved-family parameter mapping.
+
+    Returns:
+        The validated ``(body_part, bbox_scale)`` pair, with ``bbox_scale``
+        defaulted to ``1.0`` when omitted.
+
+    Raises:
+        RegionExpansionError: If the params contain unknown keys, omit
+            ``body_part``, or ``body_part``/``bbox_scale`` are invalid.
+    """
+
+    if not set(params) <= _ALLOWED_PARAMS or "body_part" not in params:
+        raise RegionExpansionError(
+            "skeleton_parts params must contain body_part and may "
+            "contain bbox_scale"
+        )
+    body_part = params["body_part"]
+    if not isinstance(body_part, str) or not body_part:
+        raise RegionExpansionError(
+            "skeleton_parts.body_part must be a non-empty string"
+        )
+    bbox_scale = params.get("bbox_scale", _DEFAULT_BBOX_SCALE)
+    if (
+        isinstance(bbox_scale, bool)
+        or not isinstance(bbox_scale, (int, float))
+        or not isfinite(bbox_scale)
+        or bbox_scale <= 0
+    ):
+        raise RegionExpansionError(
+            "skeleton_parts.bbox_scale must be a positive number"
+        )
+    return body_part, float(bbox_scale)
 
 
 class SkeletonRegionProvider:
@@ -49,27 +92,7 @@ class SkeletonRegionProvider:
                 store has no data for this sample and body part.
         """
 
-        params = family.params
-        if not set(params) <= _ALLOWED_PARAMS or "body_part" not in params:
-            raise RegionExpansionError(
-                "skeleton_parts params must contain body_part and may "
-                "contain bbox_scale"
-            )
-        body_part = params["body_part"]
-        if not isinstance(body_part, str) or not body_part:
-            raise RegionExpansionError(
-                "skeleton_parts.body_part must be a non-empty string"
-            )
-        bbox_scale = params.get("bbox_scale", _DEFAULT_BBOX_SCALE)
-        if (
-            isinstance(bbox_scale, bool)
-            or not isinstance(bbox_scale, (int, float))
-            or not isfinite(bbox_scale)
-            or bbox_scale <= 0
-        ):
-            raise RegionExpansionError(
-                "skeleton_parts.bbox_scale must be a positive number"
-            )
+        body_part, bbox_scale = validate_skeleton_family_params(family.params)
 
         if self._store.get(sample.sample_id, body_part) is None:
             raise RegionExpansionError(
@@ -85,7 +108,7 @@ class SkeletonRegionProvider:
                 params={
                     "sample_id": sample.sample_id,
                     "body_part": body_part,
-                    "bbox_scale": float(bbox_scale),
+                    "bbox_scale": bbox_scale,
                 },
             ),
         )

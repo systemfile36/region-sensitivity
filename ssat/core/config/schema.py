@@ -99,6 +99,19 @@ class PerturbationConfig(FrozenModel):
         return value
 
 
+class SkeletonSourceConfig(FrozenModel):
+    """Reference pre-computed skeleton body-part bbox data before resolution.
+
+    Attributes:
+        bbox_data: Path to the skeleton bbox JSON file (see
+            ``ssat.core.region.skeleton_store.load_skeleton_bbox_store``).
+        bbox_data_hash: Optional precomputed hash verified against the file.
+    """
+
+    bbox_data: Path
+    bbox_data_hash: str | None = Field(default=None, pattern=r"^[0-9a-fA-F]{64}$")
+
+
 class ControlConfig(FrozenModel):
     """Request random controls for every instance of a named region family.
 
@@ -183,6 +196,8 @@ class AuditConfig(FrozenModel):
         runtime: Worker, batching, retry, and determinism settings.
         dump: Raw dump buffering settings.
         dataset_stats: Optional precomputed statistics used by perturbations.
+        skeleton_source: Optional pre-computed body-part bbox data, required
+            when any region uses ``kind: skeleton_parts``.
     """
 
     schema_version: Literal["1.0.0"] = SCHEMA_VERSION
@@ -192,6 +207,7 @@ class AuditConfig(FrozenModel):
     runtime: RuntimeConfig = Field(default_factory=RuntimeConfig)
     dump: DumpConfig = Field(default_factory=DumpConfig)
     dataset_stats: DatasetStats | None = None
+    skeleton_source: SkeletonSourceConfig | None = None
 
     @model_validator(mode="after")
     def validate_audit_space(self) -> AuditConfig:
@@ -215,6 +231,13 @@ class AuditConfig(FrozenModel):
         if unknown:
             names = ", ".join(sorted(unknown))
             raise ValueError(f"controls reference unknown region_id values: {names}")
+
+        if self.skeleton_source is None and any(
+            region.kind is RegionKind.SKELETON_PARTS for region in self.regions
+        ):
+            raise ValueError(
+                "skeleton_parts regions require a skeleton_source section"
+            )
         return self
 
 
@@ -257,6 +280,27 @@ class ResolvedRegionConfig(FrozenModel):
         return self
 
 
+class ResolvedSkeletonSourceConfig(FrozenModel):
+    """Describe skeleton body-part bbox data after its reference is resolved.
+
+    Attributes:
+        bbox_data: Absolute path to the verified skeleton bbox JSON file.
+        bbox_data_hash: Verified SHA-256 digest of the referenced file.
+    """
+
+    bbox_data: Path
+    bbox_data_hash: str = Field(pattern=r"^[0-9a-f]{64}$")
+
+    @field_validator("bbox_data")
+    @classmethod
+    def validate_bbox_data(cls, value: Path) -> Path:
+        """Require the resolved reference to be absolute."""
+
+        if not value.is_absolute():
+            raise ValueError("skeleton_source.bbox_data must be absolute")
+        return value
+
+
 class ResolvedConfig(FrozenModel):
     """Hold the fully resolved, manifest-ready audit configuration.
 
@@ -274,6 +318,7 @@ class ResolvedConfig(FrozenModel):
         dump: Raw dump buffering settings.
         dataset_stats: Optional resolved dataset statistics.
         adapter_spec: Adapter metadata verified before execution.
+        skeleton_source: Optional resolved skeleton body-part bbox reference.
     """
 
     schema_version: Literal["1.0.0"] = SCHEMA_VERSION
@@ -287,6 +332,7 @@ class ResolvedConfig(FrozenModel):
     dataset_stats: DatasetStats | None = None
     adapter_spec: AdapterSpec
     source_provenance: SourceProvenance | None = None
+    skeleton_source: ResolvedSkeletonSourceConfig | None = None
 
     @field_validator("config_source")
     @classmethod

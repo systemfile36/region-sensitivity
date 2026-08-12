@@ -38,12 +38,19 @@ from ssat.core.adapter import (
     ModelAdapter,
     default_adapter_provider_registry,
 )
-from ssat.core.config import ConfigResolver, ResolvedConfig
+from ssat.core.config import ConfigResolver, ResolvedConfig, ResolvedSkeletonSourceConfig
 from ssat.core.dump import DumpReader, DumpWriter
 from ssat.core.dump.manifest import load_manifest
 from ssat.core.estimate import CostEstimator
-from ssat.core.plan import PlanBuilder
+from ssat.core.plan import PlanBuilder, RegionExpander
 from ssat.core.plan.hashing import canonical_json
+from ssat.core.region import RegionResolver
+from ssat.core.region.skeleton_provider import SkeletonRegionProvider
+from ssat.core.region.skeleton_store import (
+    SkeletonBBoxStore,
+    SkeletonDataError,
+    load_skeleton_bbox_store,
+)
 from ssat.core.resume import ResumeIndex
 from ssat.core.runtime import RuntimeCancelledError, run_audit
 from ssat.core.source.base import SampleSource
@@ -67,6 +74,7 @@ class _ExecutionContext:
     resolved: ResolvedConfig
     source: SampleSource
     builder: PlanBuilder
+    region_resolver: RegionResolver
 
 
 class PreparedRun:
@@ -165,6 +173,7 @@ class AuditApplication:
             context.source,
             context.adapter,
             resume_index=resume,
+            region_resolver=context.region_resolver,
         )
         result = EstimateResult(report=report, dump_mode=mode)
         fingerprint = self._preflight_fingerprint(context, output, mode)
@@ -243,6 +252,7 @@ class AuditApplication:
                         prepared.context.adapter,
                         writer,
                         resume,
+                        region_resolver=prepared.context.region_resolver,
                         progress_callback=lambda completed, total: self._emit(
                             event_sink,
                             "progress",
@@ -315,6 +325,7 @@ class AuditApplication:
             context.source,
             context.adapter,
             resume_index=resume,
+            region_resolver=context.region_resolver,
         )
         self._emit(event_sink, "completed", "preflight")
         return EstimateResult(report, mode)
@@ -479,12 +490,19 @@ class AuditApplication:
                 config_source=loaded.config_source,
                 source_provenance=loaded.source_provenance,
             )
+            skeleton_store = self._load_skeleton_store(resolved.skeleton_source)
+            region_expander = RegionExpander(
+                SkeletonRegionProvider(skeleton_store)
+                if skeleton_store is not None
+                else None
+            )
             return _ExecutionContext(
                 loaded,
                 adapter,
                 resolved,
                 loaded.sample_source,
-                PlanBuilder(resolved, loaded.sample_source),
+                PlanBuilder(resolved, loaded.sample_source, region_expander=region_expander),
+                RegionResolver(skeleton_store=skeleton_store),
             )
         except ApplicationConfigError as error:
             raise ApplicationError(ApplicationErrorCode.CONFIG, str(error)) from error
@@ -494,6 +512,36 @@ class AuditApplication:
             raise ApplicationError(
                 ApplicationErrorCode.CONFIG,
                 f"failed to resolve audit configuration: {error}",
+            ) from error
+
+    @staticmethod
+    def _load_skeleton_store(
+        skeleton_source: ResolvedSkeletonSourceConfig | None,
+    ) -> SkeletonBBoxStore | None:
+        """Load the skeleton bbox store referenced by a resolved config.
+
+        Args:
+            skeleton_source: Resolved, hash-verified reference, or ``None``.
+
+        Returns:
+            The loaded store, or ``None`` if no ``skeleton_source`` was
+            configured.
+
+        Raises:
+            ApplicationConfigError: If the referenced file is unreadable or
+                fails re-verification against its resolved hash.
+        """
+
+        if skeleton_source is None:
+            return None
+        try:
+            return load_skeleton_bbox_store(
+                skeleton_source.bbox_data,
+                expected_hash=skeleton_source.bbox_data_hash,
+            )
+        except SkeletonDataError as error:
+            raise ApplicationConfigError(
+                f"failed to load skeleton_source data: {error}"
             ) from error
 
     def _resume_for_context(

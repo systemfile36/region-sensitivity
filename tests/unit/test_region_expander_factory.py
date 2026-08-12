@@ -240,6 +240,36 @@ def test_builtin_family_expanders_own_config_validation() -> None:
         )
 
 
+def test_sample_dependent_expander_validates_skeleton_parts_structurally() -> None:
+    """skeleton_parts has structural config validation; other kinds stay reserved."""
+
+    expander = SampleDependentRegionExpander(RegionExpansionContext())
+
+    expander.validate_config(
+        RegionConfig(
+            region_id="left_arm",
+            kind=RegionKind.SKELETON_PARTS,
+            params={"body_part": "left_arm", "bbox_scale": 1.2},
+        )
+    )
+    expander.validate_config(
+        RegionConfig(
+            region_id="left_arm",
+            kind=RegionKind.SKELETON_PARTS,
+            params={"body_part": "left_arm"},
+        )
+    )
+
+    with pytest.raises(RegionExpansionError, match="body_part"):
+        expander.validate_config(
+            RegionConfig(region_id="future", kind=RegionKind.SKELETON_PARTS)
+        )
+    with pytest.raises(RegionExpansionError, match="not implemented"):
+        expander.validate_config(
+            RegionConfig(region_id="future", kind=RegionKind.BBOX_PARTITION)
+        )
+
+
 def test_family_factory_builds_fresh_expanders_in_stable_order() -> None:
     """Default family builds preserve order without shared instances."""
 

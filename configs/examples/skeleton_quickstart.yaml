@@ -1,0 +1,29 @@
+schema_version: 1.0.0
+source:
+  kind: video_manifest
+  manifest: ../../tests/fixtures/synthetic_video/manifest.json
+  num_frames: 8
+adapter:
+  provider: torchvision_video
+  model_name: r3d_18
+  weights: null
+  device: cpu
+  max_batch_size: 2
+skeleton_source:
+  bbox_data: ../../tests/fixtures/synthetic_video/skeleton_bbox.json
+regions:
+  - region_id: occlude_left_arm
+    kind: skeleton_parts
+    params:
+      body_part: left_arm
+      bbox_scale: 1.15
+perturbations:
+  - op: constant_fill
+    params:
+      value: [0, 0, 0]
+runtime:
+  variants_per_chunk: 2
+  target_batch_size: 2
+  num_workers: 0
+dump:
+  flush_every: 8

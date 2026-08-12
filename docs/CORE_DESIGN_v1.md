@@ -365,11 +365,21 @@ JSON 파일을 로드해 메모리에 보관하고(원본 skeleton/joint 파싱�
 bbox 중심 기준 `bbox_scale` 배로 확대한 사각형을 `(T, H, W)` 마스크로
 래스터화한다(프레임 값이 `null`이면 그 프레임은 전부 `False`). 이 generator는
 기본 생성기 목록에 포함되어 있지만, `skeleton_store`가 주입되지 않으면
-명확한 오류로 거부한다. **아직 CLI/YAML 설정으로는 연결되어 있지 않다** —
-현재는 `RegionExpander(SkeletonRegionProvider(store))`와 store를 아는
-`MaskResolutionContext`로 구성한 `RegionResolver`를 Python 코드로 직접
-주입해야 하며(`tests/unit/test_skeleton_integration.py` 참고), Application/CLI
-config 배선은 `docs/VIDEO_SKELETON_EXTENSION_ANALYSIS_v1.md` 4단계로 남아 있다.
+명확한 오류로 거부한다.
+
+CLI/YAML config 배선까지 완료되어 있다. 최상위 `skeleton_source.bbox_data`
+(+ 선택적 `bbox_data_hash`)를 설정하면 `ConfigResolver`가 explicit mask의
+`ref`/`ref_hash`와 같은 원칙으로 경로와 hash만 검증해 `ResolvedConfig.
+skeleton_source`에 기록하고(무거운 JSON 본문 자체는 여기서 로드하지 않는다),
+`AuditApplication._build_context`가 그 참조로 실제 `SkeletonBBoxStore`를
+로드해 `RegionExpander(SkeletonRegionProvider(store))`와
+`RegionResolver(skeleton_store=store)`를 구성한 뒤 `PlanBuilder`/`run_audit`/
+`CostEstimator`에 주입한다. `regions[].kind: skeleton_parts`의 `params`는
+`body_part`(필수)와 `bbox_scale`(선택, 기본 1.0)만 받으며, region family
+하나가 부위 하나에 대응해 샘플당 concrete region 1개로 확장된다. YAML 사용법은
+`docs/CONFIG_REFERENCE.md`의 "Skeleton 부위 추적" 절과
+`configs/examples/skeleton_quickstart.yaml`을, Python 레벨 직접 주입 예시는
+`tests/unit/test_skeleton_integration.py`를 참고하라.
 
 #### explicit 마스크 캐싱
 

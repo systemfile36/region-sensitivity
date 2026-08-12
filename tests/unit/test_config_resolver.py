@@ -441,7 +441,7 @@ def test_config_resolver_rejects_invalid_region_expander_collections() -> None:
 
 @pytest.mark.parametrize(
     "kind",
-    ["bbox_partition", "skeleton_parts", "gt_bbox"],
+    ["bbox_partition", "gt_bbox"],
 )
 def test_reserved_region_kinds_fail_explicitly(kind: str) -> None:
     config = make_config()
@@ -452,6 +452,73 @@ def test_reserved_region_kinds_fail_explicitly(kind: str) -> None:
     }
 
     with pytest.raises(ConfigResolutionError, match="not implemented"):
+        ConfigResolver().resolve(config, FakeAdapter(), FakeSource())
+
+
+def test_skeleton_parts_without_skeleton_source_is_rejected() -> None:
+    config = make_config()
+    config["regions"][0] = {
+        "region_id": "left_arm",
+        "kind": "skeleton_parts",
+        "params": {"body_part": "left_arm"},
+    }
+
+    with pytest.raises(ConfigResolutionError, match="skeleton_source"):
+        ConfigResolver().resolve(config, FakeAdapter(), FakeSource())
+
+
+def test_skeleton_parts_with_invalid_params_is_rejected(tmp_path: Path) -> None:
+    bbox_data = tmp_path / "skeleton.json"
+    bbox_data.write_text('{"clip": {"frame_size": [1, 1], "parts": {"a": [null]}}}')
+    config = make_config()
+    config["regions"][0] = {
+        "region_id": "left_arm",
+        "kind": "skeleton_parts",
+        "params": {},
+    }
+    config["skeleton_source"] = {"bbox_data": str(bbox_data)}
+
+    with pytest.raises(ConfigResolutionError, match="invalid skeleton_parts"):
+        ConfigResolver().resolve(config, FakeAdapter(), FakeSource())
+
+
+def test_skeleton_parts_resolves_with_a_verified_skeleton_source(
+    tmp_path: Path,
+) -> None:
+    bbox_data = tmp_path / "skeleton.json"
+    bbox_data.write_text('{"clip": {"frame_size": [1, 1], "parts": {"a": [null]}}}')
+    config = make_config()
+    config["regions"][0] = {
+        "region_id": "left_arm",
+        "kind": "skeleton_parts",
+        "params": {"body_part": "left_arm", "bbox_scale": 1.2},
+    }
+    config["skeleton_source"] = {"bbox_data": str(bbox_data)}
+
+    resolved = ConfigResolver().resolve(config, FakeAdapter(), FakeSource())
+
+    assert resolved.skeleton_source is not None
+    assert resolved.skeleton_source.bbox_data == bbox_data.resolve()
+    assert resolved.skeleton_source.bbox_data_hash == hashlib.sha256(
+        bbox_data.read_bytes()
+    ).hexdigest()
+
+    restored = ResolvedConfig.model_validate_json(resolved.model_dump_json())
+    assert restored == resolved
+
+
+def test_skeleton_source_hash_mismatch_is_rejected(tmp_path: Path) -> None:
+    bbox_data = tmp_path / "skeleton.json"
+    bbox_data.write_text('{"clip": {"frame_size": [1, 1], "parts": {"a": [null]}}}')
+    config = make_config()
+    config["regions"][0] = {
+        "region_id": "left_arm",
+        "kind": "skeleton_parts",
+        "params": {"body_part": "left_arm"},
+    }
+    config["skeleton_source"] = {"bbox_data": str(bbox_data), "bbox_data_hash": "a" * 64}
+
+    with pytest.raises(ConfigResolutionError, match="bbox_data_hash mismatch"):
         ConfigResolver().resolve(config, FakeAdapter(), FakeSource())
 
 

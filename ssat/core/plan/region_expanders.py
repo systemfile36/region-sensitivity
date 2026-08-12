@@ -10,6 +10,7 @@ from ssat.core.plan.expansion_base import (
     RegionFamilyConfig,
     RegionFamilyExpander,
 )
+from ssat.core.region.skeleton_provider import validate_skeleton_family_params
 from ssat.core.region.types import RegionSpec
 from ssat.core.source.types import SampleMeta
 from ssat.core.types import RegionKind
@@ -179,15 +180,24 @@ class SampleDependentRegionExpander(RegionFamilyExpander):
         return family.kind in self._SUPPORTED_KINDS
 
     def validate_config(self, family: RegionConfig) -> None:
-        """Reject reserved sample-dependent families until implemented.
+        """Validate a sample-dependent family, or reject it if unimplemented.
+
+        ``skeleton_parts`` has a reference provider/generator (see
+        ``ssat.core.region.skeleton_provider``/``skeleton_mask_generator``)
+        and is validated structurally here; ``bbox_partition``/``gt_bbox``
+        remain reserved and are always rejected.
 
         Args:
             family: User-configured sample-dependent family.
 
         Raises:
-            RegionExpansionError: Always, because v1 providers are reserved.
+            RegionExpansionError: If ``skeleton_parts`` params are invalid,
+                or the kind is still reserved and unimplemented.
         """
 
+        if family.kind is RegionKind.SKELETON_PARTS:
+            validate_skeleton_family_params(family.params)
+            return
         raise RegionExpansionError(
             f"region kind {family.kind.value!r} is not implemented"
         )
