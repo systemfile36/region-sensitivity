@@ -5,6 +5,7 @@ from ssat.analysis.errors import (
     AnalysisError,
     AnalysisSchemaError,
 )
+from ssat.analysis.indexer import ComparisonIndex, ComparisonIndexer
 from ssat.analysis.reader import AnalysisReader
 from ssat.analysis.types import (
     Alignment,
@@ -35,6 +36,8 @@ __all__ = [
     "AnchorKey",
     "AnchorRow",
     "AvailableAnalyses",
+    "ComparisonIndex",
+    "ComparisonIndexer",
     "ConditionKey",
     "ControlComparisonRow",
     "ControlPairRow",
