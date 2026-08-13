@@ -16,18 +16,24 @@ not just "typical" choices:
    model ever gets a chance to learn it. Only deterministic normalization is
    applied.
 
-2. The preprocessing transform is pulled directly from
-   ``torchvision.models.SqueezeNet1_0_Weights.DEFAULT.transforms()`` instead
-   of being hand-written. ssat's TorchvisionAdapter uses this exact object
-   internally for inference, *even when weights=None*
-   (ssat/core/adapter/torchvision_adapter.py: "preprocessing_weights =
-   resolved_weights or weights_enum.DEFAULT"), and that choice is not
-   configurable from the audit YAML. If training used a different resize or
-   normalization, the audited model would see two different input
-   distributions -- one at train time, one at audit time -- as a confound.
-   Calling the same torchvision API here removes that confound by
-   construction: any spatial trimming (e.g. CenterCrop's fixed-size border
-   trim) automatically happens identically on both sides.
+2. Whichever preprocessing is selected (--preprocessing, default 'preset')
+   must be the exact code ssat's TorchvisionAdapter applies at audit time,
+   not a hand-written approximation of it. 'preset' pulls
+   ``torchvision.models.SqueezeNet1_0_Weights.DEFAULT.transforms()``
+   directly -- the object the adapter falls back to when no preprocessing
+   override is configured (ssat/core/adapter/torchvision_adapter.py:
+   "preprocessing_weights = resolved_weights or weights_enum.DEFAULT").
+   'crop_free' drives common.build_crop_free_transform(), which wraps the
+   same ssat.core.adapter.preprocessing.DeclarativePreprocessor the adapter
+   uses when a config's ``preprocessing`` field IS set (added specifically
+   so this pairing is possible -- see
+   docs/STAGE9_SYNTHETIC_SHORTCUT_DESIGN_v1.md section 2's addendum). If
+   training used different preprocessing than the audit run it feeds, the
+   audited model would see two different input distributions -- one at
+   train time, one at audit time -- as a confound. Sharing the exact
+   object/class between train.py and the adapter removes that confound by
+   construction rather than by two independent implementations agreeing
+   numerically.
 
 A third point, discovered only after a full 40-epoch run (the earlier
 smoke test's 2-3 epochs were too short to expose it): squeezenet1_0's
@@ -139,6 +145,18 @@ def parse_args() -> argparse.Namespace:
         help="epochs spent linearly ramping lr up to --lr before cosine annealing starts",
     )
     parser.add_argument("--num-workers", type=int, default=4)
+    parser.add_argument(
+        "--preprocessing",
+        choices=("preset", "crop_free"),
+        default="preset",
+        help=(
+            "'preset' (default) reproduces squeezenet1_0's ImageNet "
+            "Resize(256)->CenterCrop(224) transform, unchanged prior "
+            "behavior. 'crop_free' uses common.build_crop_free_transform() "
+            "(Resize directly to 224x224, no crop) -- see that function's "
+            "docstring for why train/audit preprocessing must match."
+        ),
+    )
     return parser.parse_args()
 
 
@@ -186,10 +204,18 @@ def main() -> int:
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    # See the module docstring for why this transform is fetched from
-    # torchvision instead of hand-written: it must be bit-identical to what
-    # ssat's TorchvisionAdapter applies at audit time.
-    transform = SqueezeNet1_0_Weights.DEFAULT.transforms()
+    # See the module docstring for why this transform must be bit-identical
+    # to what ssat's TorchvisionAdapter applies at audit time. 'preset'
+    # fetches the same torchvision object the adapter falls back to when no
+    # preprocessing override is configured; 'crop_free' drives the same
+    # DeclarativePreprocessor the adapter uses when preprocessing_ops IS
+    # configured (see common.build_crop_free_transform).
+    if args.preprocessing == "crop_free":
+        from common import build_crop_free_transform
+
+        transform = build_crop_free_transform()
+    else:
+        transform = SqueezeNet1_0_Weights.DEFAULT.transforms()
 
     manifest_name = "A_train.json" if args.dataset == "shortcut" else "C_train.json"
     manifest_path = args.data_dir / "manifests" / manifest_name

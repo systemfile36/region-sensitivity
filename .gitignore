@@ -22,12 +22,12 @@ Thumbs.db
 raw/
 runs/
 outputs/
-checkpoints/
+checkpoints*/
 logs/
 tensorboard/
 data/
 dump/
-results/
+results*/
 
 # etc 
 temp/

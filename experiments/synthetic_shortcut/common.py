@@ -15,13 +15,21 @@ import colorsys
 import json
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Sequence
+from typing import TYPE_CHECKING, Sequence
 
 import numpy as np
+import pandas as pd
 from numpy.typing import NDArray
+
+if TYPE_CHECKING:
+    # Deferred so scripts that only need the data-prep constants (prepare_data.py,
+    # train.py) don't pull in ssat.analysis at import time -- only
+    # build_item_values (used by the analysis-side scripts) needs the type.
+    from ssat.analysis import AnalysisReader
 
 __all__ = [
     "CELL_SIZE",
+    "CROP_FREE_PREPROCESSING_OPS",
     "GRID_COLS",
     "GRID_ROWS",
     "IMAGE_SIZE",
@@ -33,6 +41,8 @@ __all__ = [
     "PATCH_REGION_INSTANCE_ID",
     "PATCH_REGION_KEY",
     "PATCH_ROW",
+    "build_crop_free_transform",
+    "build_item_values",
     "draw_patch",
     "write_manifest",
 ]
@@ -60,6 +70,26 @@ PATCH_ROW = 0
 PATCH_COL = 0
 PATCH_REGION_INSTANCE_ID = f"grid/r{PATCH_ROW}/c{PATCH_COL}"
 PATCH_REGION_KEY = f"{PATCH_REGION_ID}::{PATCH_REGION_INSTANCE_ID}"
+
+# A crop-free alternative to squeezenet1_0's ImageNet preset
+# (Resize(256)->CenterCrop(224)), used to remove the CenterCrop-induced
+# model-space area confound documented in
+# docs/CONTROL_STABILITY_DESIGN_v1.md section 0's addendum: under the
+# preset, nominally-equal-area grid cells land at different effective
+# pixel counts depending on position (corner/edge/center), which turned
+# out to correlate with the fill-strategy sign split the design doc
+# originally took as a substantive finding. Resizing directly to 224x224
+# (no crop) makes every cell's effective area identical by construction.
+# mean/std match the preset's values (see SqueezeNet1_0_Weights.DEFAULT
+# .transforms()) so the only thing that changes is the crop step, not the
+# normalization statistics the model was implicitly designed around.
+CROP_FREE_PREPROCESSING_OPS: tuple[dict, ...] = (
+    {"op": "resize", "size": [224, 224]},
+    {"op": "to_float"},
+    {"op": "normalize", "mean": [0.485, 0.456, 0.406], "std": [0.229, 0.224, 0.225]},
+    {"op": "channels_first"},
+    {"op": "squeeze_time"},
+)
 
 
 def _class_color_palette() -> tuple[tuple[int, int, int], ...]:
@@ -145,3 +175,64 @@ def write_manifest(path: Path, samples: Sequence[ManifestSample]) -> None:
     }
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(document, indent=2), encoding="utf-8")
+
+
+def build_crop_free_transform():
+    """Build a PIL-image-to-tensor transform using ssat's own preprocessing code.
+
+    Returns a callable equivalent in spirit to
+    ``SqueezeNet1_0_Weights.DEFAULT.transforms()`` (the object train.py used
+    to fetch to keep train/audit preprocessing identical), but for the
+    crop-free pipeline. Rather than hand-writing a second implementation of
+    ``CROP_FREE_PREPROCESSING_OPS`` in torchvision-transform terms -- which
+    would reintroduce exactly the kind of "two independent
+    implementations that are supposed to agree" risk this experiment is
+    trying to eliminate -- this drives
+    ``ssat.core.adapter.preprocessing.DeclarativePreprocessor`` directly,
+    the same class ``TorchvisionAdapter(preprocessing_ops=...)`` uses at
+    audit time. Train-time and audit-time preprocessing are therefore the
+    same code path, not just numerically similar outputs.
+
+    Local imports (torch, DeclarativePreprocessor) keep this out of
+    prepare_data.py's / other lightweight consumers' import graph, matching
+    train.py's existing pattern for its own torchvision import.
+    """
+
+    import torch
+    from ssat.core.adapter.preprocessing import DeclarativePreprocessor
+
+    preprocessor = DeclarativePreprocessor(CROP_FREE_PREPROCESSING_OPS)
+
+    def transform(image) -> "torch.Tensor":
+        array = np.asarray(image.convert("RGB"), dtype=np.uint8)
+        batch = array[None, None, :, :, :]  # (B=1, T=1, H, W, C)
+        transformed = preprocessor.transform_batch(batch)  # (1, C, H, W)
+        return torch.from_numpy(np.ascontiguousarray(transformed[0]))
+
+    return transform
+
+
+def build_item_values(reader: "AnalysisReader") -> pd.DataFrame:
+    """Join one AnalysisReader's item_context() identity columns with its item_metrics.
+
+    Produces the item-grain frame shape ssat.analysis.control/stability/interval
+    all document as their shared input contract: identity columns from
+    ``item_context()`` plus one row per (item, metric_name) -- ``metric_name``,
+    ``degradation``, ``available``. No production ``ssat.analysis`` helper
+    builds this frame (each A-module's unit tests hand-roll their own
+    fixture instead), and analyze_control_stability.py and
+    validate_reliability_thresholds.py both need it, so it lives here rather
+    than being duplicated a second time.
+    """
+
+    context = reader.item_context()
+    metrics_frame = pd.DataFrame(
+        {
+            "item_id": item.item_id,
+            "metric_name": item.metric_name,
+            "degradation": item.degradation,
+            "available": item.available,
+        }
+        for item in reader.item_metrics
+    )
+    return context.merge(metrics_frame, on="item_id", how="inner")

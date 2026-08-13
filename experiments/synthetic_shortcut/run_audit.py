@@ -107,6 +107,19 @@ def parse_args() -> argparse.Namespace:
         choices=[spec.run_id for spec in RUN_SPECS],
         help="restrict the sweep to specific run_ids (repeatable); default: run all seven",
     )
+    parser.add_argument(
+        "--preprocessing",
+        choices=("preset", "crop_free"),
+        default="preset",
+        help=(
+            "'preset' (default) leaves the adapter config's preprocessing "
+            "unset, so ssat falls back to squeezenet1_0's ImageNet preset -- "
+            "unchanged prior behavior, matching the already-reported 7-run "
+            "evidence. 'crop_free' declares common.CROP_FREE_PREPROCESSING_OPS "
+            "on the adapter config; must be paired with --checkpoint-dir "
+            "models trained via train.py --preprocessing crop_free."
+        ),
+    )
     return parser.parse_args()
 
 
@@ -116,6 +129,7 @@ def _build_audit_config(
     manifest_path: Path,
     fill: str,
     channel_mean: list[float] | None,
+    preprocessing: str = "preset",
 ) -> dict:
     """Build one ssat audit configuration as a plain dict.
 
@@ -124,19 +138,32 @@ def _build_audit_config(
     maintain seven near-duplicate YAML files on disk -- this function is the
     single place the audit space (source/adapter/regions/perturbations) is
     defined, parameterized by run.
+
+    ``preprocessing="crop_free"`` declares common.CROP_FREE_PREPROCESSING_OPS
+    on the adapter config, removing the CenterCrop-induced model-space area
+    confound documented in docs/CONTROL_STABILITY_DESIGN_v1.md section 0's
+    addendum. The default "preset" leaves the field unset entirely (not set
+    to some equivalent preset-describing ops list), so the already-reported
+    7-run evidence's config shape is reproduced exactly, byte for byte.
     """
+
+    adapter: dict = {
+        "provider": "torchvision",
+        "model_name": "squeezenet1_0",
+        # checkpoint (not weights=...) loads our from-scratch-trained
+        # state dict; see train.py for why num_classes must match here.
+        "checkpoint": {"path": str(checkpoint_path.resolve()), "state_dict_key": "model"},
+        "model_kwargs": {"num_classes": NUM_CLASSES},
+        "device": "auto",
+    }
+    if preprocessing == "crop_free":
+        from common import CROP_FREE_PREPROCESSING_OPS
+
+        adapter["preprocessing"] = list(CROP_FREE_PREPROCESSING_OPS)
 
     config: dict = {
         "source": {"kind": "image_manifest", "manifest": str(manifest_path.resolve())},
-        "adapter": {
-            "provider": "torchvision",
-            "model_name": "squeezenet1_0",
-            # checkpoint (not weights=...) loads our from-scratch-trained
-            # state dict; see train.py for why num_classes must match here.
-            "checkpoint": {"path": str(checkpoint_path.resolve()), "state_dict_key": "model"},
-            "model_kwargs": {"num_classes": NUM_CLASSES},
-            "device": "auto",
-        },
+        "adapter": adapter,
         "regions": [
             {
                 "region_id": PATCH_REGION_ID,
@@ -193,6 +220,7 @@ def _run_one(
     dumps_dir: Path,
     metrics_dir: Path,
     channel_mean: list[float] | None,
+    preprocessing: str = "preset",
 ) -> None:
     """Produce one dump (if missing) and its metrics store (if missing)."""
 
@@ -205,6 +233,7 @@ def _run_one(
             manifest_path=manifests_dir / f"{spec.dataset}_audit.json",
             fill=spec.fill,
             channel_mean=channel_mean,
+            preprocessing=preprocessing,
         )
         request = RunRequest(config, output_dir, estimate_options=EstimateOptions())
         with application.prepare_run(request) as prepared:
@@ -244,6 +273,7 @@ def main() -> int:
             dumps_dir=args.results_dir / "dumps",
             metrics_dir=args.results_dir / "metrics",
             channel_mean=channel_mean,
+            preprocessing=args.preprocessing,
         )
     return 0
 

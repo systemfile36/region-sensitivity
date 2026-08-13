@@ -44,6 +44,12 @@ def parse_args() -> argparse.Namespace:
         "--results-dir", type=Path, default=Path(__file__).resolve().parent / "results"
     )
     parser.add_argument("--batch-size", type=int, default=256)
+    parser.add_argument(
+        "--preprocessing",
+        choices=("preset", "crop_free"),
+        default="preset",
+        help="Must match the --preprocessing the checkpoints were trained with (see train.py).",
+    )
     return parser.parse_args()
 
 
@@ -83,13 +89,20 @@ def main() -> int:
     """Evaluate both models on both A_test and C_test, and save the results."""
 
     args = parse_args()
-    from torchvision.models import SqueezeNet1_0_Weights
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    # Same preprocessing object train.py used to fit the model, and the same
-    # one ssat's TorchvisionAdapter applies at audit time (see train.py's
-    # module docstring for why this must not be re-derived by hand).
-    transform = SqueezeNet1_0_Weights.DEFAULT.transforms()
+    # Same preprocessing the checkpoint was trained under, and the same one
+    # ssat's TorchvisionAdapter applies at audit time (see train.py's module
+    # docstring for why this must not be re-derived by hand) -- otherwise Q5
+    # would silently evaluate under a third, mismatched input distribution.
+    if args.preprocessing == "crop_free":
+        from common import build_crop_free_transform
+
+        transform = build_crop_free_transform()
+    else:
+        from torchvision.models import SqueezeNet1_0_Weights
+
+        transform = SqueezeNet1_0_Weights.DEFAULT.transforms()
 
     manifests_dir = args.data_dir / "manifests"
     accuracy: dict[str, dict[str, float]] = {}
