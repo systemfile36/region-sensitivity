@@ -9,6 +9,7 @@ from ssat.analysis.errors import (
 from ssat.analysis.indexer import ComparisonIndex, ComparisonIndexer
 from ssat.analysis.interval import compute_intervals
 from ssat.analysis.reader import AnalysisReader
+from ssat.analysis.reliability import compute_reliability
 from ssat.analysis.stability import (
     compute_jitter_stability,
     compute_seed_stability,
@@ -62,6 +63,7 @@ __all__ = [
     "compare_to_controls",
     "compute_intervals",
     "compute_jitter_stability",
+    "compute_reliability",
     "compute_seed_stability",
     "compute_strategy_profile",
     "compute_strategy_stability",
