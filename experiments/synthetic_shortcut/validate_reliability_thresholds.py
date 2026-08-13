@@ -1,5 +1,16 @@
 #!/usr/bin/env python3
-"""Check whether ssat.analysis's z_vs_control_threshold / seed_cv_threshold
+"""**SUPERSEDED** -- do not use for new reproduction.
+
+Replaced by validate_reliability_thresholds_full.py, which reports on
+run_threshold_validation_full.py's crop-free, all-five-fill-strategy run
+instead of this script's single-op (constant_fill), cropped-preset one.
+docs/RELIABILITY_THRESHOLD_CALIBRATION_v1.md, the current reliability-
+threshold report, cites only the ``_full`` script's output. Kept only so the
+prior (provisional) numbers it produced remain reproducible for historical
+comparison -- see experiments/synthetic_shortcut/README.md's script
+inventory.
+
+Check whether ssat.analysis's z_vs_control_threshold / seed_cv_threshold
 defaults (2.0 / 0.2, ssat/analysis/reliability.py) behave sensibly against
 real control-region and multi-seed data -- something the five original
 shortcut_A_* runs could not exercise at all (IMPLE_PLAN_CONTROL_STABILITY_v1.md
@@ -29,6 +40,7 @@ from __future__ import annotations
 
 import argparse
 import statistics
+import sys
 from collections import Counter
 from pathlib import Path
 
@@ -167,6 +179,12 @@ def _flag_distribution_report(reliability_rows: list[ReliabilityRow]) -> str:
 def main() -> int:
     """Load the control+multi-seed run and report threshold behavior."""
 
+    print(
+        "[SUPERSEDED] validate_reliability_thresholds.py is replaced by "
+        "validate_reliability_thresholds_full.py -- see "
+        "experiments/synthetic_shortcut/README.md.",
+        file=sys.stderr,
+    )
     args = parse_args()
     reader = AnalysisReader(
         args.results_dir / "dumps" / RUN_ID, args.results_dir / "metrics" / RUN_ID

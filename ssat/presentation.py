@@ -6,6 +6,7 @@ import json
 from typing import Any
 
 from ssat.application import (
+    AnalyzeResult,
     ComputeMetricsResult,
     DumpSummary,
     EstimateResult,
@@ -94,6 +95,26 @@ def format_metrics(result: ComputeMetricsResult) -> str:
             f"  primary metric: {result.primary_metric}",
             f"  metrics: {', '.join(result.metric_names)}",
             f"  item-metric rows: {result.n_item_metric_rows:,}",
+            f"  computed at: {result.computed_at}",
+        ]
+    )
+
+
+def format_analysis(result: AnalyzeResult) -> str:
+    coverage = result.coverage_report
+    grades = ", ".join(f"{name}={count:,}" for name, count in result.grade_distribution.items()) or "none"
+    return "\n".join(
+        [
+            "SSAT control/stability analysis computed",
+            f"  dump: {result.dump}",
+            f"  metrics dir: {result.metrics_dir}",
+            f"  analysis dir: {result.analysis_dir}",
+            f"  reliability rows: {result.n_reliability_rows:,}",
+            f"  reliability grades: {grades}",
+            f"  anchors: {coverage.n_anchors:,}",
+            f"  conditions insufficient: {coverage.n_conditions_insufficient:,}",
+            f"  controls unmatched: {coverage.n_controls_unmatched:,}",
+            f"  area mismatch warnings: {coverage.n_area_mismatch_warnings:,}",
             f"  computed at: {result.computed_at}",
         ]
     )

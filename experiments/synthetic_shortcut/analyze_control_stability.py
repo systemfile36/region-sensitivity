@@ -24,6 +24,17 @@ with whatever the checks actually found.
 Depends on experiments/synthetic_shortcut/results/ (gitignored, produced by
 run_audit.py) -- not included in pytest collection.
 
+Not superseded, but scoped to the original (cropped) run by design: it
+checks reproduction of the *hand-derived* numbers in
+deprecated_L3_Synthetic-Shortcut Experiment Report.md, so pointing
+--results-dir at results_crop_free is expected to report Q3/Q4/Q5 as FAIL
+(the crop-free split genuinely differs -- that mismatch is itself the
+finding, not a bug in this script or in ssat.analysis). For the actual
+crop-free sign-group question, see analyze_sign_group_premise.py and
+docs/L3_Synthetic-Shortcut Experiment Report.md's "Sign-Group Premise
+Re-examination" section instead. See also
+experiments/synthetic_shortcut/README.md's script inventory.
+
 Run as: python3 experiments/synthetic_shortcut/analyze_control_stability.py
 """
 

@@ -9,7 +9,9 @@ from typing import Literal
 import numpy as np
 import pytest
 
+from ssat.analysis import load_analysis
 from ssat.application import (
+    AnalyzeRequest,
     ApplicationError,
     ApplicationErrorCode,
     ApplicationEvent,
@@ -187,6 +189,82 @@ def test_application_compute_metrics_persists_every_builtin_metric(
         result.metric_names
     )
     assert any(row.metric_name == "margin_drop" for row in aggregation.region_metrics)
+
+
+def _config_with_controls(manifest: Path) -> dict:
+    """Like ``_config`` but with a 2x2 grid, controls, and repeat seeds.
+
+    ``_config``'s single ``whole`` region has nothing to compare against, so
+    it cannot exercise ``analyze()``'s control/seed-stability logic
+    meaningfully -- this mirrors the config shape
+    tests/integration/test_control_e2e.py uses for the same reason, built
+    as a plain config dict (RunRequest's own accepted shape) instead of a
+    hand-built ResolvedConfig.
+    """
+
+    return {
+        "source": {"kind": "image_manifest", "manifest": str(manifest)},
+        "adapter": {"provider": "fixture"},
+        "regions": [{"region_id": "grid", "kind": "grid", "params": {"rows": 2, "cols": 2}}],
+        "perturbations": [
+            {"op": "constant_fill", "params": {"value": 0}, "seed_salts": [0, 1]}
+        ],
+        "controls": [{"match_area_of": "grid", "n_samples": 2}],
+        "runtime": {
+            "variants_per_chunk": 1,
+            "target_batch_size": 4,
+            "num_workers": 0,
+        },
+        "dump": {"flush_every": 5},
+    }
+
+
+def test_application_analyze_computes_and_persists_reliability(tmp_path: Path) -> None:
+    application = _application()
+    manifest = tmp_path / "two_class_manifest.json"
+    _write_two_class_manifest(manifest)
+    output = tmp_path / "dump"
+    with application.prepare_run(
+        RunRequest(_config_with_controls(manifest), output, base_dir=tmp_path)
+    ) as prepared:
+        application.execute_run(prepared)
+    application.compute_metrics(ComputeMetricsRequest(output))
+
+    result = application.analyze(AnalyzeRequest(output))
+
+    assert result.dump == output.resolve()
+    assert result.metrics_dir == output.resolve() / "metrics"
+    assert result.analysis_dir == output.resolve() / "analysis"
+    assert result.available_analyses.control_comparison
+    assert result.available_analyses.seed_stability
+    assert result.coverage_report.n_anchors > 0
+    assert result.n_reliability_rows > 0
+    assert set(result.grade_distribution) <= {"high", "moderate", "low", "unreliable"}
+
+    # Reload through the public analysis-store API to confirm the persisted
+    # files are well-formed, not just that AnalyzeResult looked plausible.
+    (*_rest, reliability_rows, coverage_report, manifest_obj) = load_analysis(
+        result.analysis_dir
+    )
+    assert len(reliability_rows) == result.n_reliability_rows
+    assert coverage_report == result.coverage_report
+    assert dict(manifest_obj.grade_distribution) == result.grade_distribution
+
+
+def test_application_analyze_rejects_dump_without_metrics(tmp_path: Path) -> None:
+    application = _application()
+    manifest = tmp_path / "two_class_manifest.json"
+    _write_two_class_manifest(manifest)
+    output = tmp_path / "dump"
+    with application.prepare_run(
+        RunRequest(_config_with_controls(manifest), output, base_dir=tmp_path)
+    ) as prepared:
+        application.execute_run(prepared)
+
+    with pytest.raises(ApplicationError) as caught:
+        application.analyze(AnalyzeRequest(output))
+    assert caught.value.code is ApplicationErrorCode.ANALYSIS
+    assert not (output / "analysis").exists()
 
 
 def test_application_compute_metrics_rejects_unknown_primary_metric(

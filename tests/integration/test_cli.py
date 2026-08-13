@@ -94,6 +94,78 @@ def _write_config(path: Path, *, manifest: Path = FIXTURE / "manifest.json") -> 
     )
 
 
+def _write_config_with_controls(path: Path, *, manifest: Path) -> None:
+    """Like ``_write_config`` but with a 2x2 grid, controls, and repeat seeds.
+
+    ``_write_config``'s single ``whole`` region has nothing to compare
+    against, so it cannot exercise the ``analyze`` command's control/seed-
+    stability output meaningfully.
+    """
+
+    path.write_text(
+        "\n".join(
+            [
+                "source:",
+                "  kind: image_manifest",
+                f"  manifest: {manifest}",
+                "adapter:",
+                "  provider: cli_fixture",
+                "regions:",
+                "  - region_id: grid",
+                "    kind: grid",
+                "    params: {rows: 2, cols: 2}",
+                "perturbations:",
+                "  - op: constant_fill",
+                "    params: {value: 0}",
+                "    seed_salts: [0, 1]",
+                "controls:",
+                "  - match_area_of: grid",
+                "    n_samples: 2",
+                "runtime:",
+                "  variants_per_chunk: 1",
+                "  target_batch_size: 8",
+                "  num_workers: 0",
+                "dump:",
+                "  flush_every: 8",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+
+def test_cli_analyze_command(tmp_path: Path) -> None:
+    manifest = tmp_path / "two_class_manifest.json"
+    _write_two_class_manifest(manifest)
+    config = tmp_path / "audit.yaml"
+    output = tmp_path / "dump"
+    _write_config_with_controls(config, manifest=manifest)
+    runner = CliRunner()
+    app = _app()
+
+    run = runner.invoke(app, ["run", str(config), "--output", str(output)])
+    assert run.exit_code == 0, run.output
+
+    metrics = runner.invoke(app, ["metrics", str(output)])
+    assert metrics.exit_code == 0, metrics.output
+
+    analyze = runner.invoke(app, ["analyze", str(output), "--json"])
+    assert analyze.exit_code == 0, analyze.output
+    payload = json.loads(analyze.stdout)
+    assert Path(payload["analysis_dir"]) == (output / "analysis").resolve()
+    assert payload["available_analyses"]["control_comparison"] is True
+    assert payload["n_reliability_rows"] > 0
+    assert (output / "analysis" / "analysis_manifest.json").is_file()
+
+    text_analyze = runner.invoke(
+        app, ["analyze", str(output), "--analysis-dir", str(tmp_path / "analysis-again")]
+    )
+    assert text_analyze.exit_code == 0, text_analyze.output
+    assert "SSAT control/stability analysis computed" in text_analyze.stdout
+
+    missing_metrics = runner.invoke(app, ["analyze", str(tmp_path / "no-such-dump")])
+    assert missing_metrics.exit_code != 0
+
+
 def test_cli_json_run_inspect_and_rebuild(tmp_path: Path) -> None:
     config = tmp_path / "audit.yaml"
     output = tmp_path / "dump"

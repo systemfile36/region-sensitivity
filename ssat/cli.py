@@ -9,6 +9,7 @@ import typer
 
 from ssat import __version__
 from ssat.application import (
+    AnalyzeRequest,
     ApplicationError,
     AuditApplication,
     ComputeMetricsRequest,
@@ -21,6 +22,7 @@ from ssat.core.adapter import AdapterProviderRegistry
 from ssat.core.estimate import EstimateOptions
 from ssat.metrics.aggregate import DEFAULT_PRIMARY_METRIC
 from ssat.presentation import (
+    format_analysis,
     format_dump_summary,
     format_estimate,
     format_metrics,
@@ -143,6 +145,30 @@ def create_app(
                 ComputeMetricsRequest(dump, metrics_dir, primary_metric)
             )
             typer.echo(json_text(result) if json_output else format_metrics(result))
+        except Exception as error:
+            _fail(error)
+
+    @app.command("analyze")
+    def analyze_command(
+        dump: Path = typer.Argument(..., exists=True, file_okay=False),
+        metrics_dir: Path | None = typer.Option(
+            None, "--metrics-dir", help="Defaults to <dump>/metrics."
+        ),
+        analysis_dir: Path | None = typer.Option(
+            None, "--analysis-dir", help="Defaults to <dump>/analysis."
+        ),
+        primary_metric: str = typer.Option(
+            DEFAULT_PRIMARY_METRIC,
+            "--primary-metric",
+            help="Registered metric name the fill-strategy/reliability comparisons are scoped to.",
+        ),
+        json_output: bool = typer.Option(False, "--json", help="Emit stable JSON."),
+    ) -> None:
+        try:
+            result = service.analyze(
+                AnalyzeRequest(dump, metrics_dir, analysis_dir, primary_metric)
+            )
+            typer.echo(json_text(result) if json_output else format_analysis(result))
         except Exception as error:
             _fail(error)
 

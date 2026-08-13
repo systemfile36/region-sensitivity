@@ -215,24 +215,11 @@ def build_crop_free_transform():
 def build_item_values(reader: "AnalysisReader") -> pd.DataFrame:
     """Join one AnalysisReader's item_context() identity columns with its item_metrics.
 
-    Produces the item-grain frame shape ssat.analysis.control/stability/interval
-    all document as their shared input contract: identity columns from
-    ``item_context()`` plus one row per (item, metric_name) -- ``metric_name``,
-    ``degradation``, ``available``. No production ``ssat.analysis`` helper
-    builds this frame (each A-module's unit tests hand-roll their own
-    fixture instead), and analyze_control_stability.py and
-    validate_reliability_thresholds.py both need it, so it lives here rather
-    than being duplicated a second time.
+    Thin wrapper kept for the existing call sites (analyze_control_stability.py,
+    validate_reliability_thresholds.py) -- the join itself now lives on
+    ``AnalysisReader.item_values()`` (promoted there once the Application
+    layer's ``analyze()`` became a second production caller needing the same
+    frame; see that method's docstring).
     """
 
-    context = reader.item_context()
-    metrics_frame = pd.DataFrame(
-        {
-            "item_id": item.item_id,
-            "metric_name": item.metric_name,
-            "degradation": item.degradation,
-            "available": item.available,
-        }
-        for item in reader.item_metrics
-    )
-    return context.merge(metrics_frame, on="item_id", how="inner")
+    return reader.item_values()

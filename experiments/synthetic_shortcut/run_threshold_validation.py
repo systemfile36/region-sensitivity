@@ -1,5 +1,16 @@
 #!/usr/bin/env python3
-"""Produce one extra L3 synthetic-shortcut run with control regions and
+"""**SUPERSEDED** -- do not use for new reproduction.
+
+Replaced by run_threshold_validation_full.py, which covers everything this
+script does plus crop-free preprocessing and all five fill strategies
+instead of just constant_fill (see that script's module docstring for the
+two concrete reasons). docs/RELIABILITY_THRESHOLD_CALIBRATION_v1.md, the
+current reliability-threshold report, cites only the ``_full`` run's output.
+This script is kept only so the prior (provisional) numbers it produced
+remain reproducible for historical comparison -- see
+experiments/synthetic_shortcut/README.md's script inventory.
+
+Produce one extra L3 synthetic-shortcut run with control regions and
 multiple seeds, to validate ssat.analysis's z_vs_control_threshold /
 seed_cv_threshold defaults (2.0 / 0.2) -- something the five existing
 shortcut_A_* runs cannot do, since run_audit.py's config has no ``controls``
@@ -28,6 +39,7 @@ Run as: python3 experiments/synthetic_shortcut/run_threshold_validation.py
 from __future__ import annotations
 
 import argparse
+import sys
 from pathlib import Path
 
 from common import GRID_COLS, GRID_ROWS, NUM_CLASSES, PATCH_REGION_ID
@@ -151,6 +163,11 @@ def _compute_and_save_metrics(dump_root: Path, metrics_dir: Path) -> None:
 def main() -> int:
     """Produce the control+multi-seed dump (if missing) and its metrics store (if missing)."""
 
+    print(
+        "[SUPERSEDED] run_threshold_validation.py is replaced by "
+        "run_threshold_validation_full.py -- see experiments/synthetic_shortcut/README.md.",
+        file=sys.stderr,
+    )
     args = parse_args()
 
     output_dir = args.results_dir / "dumps" / RUN_ID

@@ -8,6 +8,10 @@ from pathlib import Path
 from threading import Event
 from typing import Any, Callable, Literal, Mapping, TypeAlias
 
+from ssat.analysis.indexer import DEFAULT_AREA_MATCH_TOLERANCE
+from ssat.analysis.interval import DEFAULT_N_BOOTSTRAP, DEFAULT_RANDOM_SEED
+from ssat.analysis.reliability import DEFAULT_SEED_CV_THRESHOLD, DEFAULT_Z_VS_CONTROL_THRESHOLD
+from ssat.analysis.types import AvailableAnalyses, CoverageReport
 from ssat.core.estimate import EstimateOptions, EstimateReport
 from ssat.core.runtime import ExecutionSummary
 from ssat.metrics.aggregate import DEFAULT_PRIMARY_METRIC
@@ -27,6 +31,7 @@ class ApplicationErrorCode(str, Enum):
     EXECUTION = "execution_error"
     CORRUPTION = "dump_corruption"
     METRICS = "metrics_error"
+    ANALYSIS = "analysis_error"
 
 
 class ApplicationError(RuntimeError):
@@ -147,6 +152,59 @@ class ComputeMetricsResult:
     # measures rather than implying a 1:1 item count, which would
     # under-describe what registry.compute_item_metrics() actually returns.
     n_item_metric_rows: int
+    computed_at: str
+
+    def to_dict(self) -> dict[str, Any]:
+        return to_primitive(self)
+
+
+@dataclass(frozen=True, slots=True)
+class AnalyzeRequest:
+    """Ask for the control/stability analysis (``ssat.analysis`` A0-A6) to be
+    computed and persisted for one existing dump + metrics store pair.
+
+    ``metrics_dir``/``analysis_dir`` default to ``<dump>/metrics``/
+    ``<dump>/analysis`` -- the same co-located-by-default convention
+    ``ComputeMetricsRequest.metrics_dir`` uses. Scoped to one dump+metrics
+    pair, matching ``AnalysisReader``/``compute_metrics``'s own scope;
+    combining several runs into one analysis (as
+    experiments/synthetic_shortcut/analyze_control_stability.py does) stays
+    a script-level concern.
+    """
+
+    dump: Path
+    metrics_dir: Path | None = None
+    analysis_dir: Path | None = None
+    primary_metric: str = DEFAULT_PRIMARY_METRIC
+    n_bootstrap: int = DEFAULT_N_BOOTSTRAP
+    random_seed: int = DEFAULT_RANDOM_SEED
+    z_vs_control_threshold: float = DEFAULT_Z_VS_CONTROL_THRESHOLD
+    seed_cv_threshold: float = DEFAULT_SEED_CV_THRESHOLD
+    area_match_tolerance: float = DEFAULT_AREA_MATCH_TOLERANCE
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "dump", Path(self.dump))
+        if self.metrics_dir is not None:
+            object.__setattr__(self, "metrics_dir", Path(self.metrics_dir))
+        if self.analysis_dir is not None:
+            object.__setattr__(self, "analysis_dir", Path(self.analysis_dir))
+
+
+@dataclass(frozen=True, slots=True)
+class AnalyzeResult:
+    """Summarize one persisted control/stability analysis run.
+
+    ``computed_at`` is already isoformat()-ted by the caller before this is
+    constructed -- same reason as ``ComputeMetricsResult.computed_at``.
+    """
+
+    dump: Path
+    metrics_dir: Path
+    analysis_dir: Path
+    available_analyses: AvailableAnalyses
+    coverage_report: CoverageReport
+    grade_distribution: dict[str, int]
+    n_reliability_rows: int
     computed_at: str
 
     def to_dict(self) -> dict[str, Any]:

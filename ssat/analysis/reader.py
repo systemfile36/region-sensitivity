@@ -117,6 +117,30 @@ class AnalysisReader:
 
         return self._context.copy()
 
+    def item_values(self) -> pd.DataFrame:
+        """Join ``item_context()`` with ``item_metrics`` into the shared A2-A5 input shape.
+
+        Every A2-A5 consumer (``analysis.control``, ``analysis.stability``,
+        ``analysis.interval``) documents the same expected frame: the
+        identity columns from ``item_context()`` plus one row per (item,
+        metric_name) — ``metric_name``, ``degradation``, ``available``. This
+        was originally hand-rolled per call site
+        (``experiments/synthetic_shortcut/common.py``'s ``build_item_values``,
+        the only production caller before the Application layer became a
+        second one); it now lives here so neither has to re-derive the join.
+        """
+
+        metrics_frame = pd.DataFrame(
+            {
+                "item_id": item.item_id,
+                "metric_name": item.metric_name,
+                "degradation": item.degradation,
+                "available": item.available,
+            }
+            for item in self._item_metrics
+        )
+        return self._context.merge(metrics_frame, on="item_id", how="inner")
+
     def available_analyses(self) -> AvailableAnalyses:
         """Report which stability/control analyses this dump+metrics pair supports."""
 

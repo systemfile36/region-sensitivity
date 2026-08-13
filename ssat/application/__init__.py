@@ -2,6 +2,8 @@
 
 from ssat.application.application import AuditApplication, PreparedRun
 from ssat.application.types import (
+    AnalyzeRequest,
+    AnalyzeResult,
     ApplicationError,
     ApplicationErrorCode,
     ApplicationEvent,
@@ -21,6 +23,8 @@ from ssat.application.types import (
 )
 
 __all__ = [
+    "AnalyzeRequest",
+    "AnalyzeResult",
     "ApplicationError",
     "ApplicationErrorCode",
     "ApplicationEvent",
