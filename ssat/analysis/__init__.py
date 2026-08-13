@@ -1,5 +1,6 @@
 """Control/stability analysis contracts for the SSAT toolkit."""
 
+from ssat.analysis.control import compare_to_controls
 from ssat.analysis.errors import (
     AnalysisCorruptionError,
     AnalysisError,
@@ -7,6 +8,11 @@ from ssat.analysis.errors import (
 )
 from ssat.analysis.indexer import ComparisonIndex, ComparisonIndexer
 from ssat.analysis.reader import AnalysisReader
+from ssat.analysis.stability import (
+    compute_jitter_stability,
+    compute_seed_stability,
+    compute_strategy_stability,
+)
 from ssat.analysis.types import (
     Alignment,
     AnchorKey,
@@ -51,4 +57,8 @@ __all__ = [
     "SeedStabilityRow",
     "StrategyProfileRow",
     "StrategyStabilityRow",
+    "compare_to_controls",
+    "compute_jitter_stability",
+    "compute_seed_stability",
+    "compute_strategy_stability",
 ]
