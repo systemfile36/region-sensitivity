@@ -47,6 +47,7 @@ class TorchvisionProviderConfig(ProviderConfig):
     model_kwargs: dict[str, Any] = Field(default_factory=dict)
     init_seed: int = Field(default=0, ge=0, le=2**63 - 1)
     weights_hash: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
+    preprocessing: tuple[dict[str, Any], ...] | None = None
 
     @model_validator(mode="after")
     def validate_weights(self) -> TorchvisionProviderConfig:
@@ -54,6 +55,25 @@ class TorchvisionProviderConfig(ProviderConfig):
             raise ValueError("weights and checkpoint are mutually exclusive")
         if self.checkpoint is not None and self.weights_hash is not None:
             raise ValueError("checkpoint hash is computed and cannot be supplied")
+        return self
+
+    @model_validator(mode="after")
+    def validate_preprocessing(self) -> TorchvisionProviderConfig:
+        """Reject a malformed op list at config-load time, not mid-run.
+
+        Without this the adapter's weight preset is the only preprocessing
+        available, which silently applies the model's stock ImageNet
+        Resize/CenterCrop to whatever the source images are -- for inputs
+        far from that geometry the crop can trim regions unevenly and
+        confound any per-region comparison.
+        """
+
+        if self.preprocessing is not None:
+            from ssat.core.adapter.preprocessing import parse_preprocessing_ops
+
+            if not self.preprocessing:
+                raise ValueError("preprocessing must not be empty when provided")
+            parse_preprocessing_ops(self.preprocessing)
         return self
 
 
@@ -149,6 +169,7 @@ class TorchvisionProvider(AdapterProvider):
             checkpoint_strict=(
                 True if config.checkpoint is None else config.checkpoint.strict
             ),
+            preprocessing_ops=config.preprocessing,
         )
 
 

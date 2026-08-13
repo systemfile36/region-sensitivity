@@ -136,6 +136,112 @@ def test_torchvision_provider_loads_local_checkpoint_without_network(
     assert outputs[0].logits.shape == (1000,)
 
 
+_CROP_FREE_OPS = (
+    {"op": "resize", "size": [224, 224]},
+    {"op": "to_float"},
+    {"op": "normalize", "mean": [0.485, 0.456, 0.406], "std": [0.229, 0.224, 0.225]},
+    {"op": "channels_first"},
+    {"op": "squeeze_time"},
+)
+
+
+def _grid_cell_mask(row: int, col: int, *, size: int = 32, cells: int = 4) -> np.ndarray:
+    """Build one cell of a ``cells``x``cells`` grid over a ``size``x``size`` frame."""
+
+    step = size // cells
+    mask = np.zeros((size, size), dtype=np.bool_)
+    mask[row * step : (row + 1) * step, col * step : (col + 1) * step] = True
+    return mask
+
+
+def test_declared_preprocessing_keeps_equal_regions_equal_in_model_space() -> None:
+    """A configured pipeline can avoid the preset crop that unequalizes regions.
+
+    The stock ImageNet preset resizes the short edge to 256 then center-crops
+    to 224, so on a small square frame the corner cells lose far more area
+    than the middle ones -- nominally equal grid cells arrive at the model
+    with unequal areas, which confounds any comparison between regions. This
+    pins both halves of that: the preset really does distort, and a declared
+    crop-free pipeline really does keep every cell identical.
+    """
+
+    registry = default_adapter_provider_registry()
+    base = {"provider": "torchvision", "model_name": "squeezenet1_0", "device": "cpu"}
+
+    preset = registry.build(registry.parse(dict(base)), base_dir=Path.cwd())
+    declared = registry.build(
+        registry.parse({**base, "preprocessing": _CROP_FREE_OPS}), base_dir=Path.cwd()
+    )
+
+    cells = [_grid_cell_mask(row, col) for row in range(4) for col in range(4)]
+    preset_areas = {int(preset.transform_mask(cell).sum()) for cell in cells}
+    declared_areas = {int(declared.transform_mask(cell).sum()) for cell in cells}
+
+    assert len(preset_areas) > 1
+    assert declared_areas == {56 * 56}
+
+
+def test_declared_preprocessing_changes_the_recorded_fingerprint() -> None:
+    """Runs made with different preprocessing must not look identical in a manifest."""
+
+    registry = default_adapter_provider_registry()
+    base = {"provider": "torchvision", "model_name": "squeezenet1_0", "device": "cpu"}
+
+    preset = registry.build(registry.parse(dict(base)), base_dir=Path.cwd()).describe()
+    declared = registry.build(
+        registry.parse({**base, "preprocessing": _CROP_FREE_OPS}), base_dir=Path.cwd()
+    ).describe()
+
+    assert preset.preprocessing_fingerprint != declared.preprocessing_fingerprint
+    assert declared.mask_transform_available
+
+
+def test_declared_preprocessing_runs_prediction_end_to_end() -> None:
+    """The declarative pipeline yields numpy, so predict must adopt it as a tensor."""
+
+    registry = default_adapter_provider_registry()
+    adapter = registry.build(
+        registry.parse(
+            {
+                "provider": "torchvision",
+                "model_name": "squeezenet1_0",
+                "device": "cpu",
+                "preprocessing": _CROP_FREE_OPS,
+            }
+        ),
+        base_dir=Path.cwd(),
+    )
+
+    outputs = adapter.predict(np.zeros((2, 1, 32, 32, 3), dtype=np.uint8))
+
+    assert len(outputs) == 2
+    assert outputs[0].logits.shape == (1000,)
+
+
+@pytest.mark.parametrize(
+    "preprocessing, message",
+    [
+        ((), "must not be empty"),
+        (({"op": "nope"},), "unknown preprocessing op"),
+        (({"op": "resize"},), "missing 'size'"),
+    ],
+)
+def test_malformed_preprocessing_is_rejected_at_parse_time(
+    preprocessing: tuple, message: str
+) -> None:
+    """A bad op list must fail when the config loads, not mid-audit."""
+
+    registry = default_adapter_provider_registry()
+    with pytest.raises(AdapterProviderError, match=message):
+        registry.parse(
+            {
+                "provider": "torchvision",
+                "model_name": "squeezenet1_0",
+                "preprocessing": preprocessing,
+            }
+        )
+
+
 def test_torchvision_video_provider_loads_local_checkpoint_without_network(
     tmp_path: Path,
 ) -> None:

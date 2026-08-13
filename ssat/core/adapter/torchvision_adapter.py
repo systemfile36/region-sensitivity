@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import gc
+from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
 
@@ -20,6 +21,7 @@ from ssat.core.adapter.base import (
     ModelAdapter,
 )
 from ssat.core.adapter.output_decoder import LogitsOutputDecoder, OutputDecoder
+from ssat.core.adapter.preprocessing import DeclarativePreprocessor, OpInput
 from ssat.core.adapter.preprocessor import (
     Preprocessor,
     fingerprint_payload,
@@ -121,6 +123,7 @@ class TorchvisionAdapter(ModelAdapter):
         checkpoint_path: str | Path | None = None,
         checkpoint_state_dict_key: str | None = None,
         checkpoint_strict: bool = True,
+        preprocessing_ops: Sequence[OpInput] | None = None,
     ) -> None:
         if not model_name:
             raise ValueError("model_name must not be empty")
@@ -163,7 +166,16 @@ class TorchvisionAdapter(ModelAdapter):
         except Exception as error:
             raise AdapterError(f"failed to move model to device {resolved_device}") from error
         self._device = resolved_device
-        self._preprocessor = TorchvisionPreprocessor(preprocessing)
+        # An explicit op list replaces the weight preset entirely. The preset
+        # is only a sensible default when the source images resemble what the
+        # weights were trained on; for anything else its fixed Resize/
+        # CenterCrop geometry silently reshapes -- and can partly crop away --
+        # the very regions being audited.
+        self._preprocessor: Preprocessor = (
+            DeclarativePreprocessor(preprocessing_ops)
+            if preprocessing_ops is not None
+            else TorchvisionPreprocessor(preprocessing)
+        )
         self._output_decoder = output_decoder or LogitsOutputDecoder()
         if not isinstance(self._output_decoder, OutputDecoder):
             raise TypeError("output_decoder must implement OutputDecoder")
@@ -236,6 +248,11 @@ class TorchvisionAdapter(ModelAdapter):
             return []
         try:
             prepared = self._preprocessor.transform_batch(batch)
+            # TorchvisionPreprocessor hands back a torch tensor; the
+            # declarative pipeline stays in numpy, so adopt it here rather
+            # than making every op torch-aware.
+            if not isinstance(prepared, torch.Tensor):
+                prepared = torch.from_numpy(np.ascontiguousarray(prepared))
         except Exception as error:
             if isinstance(error, AdapterError):
                 raise
