@@ -13,6 +13,7 @@ from ssat.analysis.stability import (
     compute_seed_stability,
     compute_strategy_stability,
 )
+from ssat.analysis.strategy_profile import compute_strategy_profile
 from ssat.analysis.types import (
     Alignment,
     AnchorKey,
@@ -60,5 +61,6 @@ __all__ = [
     "compare_to_controls",
     "compute_jitter_stability",
     "compute_seed_stability",
+    "compute_strategy_profile",
     "compute_strategy_stability",
 ]
