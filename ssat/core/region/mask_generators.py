@@ -238,7 +238,7 @@ class ExplicitMaskGenerator(RegionMaskGenerator):
 
 
 class RandomAreaMatchMaskGenerator(RegionMaskGenerator):
-    """Sample a uniform mask matching an embedded target's pixel count."""
+    """Place the target's own shape at a uniformly random position."""
 
     def supports(self, spec: RegionSpec) -> bool:
         """Return whether the recipe is an area-matched random control.
@@ -259,7 +259,19 @@ class RandomAreaMatchMaskGenerator(RegionMaskGenerator):
         spec: RegionSpec,
         rng: Generator | None = None,
     ) -> NDArray[np.bool_]:
-        """Select pixels uniformly without replacement at the target area.
+        """Rigidly translate the target's shape to a random valid offset.
+
+        A control must differ from its target in *position only* — matching
+        the target's area while scattering that area as isolated pixels
+        across the whole frame would not be a control at all: it has no
+        locality, and scattered pixels are largely recoverable from their
+        neighbours, so it removes far less information than the contiguous
+        target does. Copying the shape verbatim and only moving it keeps
+        every property except location fixed, which is what makes the
+        comparison meaningful.
+
+        Translation preserves the pixel count exactly, so the area-match
+        contract holds by construction rather than by re-sampling.
 
         Args:
             height: Source image height.
@@ -268,7 +280,8 @@ class RandomAreaMatchMaskGenerator(RegionMaskGenerator):
             rng: Required item-local NumPy generator.
 
         Returns:
-            Boolean mask with exactly the target mask's pixel count.
+            Boolean mask with exactly the target mask's pixel count and
+            shape, offset to a uniformly chosen in-bounds position.
 
         Raises:
             RegionResolutionError: If the recipe or generator is invalid.
@@ -294,8 +307,26 @@ class RandomAreaMatchMaskGenerator(RegionMaskGenerator):
             )
 
         target_mask = self._context.resolve_target(height, width, target)
-        target_area = int(np.count_nonzero(target_mask))
-        selected = rng.choice(height * width, size=target_area, replace=False)
-        mask = np.zeros(height * width, dtype=np.bool_)
-        mask[selected] = True
-        return mask.reshape(height, width)
+        rows, columns = np.nonzero(target_mask)
+        if rows.size == 0:
+            raise RegionResolutionError(
+                "random_area_match target mask is empty"
+            )
+
+        # Crop to the bounding box so interior holes travel with the shape.
+        shape = target_mask[
+            rows.min() : rows.max() + 1, columns.min() : columns.max() + 1
+        ]
+        shape_height, shape_width = shape.shape
+
+        # The target's own position is always valid, so both ranges are
+        # non-empty and no fallback path is needed.
+        row_offset = int(rng.integers(0, height - shape_height + 1))
+        column_offset = int(rng.integers(0, width - shape_width + 1))
+
+        mask = np.zeros((height, width), dtype=np.bool_)
+        mask[
+            row_offset : row_offset + shape_height,
+            column_offset : column_offset + shape_width,
+        ] = shape
+        return mask

@@ -139,25 +139,76 @@ def test_explicit_mask_rejects_hash_shape_and_multichannel(tmp_path: Path) -> No
 
 
 def test_random_area_match_is_exact_and_deterministic() -> None:
-    """Random controls uniformly select exactly the concrete target area."""
+    """Random controls place exactly the concrete target area, reproducibly."""
 
+    # A 4x4 grid cell of a 40x40 frame is 10x10, leaving 31*31 valid offsets.
+    # The frame is deliberately much larger than the region: with contiguous
+    # placement the number of distinct outcomes is bounded by the offsets
+    # that fit, so a tight frame would make "different seed -> different
+    # mask" collide by chance rather than by any defect.
     resolver = RegionResolver()
-    control = _control(_grid(2, 2, 0, 0))
+    control = _control(_grid(4, 4, 0, 0))
 
     first, first_meta = resolver.resolve(
-        (1, 5, 7, 3), control, np.random.default_rng(42)
+        (1, 40, 40, 3), control, np.random.default_rng(42)
     )
     repeated, _ = resolver.resolve(
-        (1, 5, 7, 3), control, np.random.default_rng(42)
-    )
-    different, _ = resolver.resolve(
-        (1, 5, 7, 3), control, np.random.default_rng(43)
+        (1, 40, 40, 3), control, np.random.default_rng(42)
     )
 
-    assert first.sum() == 6
-    assert first_meta.intended_area_px == 6
+    assert first.sum() == 100
+    assert first_meta.intended_area_px == 100
     assert np.array_equal(first, repeated)
-    assert not np.array_equal(first, different)
+
+    placements = {
+        resolver.resolve((1, 40, 40, 3), control, np.random.default_rng(seed))[0].tobytes()
+        for seed in range(10)
+    }
+    assert len(placements) > 1
+
+
+def _bounding_shape(mask: np.ndarray) -> np.ndarray:
+    """Crop a mask to its bounding box so only its shape remains."""
+
+    rows, cols = np.nonzero(mask)
+    return mask[rows.min() : rows.max() + 1, cols.min() : cols.max() + 1]
+
+
+def test_random_area_match_is_a_rigid_translation_of_the_target() -> None:
+    """A control differs from its target in position only, never in shape.
+
+    Scattering the target's area as isolated pixels would match on area
+    while removing far less information (isolated pixels are largely
+    recoverable from their neighbours), so it could not answer whether a
+    region is specifically sensitive rather than merely large.
+    """
+
+    resolver = RegionResolver()
+    target = _grid(4, 4, 0, 0)
+    target_mask, _ = resolver.resolve((1, 40, 40, 3), target)
+    control_mask, _ = resolver.resolve(
+        (1, 40, 40, 3), _control(target), np.random.default_rng(7)
+    )
+
+    assert control_mask.sum() == target_mask.sum()
+    assert np.array_equal(_bounding_shape(control_mask), _bounding_shape(target_mask))
+
+
+def test_random_area_match_preserves_an_irregular_target_shape(tmp_path: Path) -> None:
+    """Interior holes travel with the shape rather than being filled in."""
+
+    # A ring: 8 set pixels enclosing one hole, in a 3x3 bounding box.
+    ring = np.array([[1, 1, 1], [1, 0, 1], [1, 1, 1]], dtype=np.uint8)
+    path = tmp_path / "ring.png"
+    Image.fromarray(ring * 255, mode="L").save(path)
+
+    resolver = RegionResolver()
+    control_mask, meta = resolver.resolve(
+        (1, 3, 3, 3), _control(_explicit(path)), np.random.default_rng(3)
+    )
+
+    assert meta.intended_area_px == 8
+    assert np.array_equal(_bounding_shape(control_mask), ring.astype(np.bool_))
 
 
 def test_random_area_match_resolves_embedded_explicit_target(tmp_path: Path) -> None:

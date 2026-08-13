@@ -146,12 +146,12 @@ def _build_anchor_table(
 
     Raises:
         AnalysisCorruptionError: If the same concrete region reports
-            inconsistent ``region_kind`` or area across its rows, or if one
-            anchor's rows disagree on ``is_control``.
+            inconsistent ``region_kind``, or inconsistent area within one
+            sample, or if one anchor's rows disagree on ``is_control``.
     """
 
     kind_by_region: dict[str, str] = {}
-    area_by_region: dict[str, tuple[int | None, int | None]] = {}
+    area_by_region: dict[tuple[str, str], tuple[int | None, int | None]] = {}
     rows_by_anchor: dict[AnchorKey, list[Any]] = defaultdict(list)
 
     for row in context.itertuples(index=False):
@@ -159,10 +159,11 @@ def _build_anchor_table(
         _check_region_geometry(
             kind_by_region,
             area_by_region,
+            sample_id=row.sample_id,
             region_key=region_key,
             region_kind=row.region_kind,
-            intended_area_px=row.intended_area_px,
-            effective_area_px=row.effective_area_px,
+            intended_area_px=_area_or_none(row.intended_area_px),
+            effective_area_px=_area_or_none(row.effective_area_px),
         )
         anchor_key = AnchorKey(
             sample_id=row.sample_id, region_key=region_key, invert_mask=bool(row.invert_mask)
@@ -189,7 +190,14 @@ def _build_anchor_table(
             },
             key=lambda key: (key.perturb_op, key.perturb_params_hash),
         )
-        intended_area_px, effective_area_px = area_by_region[anchor_key.region_key]
+        # Taken from this anchor's own rows, not a region-wide map: an
+        # anchor is already per-sample, so a region whose geometry varies
+        # per sample must report *this* sample's area. Averaged because a
+        # RANDOM_AREA_MATCH control is re-drawn per seed salt, so even one
+        # anchor can hold several areas -- and its degradation is likewise
+        # averaged over those draws by A2.
+        intended_area_px = _mean_area([row.intended_area_px for row in rows])
+        effective_area_px = _mean_area([row.effective_area_px for row in rows])
 
         anchor_row = AnchorRow(
             anchor_key=anchor_key,
@@ -209,10 +217,30 @@ def _build_anchor_table(
     return anchor_table, anchor_by_key, dict(rows_by_anchor)
 
 
+def _area_or_none(value: Any) -> int | None:
+    """Coerce one context area cell to ``int``, mapping null/NaN to ``None``.
+
+    A missing area arrives from parquet as float NaN rather than ``None``,
+    and ``NaN != NaN`` would otherwise read as a genuine geometry conflict.
+    """
+
+    if value is None or value != value:  # NaN is the only value unequal to itself.
+        return None
+    return int(value)
+
+
+def _mean_area(areas: list[Any]) -> int | None:
+    """Average the known areas of one anchor's rows, or ``None`` if all unknown."""
+
+    known = [area for area in map(_area_or_none, areas) if area is not None]
+    return int(round(sum(known) / len(known))) if known else None
+
+
 def _check_region_geometry(
     kind_by_region: dict[str, str],
-    area_by_region: dict[str, tuple[int | None, int | None]],
+    area_by_region: dict[tuple[str, str], tuple[int | None, int | None]],
     *,
+    sample_id: str,
     region_key: str,
     region_kind: str,
     intended_area_px: int | None,
@@ -221,23 +249,35 @@ def _check_region_geometry(
     """Track one region's geometry and reject a later, conflicting report.
 
     Mirrors ``ssat.metrics.aggregate._check_region_geometry``'s policy
-    without importing it (module docstring). ``None`` areas never conflict;
-    they simply defer to whatever non-null value is already known.
+    without importing it (module docstring), including its scoping: areas
+    are compared only within one sample, because sample-dependent kinds
+    (gt_bbox, skeleton_parts) legitimately differ per sample, and
+    random_area_match is exempt entirely since its mask is re-drawn per
+    item. ``None`` areas never conflict; they simply defer to whatever
+    non-null value is already known.
 
     Raises:
-        AnalysisCorruptionError: If ``region_kind`` or a non-null area
-            differs from a previously recorded value for the same
-            ``region_key``.
+        AnalysisCorruptionError: If ``region_kind`` differs from a
+            previously recorded value for the same ``region_key``, or a
+            non-null area differs from a previous value for the same
+            ``(sample_id, region_key)``.
     """
 
     existing_kind = kind_by_region.setdefault(region_key, region_kind)
     if existing_kind != region_kind:
         raise AnalysisCorruptionError(f"region {region_key!r} reports inconsistent region_kind")
 
+    # Literal rather than ``ssat.core.types.RegionKind.RANDOM_AREA_MATCH``:
+    # §3.3 keeps this module off ``ssat.core``, the same trade-off §9's risk
+    # table already accepts for the ``region_key`` format string.
+    if region_kind == "random_area_match":
+        return
+
     new_areas = (intended_area_px, effective_area_px)
-    existing_areas = area_by_region.get(region_key)
+    geometry_key = (sample_id, region_key)
+    existing_areas = area_by_region.get(geometry_key)
     if existing_areas is None:
-        area_by_region[region_key] = new_areas
+        area_by_region[geometry_key] = new_areas
         return
 
     merged: list[int | None] = []
@@ -246,10 +286,11 @@ def _check_region_geometry(
     ):
         if existing is not None and new is not None and existing != new:
             raise AnalysisCorruptionError(
-                f"region {region_key!r} reports inconsistent {field_name}"
+                f"region {region_key!r} reports inconsistent {field_name} "
+                f"within sample {sample_id!r}"
             )
         merged.append(existing if existing is not None else new)
-    area_by_region[region_key] = (merged[0], merged[1])
+    area_by_region[geometry_key] = (merged[0], merged[1])
 
 
 def _match_controls(

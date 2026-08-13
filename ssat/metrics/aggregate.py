@@ -27,7 +27,7 @@ from __future__ import annotations
 
 from collections import defaultdict
 from dataclasses import dataclass
-from typing import Sequence
+from typing import Any, Sequence
 
 import numpy as np
 
@@ -141,20 +141,31 @@ def _build_context(
 ) -> dict[str, _ItemContext]:
     """Build a per-item lookup and reject inconsistent per-region geometry.
 
+    Geometry consistency is a property of one region *within one sample*,
+    not of a region across the dataset: sample-dependent kinds (GT_BBOX,
+    SKELETON_PARTS) legitimately resolve to a different box per sample, and
+    a RANDOM_AREA_MATCH control is re-drawn per item by construction. The
+    area maps are therefore keyed on ``(sample_id, region_key)``.
+
     Raises:
-        MetricsCorruptionError: If a concrete region (``region_key``) reports
-            a different ``region_kind`` or a conflicting non-null area across
-            the items that reference it, or if an EXPLICIT-kind row's
-            ``region_id`` has no matching family in ``region_families``.
+        MetricsCorruptionError: If a concrete region reports a different
+            ``region_kind``, or a conflicting non-null area within the same
+            sample, or if an EXPLICIT-kind row's ``region_id`` has no
+            matching family in ``region_families``.
     """
 
     context: dict[str, _ItemContext] = {}
     kind_by_region: dict[str, RegionKind] = {}
-    area_by_region: dict[str, tuple[int | None, int | None]] = {}
+    area_by_region: dict[tuple[str, str], tuple[int | None, int | None]] = {}
 
     for row in joined.itertuples(index=False):
         region_key = f"{row.region_id}::{row.region_instance_id}"
         region_kind = RegionKind(row.region_kind)
+        # A missing area arrives from parquet as float NaN, not None, and
+        # NaN != NaN would read as a genuine conflict below. Normalize once
+        # here so everything downstream sees the documented ``int | None``.
+        intended_area_px = _area_or_none(row.intended_area_px)
+        effective_area_px = _area_or_none(row.effective_area_px)
         if region_kind is RegionKind.EXPLICIT:
             family = region_families.get(row.region_id)
             if family is None:
@@ -183,10 +194,11 @@ def _build_context(
         _check_region_geometry(
             kind_by_region,
             area_by_region,
+            sample_id=row.sample_id,
             region_key=region_key,
             region_kind=region_kind,
-            intended_area_px=row.intended_area_px,
-            effective_area_px=row.effective_area_px,
+            intended_area_px=intended_area_px,
+            effective_area_px=effective_area_px,
         )
 
         context[row.item_id] = _ItemContext(
@@ -194,8 +206,8 @@ def _build_context(
             gt_label=int(row.gt_label),
             region_key=region_key,
             region_kind=region_kind,
-            intended_area_px=row.intended_area_px,
-            effective_area_px=row.effective_area_px,
+            intended_area_px=intended_area_px,
+            effective_area_px=effective_area_px,
             region_geometry_ref=geometry_ref,
             is_control=bool(row.is_control),
         )
@@ -203,10 +215,19 @@ def _build_context(
     return context
 
 
+def _area_or_none(value: Any) -> int | None:
+    """Coerce one parquet area cell to ``int``, mapping null/NaN to ``None``."""
+
+    if value is None or value != value:  # NaN is the only value unequal to itself.
+        return None
+    return int(value)
+
+
 def _check_region_geometry(
     kind_by_region: dict[str, RegionKind],
-    area_by_region: dict[str, tuple[int | None, int | None]],
+    area_by_region: dict[tuple[str, str], tuple[int | None, int | None]],
     *,
+    sample_id: str,
     region_key: str,
     region_kind: RegionKind,
     intended_area_px: int | None,
@@ -217,19 +238,33 @@ def _check_region_geometry(
     ``None`` areas (from perturbation failures — design §5 탐색 결과) never
     conflict; they simply defer to whatever non-null value is already known.
 
+    ``region_kind`` is checked dataset-wide (one region_key names one kind
+    everywhere), but areas are checked only within a sample — see
+    ``_build_context``. RANDOM_AREA_MATCH is exempt from the area check
+    entirely: its mask is re-drawn from an item-local rng, so two seed
+    salts of the same (sample, control slot) legitimately differ. Its real
+    contract — matching the target's area — is enforced where the pairing
+    is known (``ssat.analysis.indexer``), not here.
+
     Raises:
-        MetricsCorruptionError: If ``region_kind`` or a non-null area differs
-            from a previously recorded value for the same ``region_key``.
+        MetricsCorruptionError: If ``region_kind`` differs from a previously
+            recorded value for the same ``region_key``, or a non-null area
+            differs from a previous value for the same
+            ``(sample_id, region_key)``.
     """
 
     existing_kind = kind_by_region.setdefault(region_key, region_kind)
     if existing_kind is not region_kind:
         raise MetricsCorruptionError(f"region {region_key!r} reports inconsistent region_kind")
 
+    if region_kind is RegionKind.RANDOM_AREA_MATCH:
+        return
+
     new_areas = (intended_area_px, effective_area_px)
-    existing_areas = area_by_region.get(region_key)
+    geometry_key = (sample_id, region_key)
+    existing_areas = area_by_region.get(geometry_key)
     if existing_areas is None:
-        area_by_region[region_key] = new_areas
+        area_by_region[geometry_key] = new_areas
         return
 
     merged: list[int | None] = []
@@ -238,10 +273,11 @@ def _check_region_geometry(
     ):
         if existing is not None and new is not None and existing != new:
             raise MetricsCorruptionError(
-                f"region {region_key!r} reports inconsistent {field_name}"
+                f"region {region_key!r} reports inconsistent {field_name} "
+                f"within sample {sample_id!r}"
             )
         merged.append(existing if existing is not None else new)
-    area_by_region[region_key] = (merged[0], merged[1])
+    area_by_region[geometry_key] = (merged[0], merged[1])
 
 
 def _aggregate_sample_metrics(
@@ -329,11 +365,24 @@ def _aggregate_region_metrics(
 ) -> list[RegionMetrics]:
     """Sample-grain: each (sample, region, metric) SpatialProfile row is one datum."""
 
-    geometry_by_region: dict[str, tuple[RegionKind, int | None, int | None]] = {}
+    # Dataset-grain areas are a summary across samples, so they are averaged
+    # rather than sampled from whichever item happened to come first: a
+    # region whose geometry varies per sample (GT_BBOX, SKELETON_PARTS, or a
+    # RANDOM_AREA_MATCH control re-drawn per item) has no single "the" area,
+    # and an arbitrary representative would silently misreport it. For a
+    # region with constant geometry the mean is exactly that constant.
+    kind_by_region: dict[str, RegionKind] = {}
+    intended_by_region: dict[str, list[int]] = defaultdict(list)
+    effective_by_region: dict[str, list[int]] = defaultdict(list)
     for ctx in context.values():
-        geometry_by_region.setdefault(
-            ctx.region_key, (ctx.region_kind, ctx.intended_area_px, ctx.effective_area_px)
-        )
+        kind_by_region.setdefault(ctx.region_key, ctx.region_kind)
+        if ctx.intended_area_px is not None:
+            intended_by_region[ctx.region_key].append(ctx.intended_area_px)
+        if ctx.effective_area_px is not None:
+            effective_by_region[ctx.region_key].append(ctx.effective_area_px)
+
+    def _mean_area(areas: list[int]) -> int | None:
+        return int(round(sum(areas) / len(areas))) if areas else None
 
     groups: dict[tuple[str, str], list[SpatialProfile]] = defaultdict(list)
     for row in spatial_profile:
@@ -341,7 +390,9 @@ def _aggregate_region_metrics(
 
     result: list[RegionMetrics] = []
     for (region_key, metric_name), per_sample_rows in groups.items():
-        region_kind, intended_area_px, effective_area_px = geometry_by_region[region_key]
+        region_kind = kind_by_region[region_key]
+        intended_area_px = _mean_area(intended_by_region[region_key])
+        effective_area_px = _mean_area(effective_by_region[region_key])
         valid = [row.degradation for row in per_sample_rows if row.degradation is not None]
         n_valid = len(valid)
         mean = float(np.mean(valid)) if n_valid else None

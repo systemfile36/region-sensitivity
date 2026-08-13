@@ -336,11 +336,35 @@ def test_region_metrics_use_region_id_and_instance_id_as_the_key(tmp_path: Path)
     assert by_key["grid::grid/r0/c0"].n_samples == 1
 
 
-def test_inconsistent_area_for_the_same_region_raises(tmp_path: Path) -> None:
+def test_inconsistent_area_within_one_sample_raises(tmp_path: Path) -> None:
+    # Two items of the same region *in the same sample* must agree: within a
+    # sample the mask is resolved once, so a disagreement means the dump is
+    # corrupt. (Across samples it is legitimate -- see the test below.)
     joined = _joined(
         [
             _joined_row("a" * 64, sample_id="s1", intended_area_px=4),
-            _joined_row("b" * 64, sample_id="s2", intended_area_px=8),
+            _joined_row("b" * 64, sample_id="s1", intended_area_px=8),
+        ]
+    )
+    item_metrics = [
+        _item("a" * 64, "s1", "fake_continuous", degradation=1.0),
+        _item("b" * 64, "s1", "fake_continuous", degradation=1.0),
+    ]
+
+    with pytest.raises(MetricsCorruptionError, match="intended_area_px"):
+        aggregate_item_metrics(item_metrics, joined, _registry(), _resolved_config(tmp_path))
+
+
+def test_area_may_differ_across_samples_and_is_averaged(tmp_path: Path) -> None:
+    # Sample-dependent region kinds (gt_bbox, skeleton_parts) resolve to a
+    # different box per sample, and a random_area_match control is re-drawn
+    # per item -- so a per-region area equality check across samples is
+    # simply wrong. The dataset-grain RegionMetrics area summarizes them by
+    # mean rather than picking whichever item was seen first.
+    joined = _joined(
+        [
+            _joined_row("a" * 64, sample_id="s1", intended_area_px=4, effective_area_px=40),
+            _joined_row("b" * 64, sample_id="s2", intended_area_px=8, effective_area_px=60),
         ]
     )
     item_metrics = [
@@ -348,8 +372,12 @@ def test_inconsistent_area_for_the_same_region_raises(tmp_path: Path) -> None:
         _item("b" * 64, "s2", "fake_continuous", degradation=1.0),
     ]
 
-    with pytest.raises(MetricsCorruptionError, match="intended_area_px"):
-        aggregate_item_metrics(item_metrics, joined, _registry(), _resolved_config(tmp_path))
+    result = aggregate_item_metrics(item_metrics, joined, _registry(), _resolved_config(tmp_path))
+
+    row = next(r for r in result.region_metrics if r.region_key == "grid::grid/r0/c0")
+    assert row.intended_area_px == 6
+    assert row.effective_area_px == 50
+    assert row.n_samples == 2
 
 
 def test_inconsistent_region_kind_for_the_same_region_raises(tmp_path: Path) -> None:
