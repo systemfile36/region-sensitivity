@@ -15,6 +15,7 @@ from ssat.analysis.stability import (
     compute_seed_stability,
     compute_strategy_stability,
 )
+from ssat.analysis.store import AnalysisManifest, load_analysis, save_analysis, verify_source_metrics
 from ssat.analysis.strategy_profile import compute_strategy_profile
 from ssat.analysis.types import (
     Alignment,
@@ -40,6 +41,7 @@ __all__ = [
     "Alignment",
     "AnalysisCorruptionError",
     "AnalysisError",
+    "AnalysisManifest",
     "AnalysisReader",
     "AnalysisSchemaError",
     "AnchorKey",
@@ -67,4 +69,7 @@ __all__ = [
     "compute_seed_stability",
     "compute_strategy_profile",
     "compute_strategy_stability",
+    "load_analysis",
+    "save_analysis",
+    "verify_source_metrics",
 ]
