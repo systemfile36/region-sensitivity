@@ -8,6 +8,7 @@ from ssat.report.adapters import (
 )
 from ssat.report.assembler import AssembledReport, ReportDataAssembler
 from ssat.report.errors import ReportDataError, ReportError, ReportSchemaError
+from ssat.report.exporter import AssembledReportLike, ExportedPaths, export
 from ssat.report.types import (
     FlaggedItem,
     MetricCard,
@@ -33,8 +34,10 @@ from ssat.report.types import (
 
 __all__ = [
     "AssembledReport",
+    "AssembledReportLike",
     "ClassificationAdapter",
     "DetectionAdapter",
+    "ExportedPaths",
     "FlaggedItem",
     "MetricCard",
     "ProvenanceInfo",
@@ -61,4 +64,5 @@ __all__ = [
     "TopRegionEntry",
     "VulnerabilityDistribution",
     "VulnerabilitySummaryStats",
+    "export",
 ]

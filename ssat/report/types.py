@@ -32,10 +32,12 @@ because every ``Enum`` here mixes in ``str``.
 
 from __future__ import annotations
 
+import dataclasses
 from collections.abc import Mapping
 from dataclasses import dataclass
 from enum import Enum
-from typing import TypeAlias
+from types import UnionType
+from typing import Any, TypeAlias, get_args, get_origin, get_type_hints
 
 
 REPORT_SCHEMA_VERSION = "1.0.0"
@@ -651,6 +653,41 @@ class ReportModel:
         if not isinstance(self.provenance, ProvenanceInfo):
             raise TypeError("provenance must be a ProvenanceInfo")
 
+    @classmethod
+    def from_dict(cls, data: Mapping[str, "ReportJsonValue"]) -> "ReportModel":
+        """Reconstruct a ``ReportModel`` from its JSON-decoded dict form.
+
+        This is the inverse of ``dataclasses.asdict(model)`` (plus a JSON
+        round trip) — the shape R1's ``report_model.json`` is written in.
+        It exists so that contract is a real two-way one, not export-only:
+        the same "JSON model first" principle that lets a future WebUI serve
+        a ``ReportModel`` as an HTTP response body (module docstring)
+        implies that body must also be receivable and reconstructable into
+        typed objects, not left as loosely-typed dicts. Every nested
+        dataclass, tuple, and ``Enum`` this module defines is walked back
+        into its typed form using the field's own type hint (see
+        :func:`_coerce_from_json`); ``Mapping``-typed fields (e.g.
+        ``reliability_distribution``, ``task_extra``) are passed through as
+        plain dicts, since none of them nest further dataclasses.
+
+        Args:
+            data: A JSON-decoded ``ReportModel`` document, e.g. the result
+                of ``json.loads(Path("report_model.json").read_text())``.
+
+        Returns:
+            An equivalent, fully typed ``ReportModel``.
+
+        Raises:
+            KeyError: If a required field is missing from ``data``.
+            TypeError: If a value's shape does not match its field's type
+                hint (raised by the reconstructed dataclass's own
+                ``__post_init__``).
+            ValueError: If a reconstructed value fails the corresponding
+                dataclass's own validation.
+        """
+
+        return _dataclass_from_dict(cls, data)
+
 
 # --- Shared private validators -------------------------------------------
 
@@ -704,3 +741,55 @@ def _validate_json_value(value: "ReportJsonValue", *, path: str) -> None:
             _validate_json_value(item, path=f"{path}.{key}")
         return
     raise TypeError(f"{path} contains unsupported value type {type(value).__name__}")
+
+
+# --- ReportModel.from_dict support -------------------------------------------
+
+
+def _dataclass_from_dict(cls: type, data: Mapping[str, "ReportJsonValue"]) -> Any:
+    """Reconstruct one dataclass instance from its ``dataclasses.asdict`` shape.
+
+    Every field is rebuilt via :func:`_coerce_from_json`, guided by ``cls``'s
+    own resolved type hints (``get_type_hints`` rather than
+    ``dataclasses.fields(cls)[i].type``, since ``from __future__ import
+    annotations`` leaves the latter as unevaluated strings).
+    """
+
+    hints = get_type_hints(cls)
+    kwargs = {
+        field.name: _coerce_from_json(hints[field.name], data[field.name])
+        for field in dataclasses.fields(cls)
+    }
+    return cls(**kwargs)
+
+
+def _coerce_from_json(annotation: Any, value: Any) -> Any:
+    """Rebuild one field's value from its JSON-decoded form, guided by its type hint.
+
+    Walks back, in reverse, the three shapes ``dataclasses.asdict`` + a JSON
+    round trip produce for values in this module: a nested dataclass became
+    a dict (recurse via :func:`_dataclass_from_dict`), a tuple became a list
+    (rebuild elementwise using the tuple's element type), and an ``Enum``
+    member became its plain string value (reconstruct via ``EnumType(value)``
+    since every ``Enum`` here mixes in ``str``, module docstring).
+    ``Mapping``-typed fields are returned as-is — none of them nest further
+    dataclasses in this schema, so a plain dict already has the right shape.
+    """
+
+    if value is None:
+        return None
+
+    origin = get_origin(annotation)
+    if origin is UnionType:
+        non_none_types = [arg for arg in get_args(annotation) if arg is not type(None)]
+        return _coerce_from_json(non_none_types[0], value)
+    if origin is tuple:
+        element_type, _ellipsis = get_args(annotation)
+        return tuple(_coerce_from_json(element_type, item) for item in value)
+    if origin is Mapping or origin is dict:
+        return dict(value)
+    if isinstance(annotation, type) and issubclass(annotation, Enum):
+        return annotation(value)
+    if dataclasses.is_dataclass(annotation):
+        return _dataclass_from_dict(annotation, value)
+    return value

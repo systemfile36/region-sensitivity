@@ -252,6 +252,55 @@ def test_report_model_with_no_analysis_serializes_with_none_markers() -> None:
     assert decoded["provenance"]["analysis_dir"] is None
 
 
+# --- ReportModel.from_dict (round trip) --------------------------------------
+
+
+def test_report_model_from_dict_round_trips_full_model() -> None:
+    model = _report_model()
+    payload = json.loads(json.dumps(dataclasses.asdict(model), sort_keys=True))
+
+    rebuilt = ReportModel.from_dict(payload)
+
+    assert rebuilt == model
+
+
+def test_report_model_from_dict_round_trips_none_markers() -> None:
+    """The "해당 없음" path must reconstruct with the same None markers, not defaults."""
+
+    model = _report_model(
+        meta=_report_meta(
+            schema_versions=ReportSchemaVersions(
+                dump="1.0.0", metrics="1.0.0", analysis=None, report="1.0.0"
+            )
+        ),
+        sample_rankings=SampleRankings(
+            most_vulnerable=(_sample_card(reliability_grade=None, top_regions=()),),
+            most_robust=(),
+        ),
+        region_summary=RegionSummary(
+            rows=(_region_row(reliability_grade=None, reliability_distribution={}),),
+            reliability_distribution={},
+        ),
+        reliability_spotlight=ReliabilitySpotlight(flagged_examples=()),
+        provenance=_provenance_info(analysis_dir=None, analysis_manifest_hash=None),
+    )
+    payload = json.loads(json.dumps(dataclasses.asdict(model), sort_keys=True))
+
+    rebuilt = ReportModel.from_dict(payload)
+
+    assert rebuilt == model
+    assert rebuilt.meta.schema_versions.analysis is None
+    assert rebuilt.sample_rankings.most_vulnerable[0].reliability_grade is None
+
+
+def test_report_model_from_dict_rejects_missing_field() -> None:
+    payload = dataclasses.asdict(_report_model())
+    del payload["provenance"]
+
+    with pytest.raises(KeyError):
+        ReportModel.from_dict(payload)
+
+
 # --- MetricCard ----------------------------------------------------------------
 
 
