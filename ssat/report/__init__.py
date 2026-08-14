@@ -6,6 +6,7 @@ from ssat.report.adapters import (
     SampleMetricLike,
     TaskPresentationAdapter,
 )
+from ssat.report.assembler import AssembledReport, ReportDataAssembler
 from ssat.report.errors import ReportDataError, ReportError, ReportSchemaError
 from ssat.report.types import (
     FlaggedItem,
@@ -31,6 +32,7 @@ from ssat.report.types import (
 )
 
 __all__ = [
+    "AssembledReport",
     "ClassificationAdapter",
     "DetectionAdapter",
     "FlaggedItem",
@@ -40,6 +42,7 @@ __all__ = [
     "RegionRow",
     "RegionSummary",
     "ReliabilitySpotlight",
+    "ReportDataAssembler",
     "ReportDataError",
     "ReportError",
     "ReportGrade",

@@ -369,16 +369,33 @@ class VulnerabilitySummaryStats:
     """Distributional summary of the full vulnerability_score population (design §3).
 
     Attributes:
-        mean: Arithmetic mean of vulnerability_score across every sample.
-        median: 50th percentile.
-        p90: 90th percentile.
-        p99: 99th percentile.
+        mean: Arithmetic mean of vulnerability_score across every sample;
+            ``None`` when no sample has a computed vulnerability_score (e.g.
+            every sample had zero valid primary-metric items) — distinct
+            from a real zero, per the same "unavailable ≠ false" principle
+            ``MetricCard.value`` follows.
+        median: 50th percentile, or ``None`` under the same condition.
+        p90: 90th percentile, or ``None`` under the same condition.
+        p99: 99th percentile, or ``None`` under the same condition.
     """
 
-    mean: float
-    median: float
-    p90: float
-    p99: float
+    mean: float | None
+    median: float | None
+    p90: float | None
+    p99: float | None
+
+    def __post_init__(self) -> None:
+        """Validate that the four fields are all present or all absent together.
+
+        Raises:
+            ValueError: If some but not all fields are ``None`` — they are
+                always computed from the same score array in one pass, so a
+                partial result would indicate a caller bug.
+        """
+
+        values = (self.mean, self.median, self.p90, self.p99)
+        if any(value is None for value in values) and any(value is not None for value in values):
+            raise ValueError("mean, median, p90, and p99 must be all present or all None")
 
 
 @dataclass(frozen=True, slots=True)
