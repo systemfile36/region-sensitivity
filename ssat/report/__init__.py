@@ -7,6 +7,12 @@ from ssat.report.adapters import (
     TaskPresentationAdapter,
 )
 from ssat.report.assembler import AssembledReport, ReportDataAssembler
+from ssat.report.assets import (
+    AssetLinkedReport,
+    AssetManifest,
+    apply_asset_manifest,
+    link_assets,
+)
 from ssat.report.charts import (
     RankCorrelationRowLike,
     render_fill_strategy_correlation,
@@ -42,6 +48,8 @@ from ssat.report.types import (
 __all__ = [
     "AssembledReport",
     "AssembledReportLike",
+    "AssetLinkedReport",
+    "AssetManifest",
     "ClassificationAdapter",
     "DetectionAdapter",
     "ExportedPaths",
@@ -73,7 +81,9 @@ __all__ = [
     "TopRegionEntry",
     "VulnerabilityDistribution",
     "VulnerabilitySummaryStats",
+    "apply_asset_manifest",
     "export",
+    "link_assets",
     "render_fill_strategy_correlation",
     "render_region_bar",
     "render_vulnerability_histogram",
