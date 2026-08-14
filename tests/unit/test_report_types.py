@@ -134,6 +134,7 @@ def _provenance_info(**overrides: object) -> ProvenanceInfo:
         "dump_path": "/data/dump",
         "metrics_dir": "/data/dump/metrics",
         "analysis_dir": "/data/dump/analysis",
+        "run_manifest_hash": "c" * 64,
         "metrics_manifest_hash": "a" * 64,
         "analysis_manifest_hash": "b" * 64,
         "thresholds": {"z_vs_control_threshold": 2.0},
@@ -155,8 +156,11 @@ def _report_model(**overrides: object) -> ReportModel:
             most_vulnerable=(_sample_card(),), most_robust=(_sample_card(sample_id="sample-2"),)
         ),
         "region_summary": RegionSummary(
-            rows=(_region_row(),), reliability_distribution={"high": 1, "unreliable": 1}
+            rows=(_region_row(),),
+            reliability_distribution={"high": 1, "unreliable": 1},
+            chart_asset_ref="assets/img/charts/region_bar.svg",
         ),
+        "fill_strategy_correlation_asset_ref": "assets/img/charts/fill_strategy_correlation.svg",
         "reliability_spotlight": ReliabilitySpotlight(flagged_examples=(_flagged_item(),)),
         "provenance": _provenance_info(),
     }
@@ -240,7 +244,9 @@ def test_report_model_with_no_analysis_serializes_with_none_markers() -> None:
         region_summary=RegionSummary(
             rows=(_region_row(reliability_grade=None, reliability_distribution={}),),
             reliability_distribution={},
+            chart_asset_ref=None,
         ),
+        fill_strategy_correlation_asset_ref=None,
         reliability_spotlight=ReliabilitySpotlight(flagged_examples=()),
         provenance=_provenance_info(analysis_dir=None, analysis_manifest_hash=None),
     )
@@ -280,7 +286,9 @@ def test_report_model_from_dict_round_trips_none_markers() -> None:
         region_summary=RegionSummary(
             rows=(_region_row(reliability_grade=None, reliability_distribution={}),),
             reliability_distribution={},
+            chart_asset_ref=None,
         ),
+        fill_strategy_correlation_asset_ref=None,
         reliability_spotlight=ReliabilitySpotlight(flagged_examples=()),
         provenance=_provenance_info(analysis_dir=None, analysis_manifest_hash=None),
     )

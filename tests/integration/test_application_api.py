@@ -20,6 +20,7 @@ from ssat.application import (
     ComputeMetricsRequest,
     InspectRequest,
     RebuildIndexRequest,
+    ReportRequest,
     RunRequest,
 )
 from ssat.application.locking import output_lock
@@ -287,6 +288,106 @@ def test_application_compute_metrics_rejects_unknown_primary_metric(
     # Failing fast (before the expensive compute_item_metrics scan) means no
     # metrics directory should have been created at all.
     assert not (output / "metrics").exists()
+
+
+def test_application_generate_report_with_analysis_creates_report_html(tmp_path: Path) -> None:
+    application = _application()
+    manifest = tmp_path / "two_class_manifest.json"
+    _write_two_class_manifest(manifest)
+    output = tmp_path / "dump"
+    with application.prepare_run(
+        RunRequest(_config_with_controls(manifest), output, base_dir=tmp_path)
+    ) as prepared:
+        application.execute_run(prepared)
+    application.compute_metrics(ComputeMetricsRequest(output))
+    application.analyze(AnalyzeRequest(output))
+
+    result = application.generate_report(ReportRequest(output))
+
+    assert result.dump == output.resolve()
+    assert result.metrics_dir == output.resolve() / "metrics"
+    assert result.analysis_dir == output.resolve() / "analysis"
+    assert result.report_dir == output.resolve() / "report"
+    assert result.n_samples > 0
+    assert result.n_regions > 0
+    assert set(result.grade_distribution) <= {"high", "moderate", "low", "unreliable"}
+
+    report_dir = result.report_dir
+    assert (report_dir / "report.html").is_file()
+    assert (report_dir / "report_manifest.json").is_file()
+    assert (report_dir / "assets" / "css" / "style.css").is_file()
+    assert (report_dir / "assets" / "js" / "enhance.js").is_file()
+    assert (report_dir / "assets" / "img" / "charts" / "vulnerability_histogram.svg").is_file()
+    assert (report_dir / "assets" / "img" / "charts" / "region_bar.svg").is_file()
+    # This fixture's source is an image_manifest -- source_provenance is
+    # available, so R3 must have actually rendered top-K/bottom-K assets,
+    # not just left the gallery empty.
+    assert list((report_dir / "assets" / "img" / "heatmaps").glob("*.png"))
+    assert list((report_dir / "assets" / "img" / "thumbnails").glob("*.png"))
+    assert (report_dir / "data" / "report_model.json").is_file()
+    assert (report_dir / "data" / "sample_rankings.csv").is_file()
+    assert (report_dir / "data" / "region_summary.csv").is_file()
+    assert (report_dir / "data" / "flagged_items.csv").is_file()
+
+    html = (report_dir / "report.html").read_text(encoding="utf-8")
+    assert "vulnerability_histogram.svg" in html
+    assert "region_bar.svg" in html
+
+    model = json.loads((report_dir / "data" / "report_model.json").read_text(encoding="utf-8"))
+    assert model["provenance"]["run_manifest_hash"]
+    assert model["provenance"]["metrics_manifest_hash"]
+    assert model["provenance"]["analysis_manifest_hash"]
+    assert model["vulnerability_distribution"]["histogram_asset_ref"] == (
+        "assets/img/charts/vulnerability_histogram.svg"
+    )
+    assert model["region_summary"]["chart_asset_ref"] == "assets/img/charts/region_bar.svg"
+
+
+def test_application_generate_report_without_analysis_marks_sections_unavailable(
+    tmp_path: Path,
+) -> None:
+    application = _application()
+    manifest = tmp_path / "two_class_manifest.json"
+    _write_two_class_manifest(manifest)
+    output = tmp_path / "dump"
+    with application.prepare_run(
+        RunRequest(_config(manifest), output, base_dir=tmp_path)
+    ) as prepared:
+        application.execute_run(prepared)
+    application.compute_metrics(ComputeMetricsRequest(output))
+
+    # No analyze() run at all -- analysis_dir defaults to <dump>/analysis,
+    # which does not exist yet; generate_report must silently downgrade to
+    # "no analysis" rather than fail (ReportRequest.analysis_dir docstring).
+    result = application.generate_report(ReportRequest(output))
+
+    assert result.analysis_dir is None
+    assert result.grade_distribution == {}
+    assert (result.report_dir / "report.html").is_file()
+
+    model = json.loads(
+        (result.report_dir / "data" / "report_model.json").read_text(encoding="utf-8")
+    )
+    assert model["provenance"]["analysis_dir"] is None
+    assert model["provenance"]["analysis_manifest_hash"] is None
+    assert model["reliability_spotlight"]["flagged_examples"] == []
+
+
+def test_application_generate_report_rejects_unknown_primary_metric(tmp_path: Path) -> None:
+    application = _application()
+    manifest = tmp_path / "two_class_manifest.json"
+    _write_two_class_manifest(manifest)
+    output = tmp_path / "dump"
+    with application.prepare_run(
+        RunRequest(_config(manifest), output, base_dir=tmp_path)
+    ) as prepared:
+        application.execute_run(prepared)
+    application.compute_metrics(ComputeMetricsRequest(output))
+
+    with pytest.raises(ApplicationError) as caught:
+        application.generate_report(ReportRequest(output, primary_metric="not_a_real_metric"))
+    assert caught.value.code is ApplicationErrorCode.REPORT
+    assert not (output / "report").exists()
 
 
 def test_confirmation_is_application_policy_and_does_not_create_dump(

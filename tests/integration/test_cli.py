@@ -166,6 +166,63 @@ def test_cli_analyze_command(tmp_path: Path) -> None:
     assert missing_metrics.exit_code != 0
 
 
+def test_cli_report_command(tmp_path: Path) -> None:
+    manifest = tmp_path / "two_class_manifest.json"
+    _write_two_class_manifest(manifest)
+    config = tmp_path / "audit.yaml"
+    output = tmp_path / "dump"
+    _write_config_with_controls(config, manifest=manifest)
+    runner = CliRunner()
+    app = _app()
+
+    run = runner.invoke(app, ["run", str(config), "--output", str(output)])
+    assert run.exit_code == 0, run.output
+
+    metrics = runner.invoke(app, ["metrics", str(output)])
+    assert metrics.exit_code == 0, metrics.output
+
+    analyze = runner.invoke(app, ["analyze", str(output)])
+    assert analyze.exit_code == 0, analyze.output
+
+    report = runner.invoke(app, ["report", str(output), "--json"])
+    assert report.exit_code == 0, report.output
+    payload = json.loads(report.stdout)
+    assert Path(payload["report_dir"]) == (output / "report").resolve()
+    assert Path(payload["analysis_dir"]) == (output / "analysis").resolve()
+    assert payload["n_samples"] > 0
+    assert (output / "report" / "report.html").is_file()
+    assert (output / "report" / "report_manifest.json").is_file()
+
+    text_report = runner.invoke(
+        app, ["report", str(output), "--report-dir", str(tmp_path / "report-again")]
+    )
+    assert text_report.exit_code == 0, text_report.output
+    assert "SSAT report generated" in text_report.stdout
+    assert (tmp_path / "report-again" / "report.html").is_file()
+
+    # A --analysis-dir that does not exist is an intentional "no analysis"
+    # downgrade, not a CLI failure (IMPLE_PLAN_REPORTING_v1.md §5 단계7).
+    no_analysis = runner.invoke(
+        app,
+        [
+            "report",
+            str(output),
+            "--report-dir",
+            str(tmp_path / "report-no-analysis"),
+            "--analysis-dir",
+            str(tmp_path / "no-such-analysis-dir"),
+            "--json",
+        ],
+    )
+    assert no_analysis.exit_code == 0, no_analysis.output
+    no_analysis_payload = json.loads(no_analysis.stdout)
+    assert no_analysis_payload["analysis_dir"] is None
+    assert (tmp_path / "report-no-analysis" / "report.html").is_file()
+
+    missing_metrics = runner.invoke(app, ["report", str(tmp_path / "no-such-dump")])
+    assert missing_metrics.exit_code != 0
+
+
 def test_cli_json_run_inspect_and_rebuild(tmp_path: Path) -> None:
     config = tmp_path / "audit.yaml"
     output = tmp_path / "dump"

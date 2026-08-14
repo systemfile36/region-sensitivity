@@ -11,6 +11,7 @@ from ssat.application import (
     DumpSummary,
     EstimateResult,
     IndexRebuildResult,
+    ReportResult,
     RunResult,
 )
 
@@ -116,6 +117,23 @@ def format_analysis(result: AnalyzeResult) -> str:
             f"  controls unmatched: {coverage.n_controls_unmatched:,}",
             f"  area mismatch warnings: {coverage.n_area_mismatch_warnings:,}",
             f"  computed at: {result.computed_at}",
+        ]
+    )
+
+
+def format_report(result: ReportResult) -> str:
+    grades = ", ".join(f"{name}={count:,}" for name, count in result.grade_distribution.items()) or "none"
+    return "\n".join(
+        [
+            "SSAT report generated",
+            f"  dump: {result.dump}",
+            f"  metrics dir: {result.metrics_dir}",
+            f"  analysis dir: {result.analysis_dir or 'none (no ssat analyze run found)'}",
+            f"  report dir: {result.report_dir}",
+            f"  samples: {result.n_samples:,}",
+            f"  regions: {result.n_regions:,}",
+            f"  reliability grades: {grades}",
+            f"  generated at: {result.generated_at}",
         ]
     )
 

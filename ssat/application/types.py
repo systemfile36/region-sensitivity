@@ -32,6 +32,7 @@ class ApplicationErrorCode(str, Enum):
     CORRUPTION = "dump_corruption"
     METRICS = "metrics_error"
     ANALYSIS = "analysis_error"
+    REPORT = "report_error"
 
 
 class ApplicationError(RuntimeError):
@@ -206,6 +207,67 @@ class AnalyzeResult:
     grade_distribution: dict[str, int]
     n_reliability_rows: int
     computed_at: str
+
+    def to_dict(self) -> dict[str, Any]:
+        return to_primitive(self)
+
+
+@dataclass(frozen=True, slots=True)
+class ReportRequest:
+    """Ask for a human-facing ``report.html`` (+CSV/JSON/SVG assets) for one dump+metrics(+analysis) pair.
+
+    ``metrics_dir``/``analysis_dir``/``report_dir`` default to
+    ``<dump>/metrics``/``<dump>/analysis``/``<dump>/report`` -- the same
+    co-located-by-default convention ``ComputeMetricsRequest``/
+    ``AnalyzeRequest`` already use.
+
+    Unlike ``AnalyzeRequest.analysis_dir`` (whose absence makes ``analyze()``
+    fail), an ``analysis_dir`` that does not exist as a directory here is
+    not an error: ``AuditApplication.generate_report`` treats it exactly
+    like ``analysis_dir=None``, assembling a report with every
+    analysis-derived section explicitly marked unavailable rather than
+    failing (``ssat.report.assembler`` module docstring; design
+    REPORT_LAYER_DESIGN_v1.md §6.2 C1; IMPLE_PLAN_REPORTING_v1.md §5 단계7
+    "analysis_dir가 존재하지 않는 경로면... 조용히 None으로 취급").
+    """
+
+    dump: Path
+    metrics_dir: Path | None = None
+    analysis_dir: Path | None = None
+    report_dir: Path | None = None
+    primary_metric: str = DEFAULT_PRIMARY_METRIC
+    top_k: int = 20
+    bottom_k: int = 20
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "dump", Path(self.dump))
+        if self.metrics_dir is not None:
+            object.__setattr__(self, "metrics_dir", Path(self.metrics_dir))
+        if self.analysis_dir is not None:
+            object.__setattr__(self, "analysis_dir", Path(self.analysis_dir))
+        if self.report_dir is not None:
+            object.__setattr__(self, "report_dir", Path(self.report_dir))
+
+
+@dataclass(frozen=True, slots=True)
+class ReportResult:
+    """Summarize one generated report (design REPORT_LAYER_DESIGN_v1.md §R4).
+
+    ``analysis_dir`` is ``None`` exactly when the source run had no
+    ``ssat analyze`` output available for this report (see
+    ``ReportRequest.analysis_dir``'s docstring) -- every analysis-derived
+    section of the generated report is then explicitly marked unavailable
+    rather than silently absent.
+    """
+
+    dump: Path
+    metrics_dir: Path
+    analysis_dir: Path | None
+    report_dir: Path
+    n_samples: int
+    n_regions: int
+    grade_distribution: dict[str, int]
+    generated_at: str
 
     def to_dict(self) -> dict[str, Any]:
         return to_primitive(self)

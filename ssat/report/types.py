@@ -478,10 +478,21 @@ class RegionSummary:
             dataset per grade value — the dataset-level counterpart of each
             row's own ``RegionRow.reliability_distribution``. Empty when no
             analysis run exists.
+        chart_asset_ref: Relative path to R2's rendered ``region_bar`` SVG
+            (mean degradation per region_key, colored by ``reliability_grade``
+            — design §R2); ``None`` if not yet rendered. Added in Stage 6
+            (IMPLE_PLAN_REPORTING_v1.md §5 단계6, confirmed with the user):
+            ``report.adapters.ClassificationAdapter.applicable_charts()``
+            already lists ``"region_bar"`` unconditionally, but until this
+            field existed nothing in ``ReportModel`` could carry a rendered
+            reference to it — the same "additive, backward-compatible
+            extension" pattern §1 격차#3 already used for
+            ``reliability_distribution`` itself (design §4.6).
     """
 
     rows: tuple[RegionRow, ...]
     reliability_distribution: Mapping[str, int]
+    chart_asset_ref: str | None
 
     def __post_init__(self) -> None:
         """Validate row types and the distribution mapping.
@@ -595,6 +606,16 @@ class ProvenanceInfo:
         metrics_dir: Absolute path to the source MetricsStore.
         analysis_dir: Absolute path to the source AnalysisStore, when one
             was provided.
+        run_manifest_hash: SHA-256 of the source dump's run manifest
+            (``ssat.metrics.dump_reader.DumpHandle.manifest_path``). Added
+            in Stage 6 (IMPLE_PLAN_REPORTING_v1.md §5 단계6): R4's
+            ``report_manifest.json`` requires ``source_manifest_hashes:
+            {run, metrics, analysis}`` (design §R4), but this type only ever
+            carried the latter two — an unambiguous omission from R0's
+            original implementation (Stage 2), fixed the same way Stage 5
+            fixed ``link_assets``'s missing ``metrics_dir`` parameter: there
+            is no alternative source for this hash, so it is added rather
+            than routed around.
         metrics_manifest_hash: SHA-256 of the source metrics_manifest.json.
         analysis_manifest_hash: SHA-256 of the source analysis_manifest.json,
             when an analysis run was provided.
@@ -605,6 +626,7 @@ class ProvenanceInfo:
     dump_path: str
     metrics_dir: str
     analysis_dir: str | None
+    run_manifest_hash: str
     metrics_manifest_hash: str
     analysis_manifest_hash: str | None
     thresholds: Mapping[str, float]
@@ -613,13 +635,19 @@ class ProvenanceInfo:
         """Validate identity fields.
 
         Raises:
-            ValueError: If dump_path, metrics_dir, or metrics_manifest_hash
-                is empty.
+            ValueError: If dump_path, metrics_dir, run_manifest_hash, or
+                metrics_manifest_hash is empty.
         """
 
-        if not self.dump_path or not self.metrics_dir or not self.metrics_manifest_hash:
+        if (
+            not self.dump_path
+            or not self.metrics_dir
+            or not self.run_manifest_hash
+            or not self.metrics_manifest_hash
+        ):
             raise ValueError(
-                "dump_path, metrics_dir, and metrics_manifest_hash must not be empty"
+                "dump_path, metrics_dir, run_manifest_hash, and "
+                "metrics_manifest_hash must not be empty"
             )
 
 
@@ -634,6 +662,17 @@ class ReportModel:
         vulnerability_distribution: Dataset-wide score distribution.
         sample_rankings: Top-K/bottom-K sample galleries.
         region_summary: Dataset-wide region table.
+        fill_strategy_correlation_asset_ref: Relative path to R2's rendered
+            op×op Spearman rank-correlation SVG (design §R2
+            ``render_fill_strategy_correlation``); ``None`` when the
+            adapter's ``applicable_charts()`` did not include
+            ``"fill_strategy_correlation_heatmap"`` (no fill-strategy
+            stability analysis was run) or the chart has not yet been
+            rendered. Added in Stage 6 (IMPLE_PLAN_REPORTING_v1.md §5
+            단계6, confirmed with the user) alongside
+            ``RegionSummary.chart_asset_ref`` — see that field's docstring
+            for why a ``ReportModel`` field was missing for an already-listed
+            ``applicable_charts()`` entry.
         reliability_spotlight: Unreliable-grade anchors.
         provenance: Collapsible reproducibility appendix.
     """
@@ -644,6 +683,7 @@ class ReportModel:
     vulnerability_distribution: VulnerabilityDistribution
     sample_rankings: SampleRankings
     region_summary: RegionSummary
+    fill_strategy_correlation_asset_ref: str | None
     reliability_spotlight: ReliabilitySpotlight
     provenance: ProvenanceInfo
 

@@ -16,6 +16,7 @@ from ssat.application import (
     EstimateRequest,
     InspectRequest,
     RebuildIndexRequest,
+    ReportRequest,
     RunRequest,
 )
 from ssat.core.adapter import AdapterProviderRegistry
@@ -27,6 +28,7 @@ from ssat.presentation import (
     format_estimate,
     format_metrics,
     format_rebuild,
+    format_report,
     format_run,
     json_text,
 )
@@ -169,6 +171,53 @@ def create_app(
                 AnalyzeRequest(dump, metrics_dir, analysis_dir, primary_metric)
             )
             typer.echo(json_text(result) if json_output else format_analysis(result))
+        except Exception as error:
+            _fail(error)
+
+    @app.command("report")
+    def report_command(
+        dump: Path = typer.Argument(..., exists=True, file_okay=False),
+        metrics_dir: Path | None = typer.Option(
+            None, "--metrics-dir", help="Defaults to <dump>/metrics."
+        ),
+        analysis_dir: Path | None = typer.Option(
+            None,
+            "--analysis-dir",
+            help=(
+                "Defaults to <dump>/analysis. A directory that does not exist "
+                "generates a report with analysis-derived sections marked "
+                "unavailable, not an error."
+            ),
+        ),
+        report_dir: Path | None = typer.Option(
+            None, "--report-dir", help="Defaults to <dump>/report."
+        ),
+        primary_metric: str = typer.Option(
+            DEFAULT_PRIMARY_METRIC,
+            "--primary-metric",
+            help="Registered metric name every report section is scoped to.",
+        ),
+        top_k: int = typer.Option(
+            20, "--top-k", help="Most-vulnerable samples to feature in the gallery."
+        ),
+        bottom_k: int = typer.Option(
+            20, "--bottom-k", help="Most-robust samples to feature in the gallery."
+        ),
+        json_output: bool = typer.Option(False, "--json", help="Emit stable JSON."),
+    ) -> None:
+        try:
+            result = service.generate_report(
+                ReportRequest(
+                    dump,
+                    metrics_dir,
+                    analysis_dir,
+                    report_dir,
+                    primary_metric,
+                    top_k,
+                    bottom_k,
+                )
+            )
+            typer.echo(json_text(result) if json_output else format_report(result))
         except Exception as error:
             _fail(error)
 

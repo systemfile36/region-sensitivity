@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections import Counter
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Literal
 
@@ -39,6 +39,8 @@ from ssat.application.types import (
     IndexRebuildResult,
     InspectRequest,
     RebuildIndexRequest,
+    ReportRequest,
+    ReportResult,
     RunRequest,
     RunResult,
 )
@@ -70,6 +72,17 @@ from ssat.metrics.builtin_metrics import default_metric_registry
 from ssat.metrics.dump_reader import DumpHandle
 from ssat.metrics.errors import MetricsRegistryError
 from ssat.metrics.store import save_metrics
+from ssat.report import (
+    ClassificationAdapter,
+    ReportDataAssembler,
+    apply_asset_manifest,
+    export as export_report,
+    link_assets,
+    render_fill_strategy_correlation,
+    render_region_bar,
+    render_report,
+    render_vulnerability_histogram,
+)
 from ssat.utils.io import sha256_bytes, sha256_file
 from ssat.utils.logger_factory import get_logger
 
@@ -546,6 +559,128 @@ class AuditApplication:
             grade_distribution=dict(manifest.grade_distribution),
             n_reliability_rows=len(reliability_rows),
             computed_at=manifest.computed_at.isoformat(),
+        )
+
+    def generate_report(self, request: ReportRequest) -> ReportResult:
+        """Assemble ``report.html`` (+CSV/JSON/SVG assets) for an existing dump+metrics(+analysis) pair.
+
+        This is the Application-layer counterpart of what
+        ``ssat.report.html_renderer``'s own module docstring reserves for
+        "some earlier orchestration step" -- every ``ssat.report`` module
+        (R0-R4) is a pure, single-purpose transformer that never opens more
+        than one store or renders more than one kind of output; wiring them
+        into one end-to-end pipeline is this method's job
+        (IMPLE_PLAN_REPORTING_v1.md §5 단계7). The pipeline order is R0
+        (assemble) -> R3 (link_assets/apply_asset_manifest, per-sample
+        heatmap/thumbnail PNGs) -> R2 (render the three chart SVGs) -> R1
+        (export the full population as JSON/CSV) -> R4 (render report.html
+        + report_manifest.json) -- R4 must run last because its template
+        references every asset ref R2/R3 fill in and every file R1 writes.
+
+        Chart rendering (R2) is not gated by
+        ``TaskPresentationAdapter.applicable_charts()`` here: the
+        vulnerability histogram and region bar chart are unconditional
+        already-computed-data visualizations (``ssat.report.charts`` itself
+        draws an explicit "no data" placeholder rather than omitting them
+        when empty, matching design's "결측이 조용히 생략되지 않음"
+        principle), and ``render_fill_strategy_correlation`` already decides
+        for itself whether a rank-correlation SVG exists at all (``None``
+        when ``rank_correlation_rows`` is empty) -- ``applicable_charts()``
+        has no additional decision left to make for either.
+
+        ``fill_strategy_stability_available`` is passed to
+        ``ClassificationAdapter`` as ``analysis_dir is not None``: the
+        actual flag lives in ``AnalysisManifest.available_analyses``, only
+        readable *inside* ``ReportDataAssembler.assemble()`` (which itself
+        needs an already-built adapter), so there is no cheaper way to know
+        it beforehand without a second, redundant analysis-store open. This
+        mirrors the same proxy ``tests/integration/test_report_synthetic_
+        dump.py``'s own ``_assembler()`` test helper already uses for this
+        exact situation; the adapter only consumes this flag inside
+        ``applicable_charts()``, which (see above) this method never calls.
+        """
+
+        dump = request.dump.expanduser().resolve(strict=True)
+        metrics_dir = (request.metrics_dir or dump / "metrics").expanduser().resolve()
+        analysis_dir = (request.analysis_dir or dump / "analysis").expanduser().resolve()
+        if not analysis_dir.is_dir():
+            analysis_dir = None
+        report_dir = (request.report_dir or dump / "report").expanduser().resolve()
+
+        try:
+            adapter = ClassificationAdapter(
+                primary_metric=request.primary_metric,
+                fill_strategy_stability_available=analysis_dir is not None,
+            )
+            assembler = ReportDataAssembler(
+                dump,
+                metrics_dir,
+                analysis_dir,
+                adapter=adapter,
+                top_k=request.top_k,
+                bottom_k=request.bottom_k,
+            )
+            assembled = assembler.assemble(request.primary_metric)
+
+            asset_manifest = link_assets(
+                assembled, dump, metrics_dir, report_dir, primary_metric=request.primary_metric
+            )
+            linked = apply_asset_manifest(assembled, asset_manifest)
+
+            charts_dir = report_dir / "assets" / "img" / "charts"
+            charts_dir.mkdir(parents=True, exist_ok=True)
+
+            (charts_dir / "vulnerability_histogram.svg").write_text(
+                render_vulnerability_histogram(linked.full_sample_rankings), encoding="utf-8"
+            )
+            (charts_dir / "region_bar.svg").write_text(
+                render_region_bar(linked.model.region_summary.rows), encoding="utf-8"
+            )
+            fill_strategy_ref = None
+            fill_strategy_svg = render_fill_strategy_correlation(assembled.rank_correlation_rows)
+            if fill_strategy_svg is not None:
+                (charts_dir / "fill_strategy_correlation.svg").write_text(
+                    fill_strategy_svg, encoding="utf-8"
+                )
+                fill_strategy_ref = "assets/img/charts/fill_strategy_correlation.svg"
+
+            model = replace(
+                linked.model,
+                vulnerability_distribution=replace(
+                    linked.model.vulnerability_distribution,
+                    histogram_asset_ref="assets/img/charts/vulnerability_histogram.svg",
+                ),
+                region_summary=replace(
+                    linked.model.region_summary,
+                    chart_asset_ref="assets/img/charts/region_bar.svg",
+                ),
+                fill_strategy_correlation_asset_ref=fill_strategy_ref,
+            )
+            final = replace(linked, model=model)
+
+            export_report(final, report_dir / "data")
+            render_report(model, report_dir, top_k=request.top_k, bottom_k=request.bottom_k)
+        except Exception as error:
+            # Catches everything R0-R4 can raise: ReportDataError (bad
+            # primary_metric), AnalysisCorruptionError (a *present but
+            # stale* analysis_dir -- see module docstring on why only a
+            # *missing* analysis_dir is downgraded to None, not a corrupt
+            # one), and any DumpHandle/MetricsStore/filesystem failure
+            # surfaced along the way -- all map to the same REPORT error
+            # code, mirroring compute_metrics/analyze's identical rationale.
+            raise ApplicationError(
+                ApplicationErrorCode.REPORT, f"cannot generate report: {error}"
+            ) from error
+
+        return ReportResult(
+            dump=dump,
+            metrics_dir=metrics_dir,
+            analysis_dir=analysis_dir,
+            report_dir=report_dir,
+            n_samples=model.run_summary.n_samples,
+            n_regions=len(model.region_summary.rows),
+            grade_distribution=dict(model.region_summary.reliability_distribution),
+            generated_at=model.meta.generated_at,
         )
 
     def rebuild_index(self, request: RebuildIndexRequest) -> IndexRebuildResult:

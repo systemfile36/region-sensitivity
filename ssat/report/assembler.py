@@ -31,6 +31,30 @@ that never had ``ssat analyze`` executed against it still assembles a
 complete ``ReportModel``, with every analysis-derived field explicitly
 marked unavailable (``None``/empty, plus a ``note`` on the scorecard's
 control-comparison card) rather than silently omitted (design §6.2 C1).
+
+**Two additions from Stage 6, confirmed with the user (IMPLE_PLAN_REPORTING_v1
+.md §5 단계6).** Implementing R4 surfaced that this already-completed stage
+had two gaps of its own, both fixed here rather than routed around, since
+neither has an alternative data source:
+
+- ``AssembledReport.rank_correlation_rows`` — R2's
+  ``render_fill_strategy_correlation`` needs raw ``rank_correlation.parquet``
+  rows (``RankCorrelationRow``), but :meth:`ReportDataAssembler.
+  _load_analysis_context` was discarding them (bound to ``_rank_correlation_
+  rows``) even though ``adapter.applicable_charts()`` already lists
+  ``"fill_strategy_correlation_heatmap"`` as a real, renderable chart when
+  fill-strategy stability was run. They are now threaded through
+  ``AssembledReport`` at the same "extra data alongside ``model``, not
+  serialized into it" level as ``full_sample_rankings`` (Gap#5) — R2/Stage 7
+  need the *unfiltered* raw rows, not a ``ReportModel``-carried summary.
+  ``RankCorrelationRow`` has no ``metric_name`` field (it is dataset-wide,
+  §5 단계6 note), so unlike every other analysis collection here these rows
+  are never filtered by ``primary_metric``.
+- ``ProvenanceInfo.run_manifest_hash`` — R4's ``report_manifest.json``
+  requires ``source_manifest_hashes: {run, metrics, analysis}`` (design
+  §R4), but :meth:`_build_provenance` only ever populated the latter two.
+  Computed the same way ``metrics_manifest_hash`` already was, via
+  ``sha256_file`` on ``DumpHandle.manifest_path``.
 """
 
 from __future__ import annotations
@@ -53,6 +77,7 @@ from ssat.analysis.store import (
 from ssat.analysis.types import (
     ControlComparisonRow,
     FlagValue,
+    RankCorrelationRow,
     ReliabilityGrade,
     ReliabilityRow,
 )
@@ -107,26 +132,36 @@ class AssembledReport:
             R1's ``sample_rankings.csv`` (full population) and R2's
             histogram (a top-K-only slice cannot represent a distribution).
             Not serialized as part of ``model``.
+        rank_correlation_rows: Every ``rank_correlation.parquet`` row from
+            the source AnalysisStore, unfiltered; empty when
+            ``analysis_dir=None``. Added in Stage 6 (module docstring) for
+            R2's ``render_fill_strategy_correlation`` — the same "extra data
+            alongside ``model``" level as ``full_sample_rankings``, since
+            these raw op-pair rows have no ``ReportModel`` field of their
+            own (only a rendered SVG's ref does, ``ReportModel.
+            fill_strategy_correlation_asset_ref``).
     """
 
     model: ReportModel
     full_sample_rankings: tuple[SampleCard, ...]
+    rank_correlation_rows: tuple[RankCorrelationRow, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
 class _AnalysisContext:
     """The subset of one AnalysisStore load that R0 actually consumes.
 
-    ``seed_rows``/``strategy_rows``/``rank_correlation_rows``/
-    ``strategy_profile_rows``/``interval_rows``/``coverage_report`` are
-    loaded (``load_analysis`` returns all nine outputs together) but not
-    threaded any further — R0's v1 scope only surfaces control-comparison
-    and reliability data (design §3's ``ReportModel`` schema has no field
-    for the others yet).
+    ``seed_rows``/``strategy_rows``/``strategy_profile_rows``/
+    ``interval_rows``/``coverage_report`` are loaded (``load_analysis``
+    returns all nine outputs together) but not threaded any further — R0's
+    v1 scope only surfaces control-comparison, reliability, and (as of
+    Stage 6) rank-correlation data (design §3's ``ReportModel`` schema has
+    no field for the rest yet).
     """
 
     control_rows: tuple[ControlComparisonRow, ...]
     reliability_rows: tuple[ReliabilityRow, ...]
+    rank_correlation_rows: tuple[RankCorrelationRow, ...]
     manifest: AnalysisManifest
 
 
@@ -207,7 +242,8 @@ class ReportDataAssembler:
         if not primary_metric:
             raise ValueError("primary_metric must not be empty")
 
-        run_manifest = DumpHandle(self._dump_dir).manifest
+        handle = DumpHandle(self._dump_dir)
+        run_manifest = handle.manifest
         _item_metrics, aggregation, metrics_manifest = load_metrics(self._metrics_dir)
 
         registered_names = {metric.name for metric in metrics_manifest.registered_metrics}
@@ -236,10 +272,16 @@ class ReportDataAssembler:
             vulnerability_distribution=self._build_vulnerability_distribution(full_rankings),
             sample_rankings=self._build_sample_rankings(full_rankings),
             region_summary=self._build_region_summary(region_rows, analysis, primary_metric),
+            fill_strategy_correlation_asset_ref=None,
             reliability_spotlight=self._build_reliability_spotlight(analysis),
-            provenance=self._build_provenance(analysis),
+            provenance=self._build_provenance(analysis, handle),
         )
-        return AssembledReport(model=model, full_sample_rankings=full_rankings)
+        rank_correlation_rows = analysis.rank_correlation_rows if analysis is not None else ()
+        return AssembledReport(
+            model=model,
+            full_sample_rankings=full_rankings,
+            rank_correlation_rows=rank_correlation_rows,
+        )
 
     # --- source loading ----------------------------------------------------
 
@@ -250,7 +292,7 @@ class ReportDataAssembler:
             control_rows,
             _seed_rows,
             _strategy_rows,
-            _rank_correlation_rows,
+            rank_correlation_rows,
             _strategy_profile_rows,
             _interval_rows,
             reliability_rows,
@@ -261,6 +303,7 @@ class ReportDataAssembler:
         return _AnalysisContext(
             control_rows=tuple(control_rows),
             reliability_rows=tuple(reliability_rows),
+            rank_correlation_rows=tuple(rank_correlation_rows),
             manifest=manifest,
         )
 
@@ -527,7 +570,9 @@ class ReportDataAssembler:
         dataset_distribution = (
             dict(analysis.manifest.grade_distribution) if analysis is not None else {}
         )
-        return RegionSummary(rows=tuple(rows), reliability_distribution=dataset_distribution)
+        return RegionSummary(
+            rows=tuple(rows), reliability_distribution=dataset_distribution, chart_asset_ref=None
+        )
 
     # --- reliability spotlight -----------------------------------------------
 
@@ -562,7 +607,7 @@ class ReportDataAssembler:
 
     # --- provenance / meta ---------------------------------------------------
 
-    def _build_provenance(self, analysis: _AnalysisContext | None) -> ProvenanceInfo:
+    def _build_provenance(self, analysis: _AnalysisContext | None, handle: DumpHandle) -> ProvenanceInfo:
         analysis_dir_str = None
         analysis_manifest_hash = None
         thresholds: dict[str, float] = {}
@@ -574,6 +619,7 @@ class ReportDataAssembler:
             dump_path=str(self._dump_dir.resolve()),
             metrics_dir=str(self._metrics_dir.resolve()),
             analysis_dir=analysis_dir_str,
+            run_manifest_hash=sha256_file(handle.manifest_path),
             metrics_manifest_hash=sha256_file(self._metrics_dir / "metrics_manifest.json"),
             analysis_manifest_hash=analysis_manifest_hash,
             thresholds=thresholds,

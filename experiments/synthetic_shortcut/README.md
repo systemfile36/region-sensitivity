@@ -26,8 +26,9 @@ bash -lc '...'`), never on the host.
 | `evaluate.py` | canonical | Judges Q1-Q5 and section 3.5, writes `report.md`. |
 | `analyze_section35_sensitivity.py` | canonical | Follow-up diagnostic on the fill-strategy rank-correlation anomaly. |
 | `analyze_sign_group_premise.py` | canonical | Compares the fill-strategy sign-group split between the cropped and crop-free runs (Sign-Group Premise Re-examination). |
-| `run_threshold_validation_full.py` | canonical | Crop-free, all-5-fill-strategy audit with controls + multi-seed, for reliability-threshold recalibration. |
+| `run_threshold_validation_full.py` | canonical | Crop-free, all-5-fill-strategy audit with controls + multi-seed, for reliability-threshold recalibration. Supports `--model shortcut\|normal`. |
 | `validate_reliability_thresholds_full.py` | canonical | Reports on the above run against `ssat.analysis`'s `z_vs_control`/`seed_cv` defaults. |
+| `generate_report.py` | canonical | C3 real-data validation of the reporting layer (`ssat.report` R0-R4): runs `ssat analyze` then `ssat report` against the run above and produces `report.html`. Supports `--model shortcut\|normal`. |
 | `verify_crop_free_parity.py` | diagnostic | One-off pre-flight check that train-time and audit-time crop-free preprocessing are bit-identical. No results-dir dependency; run once before crop-free training. |
 | `analyze_control_stability.py` | diagnostic | Regression check: does `ssat.analysis` (A0-A6) reproduce the *original cropped run's* hand-derived numbers? Expected to report FAIL against `results_crop_free` by design -- see its own module docstring. |
 | `run_threshold_validation.py` | **SUPERSEDED** | Provisional, single-op (`constant_fill`), cropped-preset predecessor of `run_threshold_validation_full.py`. Kept only for historical comparison. |
@@ -79,6 +80,46 @@ python3 validate_reliability_thresholds_full.py --results-dir results_crop_free
 ```
 
 Or run `bash reproduce_threshold_calibration.sh`.
+
+### C. Generate a human-facing report for the same run
+
+Requires sequence B's `results_crop_free/dumps/shortcut_A_all_ops_thresholds_crop_free/`
+(and its already-computed `metrics/`) to exist.
+
+```bash
+cd experiments/synthetic_shortcut
+
+python3 generate_report.py --results-dir results_crop_free
+```
+
+This runs `ssat analyze` (producing `results_crop_free/analysis/<run_id>/`,
+which does not exist yet after sequence B alone) and then `ssat report`
+(producing `results_crop_free/report/<run_id>/report.html`). Open the
+resulting `report.html` directly in a browser -- no server needed. See
+`docs/IMPLE_PLAN_REPORTING_v1.md` §5 단계8 for the checklist this run is
+meant to satisfy (patch-region gallery dominance, patch region graded
+`HIGH`, non-patch regions mostly `UNRELIABLE` with a mixed
+`reliability_distribution`, fill-strategy sign disagreement surfaced in the
+reliability spotlight).
+
+#### Comparison report: `M_normal` on the same manifest
+
+To audit `M_normal` (`checkpoints_crop_free/m_normal.pt`) on the same
+`A_audit.json` manifest as the `M_shortcut` report above -- an
+apples-to-apples comparison (mirrors `run_audit.py`'s Q3 slice: "M_normal
+audited on A, constant_fill only", extended here to all 5 fill strategies to
+match sequence B's shape) -- pass `--model normal` to both scripts:
+
+```bash
+python3 run_threshold_validation_full.py --checkpoint-dir checkpoints_crop_free --results-dir results_crop_free --model normal
+python3 generate_report.py --results-dir results_crop_free --model normal
+```
+
+This writes to `results_crop_free/dumps/normal_A_all_ops_thresholds_crop_free/`
+(and matching `metrics/`, `analysis/`, `report/` subtrees) alongside the
+`shortcut_A_...` run, so both reports coexist and can be opened side by side
+to compare `M_shortcut` vs. `M_normal`'s region-sensitivity audit results on
+identical data.
 
 ### A lighter-weight alternative for a single run
 

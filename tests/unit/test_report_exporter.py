@@ -118,13 +118,17 @@ def _report_model(*, full_sample_ids: tuple[str, ...] = ("s0", "s1", "s2")) -> R
             most_vulnerable=(_sample_card(sample_id=full_sample_ids[0]),), most_robust=()
         ),
         region_summary=RegionSummary(
-            rows=(_region_row(),), reliability_distribution={"high": 1, "unreliable": 1}
+            rows=(_region_row(),),
+            reliability_distribution={"high": 1, "unreliable": 1},
+            chart_asset_ref=None,
         ),
+        fill_strategy_correlation_asset_ref=None,
         reliability_spotlight=ReliabilitySpotlight(flagged_examples=(_flagged_item(),)),
         provenance=ProvenanceInfo(
             dump_path="/data/dump",
             metrics_dir="/data/dump/metrics",
             analysis_dir="/data/dump/analysis",
+            run_manifest_hash="c" * 64,
             metrics_manifest_hash="a" * 64,
             analysis_manifest_hash="b" * 64,
             thresholds={"z_vs_control_threshold": 2.0},
@@ -240,6 +244,7 @@ def test_region_summary_csv_empty_distribution_yields_zero_counts(tmp_path: Path
         region_summary=RegionSummary(
             rows=(_region_row(reliability_grade=None, reliability_distribution={}),),
             reliability_distribution={},
+            chart_asset_ref=None,
         ),
     )
     assembled = AssembledReport(model=model, full_sample_rankings=(_sample_card(),))

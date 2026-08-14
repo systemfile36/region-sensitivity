@@ -18,6 +18,8 @@ from ssat.application.types import (
     IndexRebuildResult,
     InspectRequest,
     RebuildIndexRequest,
+    ReportRequest,
+    ReportResult,
     RunRequest,
     RunResult,
 )
@@ -41,6 +43,8 @@ __all__ = [
     "InspectRequest",
     "PreparedRun",
     "RebuildIndexRequest",
+    "ReportRequest",
+    "ReportResult",
     "RunRequest",
     "RunResult",
 ]

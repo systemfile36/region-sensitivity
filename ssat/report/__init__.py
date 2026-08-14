@@ -21,6 +21,7 @@ from ssat.report.charts import (
 )
 from ssat.report.errors import ReportDataError, ReportError, ReportSchemaError
 from ssat.report.exporter import AssembledReportLike, ExportedPaths, export
+from ssat.report.html_renderer import ReportManifestPaths, render_report
 from ssat.report.types import (
     FlaggedItem,
     GRADE_COLORS,
@@ -68,6 +69,7 @@ __all__ = [
     "ReportGrade",
     "ReportJsonScalar",
     "ReportJsonValue",
+    "ReportManifestPaths",
     "ReportMeta",
     "ReportModel",
     "ReportSchemaError",
@@ -86,5 +88,6 @@ __all__ = [
     "link_assets",
     "render_fill_strategy_correlation",
     "render_region_bar",
+    "render_report",
     "render_vulnerability_histogram",
 ]

@@ -29,6 +29,16 @@ This supersedes run_threshold_validation.py's provisional, single-op
    forever (see validate_reliability_thresholds.py's caveat) and the
    reliability grade can never rise above LOW regardless of evidence.
 
+**``--model {shortcut,normal}`` (default ``shortcut``).** ``normal`` audits
+``checkpoints_crop_free/m_normal.pt`` against the same ``A_audit.json``
+manifest as the default ``shortcut`` run -- mirroring ``run_audit.py``'s Q3
+slice ("M_normal audited on A, constant_fill only"), extended here to all 5
+fill strategies for an apples-to-apples comparison report against the
+default run. :func:`run_id_for` derives the run id; ``RUN_ID`` stays the
+``model="shortcut"`` case so ``validate_reliability_thresholds_full.py``'s
+existing ``from run_threshold_validation_full import RUN_ID`` keeps working
+unchanged.
+
 Run as: python3 experiments/synthetic_shortcut/run_threshold_validation_full.py
 """
 
@@ -48,7 +58,25 @@ from ssat.metrics.dump_reader import DumpHandle
 from ssat.metrics.registry import MetricRegistry
 from ssat.metrics.store import save_metrics
 
-RUN_ID = "shortcut_A_all_ops_thresholds_crop_free"
+def run_id_for(model: str) -> str:
+    """Derive this script's run_id for one checkpoint model (--model support).
+
+    Mirrors run_audit.py's ``RunSpec.run_id`` naming
+    (``f"{model}_{dataset}_{fill}"``), fixed here to dataset ``"A"`` and a
+    literal suffix describing this script's fixed run shape (all 5 fill
+    strategies + controls + multi-seed). generate_report.py imports this
+    directly rather than duplicating the naming convention.
+
+    Args:
+        model: ``"shortcut"`` or ``"normal"`` -- matches ``--model``'s
+            argparse choices and the ``checkpoints_crop_free/m_<model>.pt``
+            filename convention already used by train.py/run_audit.py.
+    """
+
+    return f"{model}_A_all_ops_thresholds_crop_free"
+
+
+RUN_ID = run_id_for("shortcut")
 
 # Same minimal values run_threshold_validation.py validated as sufficient to
 # exercise both thresholds (z needs n_controls>=2 for a std; seed_cv needs
@@ -81,6 +109,18 @@ def parse_args() -> argparse.Namespace:
         "--results-dir",
         type=Path,
         default=Path(__file__).resolve().parent / "results_crop_free",
+    )
+    parser.add_argument(
+        "--model",
+        choices=("shortcut", "normal"),
+        default="shortcut",
+        help=(
+            "Which checkpoint to audit -- 'shortcut' (default, preserves prior "
+            "behavior) reads checkpoints_crop_free/m_shortcut.pt; 'normal' reads "
+            "m_normal.pt for a comparison run against the same A_audit.json "
+            "manifest (run_audit.py's Q3 slice, extended here to all 5 fill "
+            "strategies)."
+        ),
     )
     return parser.parse_args()
 
@@ -159,18 +199,19 @@ def main() -> int:
     """Produce the crop-free, all-ops, control+multi-seed dump and its metrics store."""
 
     args = parse_args()
+    run_id = run_id_for(args.model)
 
     channel_mean: list[float] | None = None
     stats_path = args.data_dir / "dataset_stats.json"
     if stats_path.is_file():
         channel_mean = json.loads(stats_path.read_text(encoding="utf-8"))["channel_mean"]
 
-    output_dir = args.results_dir / "dumps" / RUN_ID
+    output_dir = args.results_dir / "dumps" / run_id
     if output_dir.exists() and any(output_dir.iterdir()):
-        print(f"[{RUN_ID}] dump already exists, skipping audit run")
+        print(f"[{run_id}] dump already exists, skipping audit run")
     else:
         config = _build_config(
-            checkpoint_path=args.checkpoint_dir / "m_shortcut.pt",
+            checkpoint_path=args.checkpoint_dir / f"m_{args.model}.pt",
             manifest_path=args.data_dir / "manifests" / "A_audit.json",
             channel_mean=channel_mean,
         )
@@ -181,14 +222,14 @@ def main() -> int:
             # non-interactive experiment runner (there is no terminal to
             # prompt); invoking it is itself the user's confirmation.
             application.execute_run(prepared, confirmation_granted=True)
-        print(f"[{RUN_ID}] audit dump written to {output_dir}")
+        print(f"[{run_id}] audit dump written to {output_dir}")
 
-    metrics_dir = args.results_dir / "metrics" / RUN_ID
+    metrics_dir = args.results_dir / "metrics" / run_id
     if metrics_dir.exists() and any(metrics_dir.iterdir()):
-        print(f"[{RUN_ID}] metrics already computed, skipping")
+        print(f"[{run_id}] metrics already computed, skipping")
         return 0
     _compute_and_save_metrics(output_dir, metrics_dir)
-    print(f"[{RUN_ID}] metrics saved to {metrics_dir}")
+    print(f"[{run_id}] metrics saved to {metrics_dir}")
     return 0
 
 
