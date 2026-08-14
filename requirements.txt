@@ -10,6 +10,7 @@ pydantic>=2,<3
 typer
 pyyaml
 timm
+jinja2
 
 # Image
 # Install headless OpenCV for non-GUI envitonment (like Dev container)

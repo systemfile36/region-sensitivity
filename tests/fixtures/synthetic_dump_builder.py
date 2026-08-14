@@ -13,6 +13,16 @@ metrics engine consuming its own contract, not the core execution path, so
 it does not conflict with the constraint above; it exists so DebugViz V2/V3
 tests can get a ready-to-load ``metrics_dir`` without repeating that wiring
 in every test module.
+
+``compute_and_save_analysis`` extends this the same way one layer up: it
+wires the A0-A6 control/stability analysis pipeline over an already-computed
+metrics store. Rather than re-implementing that sequence by hand (the way
+``compute_and_save_metrics`` above wires N2-N4 directly), it delegates to
+``AuditApplication.analyze()`` — that method already is this exact sequence
+(IMPLE_PLAN_REPORTING_v1.md §5 단계0), so re-deriving it here would just be a
+second copy to keep in sync. This exists so report-layer tests (and any
+future consumer needing dump+metrics+analysis all three) can get a
+ready-to-load ``analysis_dir`` without repeating that wiring themselves.
 """
 
 from __future__ import annotations
@@ -23,6 +33,8 @@ from typing import Mapping
 import numpy as np
 from numpy.typing import NDArray
 
+from ssat.analysis.store import AnalysisManifest, load_analysis
+from ssat.application import AnalyzeRequest, AuditApplication
 from ssat.core.adapter.types import AdapterSpec, RawOutput
 from ssat.core.config.schema import (
     DumpConfig,
@@ -228,3 +240,48 @@ def compute_and_save_metrics(
         source_run_manifest_path=handle.manifest_path,
         exclusion_summary=handle.summary(),
     )
+
+
+def compute_and_save_analysis(
+    dump_root: Path,
+    metrics_dir: Path,
+    analysis_dir: Path,
+    *,
+    primary_metric: str,
+    **analyze_kwargs: object,
+) -> AnalysisManifest:
+    """Run the A0-A6 analysis pipeline over one dump+metrics pair and persist it.
+
+    Thin wrapper around ``AuditApplication.analyze()`` (module docstring) —
+    every threshold/bootstrap keyword ``AnalyzeRequest`` accepts
+    (``n_bootstrap``, ``random_seed``, ``z_vs_control_threshold``,
+    ``seed_cv_threshold``, ``area_match_tolerance``) can be passed through
+    ``analyze_kwargs`` and otherwise falls back to that request type's own
+    defaults, so this helper never re-declares them.
+
+    Args:
+        dump_root: Root directory of a dump previously written by ``write_dump``.
+        metrics_dir: Metrics store previously written by
+            ``compute_and_save_metrics`` for the same dump.
+        analysis_dir: Destination directory for the stored analysis run.
+        primary_metric: Registered metric name to score stability/rank
+            correlation on.
+        **analyze_kwargs: Forwarded verbatim to ``AnalyzeRequest``.
+
+    Returns:
+        The ``AnalysisManifest`` reloaded from ``analysis_dir`` after the
+        run completes — reloaded rather than returned from ``analyze()``
+        directly, so a caller always observes exactly what was persisted.
+    """
+
+    AuditApplication().analyze(
+        AnalyzeRequest(
+            dump=dump_root,
+            metrics_dir=metrics_dir,
+            analysis_dir=analysis_dir,
+            primary_metric=primary_metric,
+            **analyze_kwargs,  # type: ignore[arg-type]
+        )
+    )
+    *_rest, manifest = load_analysis(analysis_dir)
+    return manifest
