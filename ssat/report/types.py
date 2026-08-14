@@ -36,7 +36,7 @@ import dataclasses
 from collections.abc import Mapping
 from dataclasses import dataclass
 from enum import Enum
-from types import UnionType
+from types import MappingProxyType, UnionType
 from typing import Any, TypeAlias, get_args, get_origin, get_type_hints
 
 
@@ -74,6 +74,25 @@ class ReportGrade(str, Enum):
 
 
 _REPORT_GRADE_VALUES = frozenset(grade.value for grade in ReportGrade)
+
+GRADE_COLORS: Mapping[ReportGrade, str] = MappingProxyType(
+    {
+        ReportGrade.HIGH: "#2e7d32",  # green — design §4.3 "HIGH(녹)"
+        ReportGrade.MODERATE: "#1565c0",  # blue — design §4.3 "MODERATE(청)"
+        ReportGrade.LOW: "#757575",  # gray — design §4.3 "LOW(회)"
+        ReportGrade.UNRELIABLE: "#c62828",  # red — design §4.3 "UNRELIABLE(적)"
+    }
+)
+"""Shared hex colors for each :class:`ReportGrade` (design §4.3 badge colors).
+
+Lives here — rather than in ``report.charts`` or a future ``report.static``
+— because ``report.types`` is the only module both already depend on
+(§3.3: ``report.charts → report.types``, ``report.html_renderer →
+report.types, report.static``); a color duplicated independently in each
+would drift the moment one side changes, breaking §4.3's own requirement
+that a grade reads the same color whether it appears on a chart bar or an
+HTML badge chip.
+"""
 
 
 class TaskKind(str, Enum):

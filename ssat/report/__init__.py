@@ -7,10 +7,17 @@ from ssat.report.adapters import (
     TaskPresentationAdapter,
 )
 from ssat.report.assembler import AssembledReport, ReportDataAssembler
+from ssat.report.charts import (
+    RankCorrelationRowLike,
+    render_fill_strategy_correlation,
+    render_region_bar,
+    render_vulnerability_histogram,
+)
 from ssat.report.errors import ReportDataError, ReportError, ReportSchemaError
 from ssat.report.exporter import AssembledReportLike, ExportedPaths, export
 from ssat.report.types import (
     FlaggedItem,
+    GRADE_COLORS,
     MetricCard,
     ProvenanceInfo,
     REPORT_SCHEMA_VERSION,
@@ -39,8 +46,10 @@ __all__ = [
     "DetectionAdapter",
     "ExportedPaths",
     "FlaggedItem",
+    "GRADE_COLORS",
     "MetricCard",
     "ProvenanceInfo",
+    "RankCorrelationRowLike",
     "REPORT_SCHEMA_VERSION",
     "RegionRow",
     "RegionSummary",
@@ -65,4 +74,7 @@ __all__ = [
     "VulnerabilityDistribution",
     "VulnerabilitySummaryStats",
     "export",
+    "render_fill_strategy_correlation",
+    "render_region_bar",
+    "render_vulnerability_histogram",
 ]
