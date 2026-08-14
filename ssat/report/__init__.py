@@ -1,5 +1,11 @@
 """Reporting-layer contracts for the SSAT toolkit."""
 
+from ssat.report.adapters import (
+    ClassificationAdapter,
+    DetectionAdapter,
+    SampleMetricLike,
+    TaskPresentationAdapter,
+)
 from ssat.report.errors import ReportDataError, ReportError, ReportSchemaError
 from ssat.report.types import (
     FlaggedItem,
@@ -25,6 +31,8 @@ from ssat.report.types import (
 )
 
 __all__ = [
+    "ClassificationAdapter",
+    "DetectionAdapter",
     "FlaggedItem",
     "MetricCard",
     "ProvenanceInfo",
@@ -43,8 +51,10 @@ __all__ = [
     "ReportSchemaVersions",
     "RunSummary",
     "SampleCard",
+    "SampleMetricLike",
     "SampleRankings",
     "TaskKind",
+    "TaskPresentationAdapter",
     "TopRegionEntry",
     "VulnerabilityDistribution",
     "VulnerabilitySummaryStats",
