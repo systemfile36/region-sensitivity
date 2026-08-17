@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SSAT Layout A — Interpretation First</title><style>
+:root{
+  --bg:#f6f7f9; --card:#ffffff; --ink:#18202a; --muted:#657184;
+  --line:#dfe4ea; --accent:#315efb; --good:#197a4b; --warn:#b06b00;
+  --bad:#b33a3a; --soft:#eef2f7; --purple:#7057d9;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.55 Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif}
+main{max-width:1180px;margin:0 auto;padding:28px 28px 60px}
+h1{font-size:26px;margin:0 0 4px} h2{font-size:19px;margin:0 0 14px} h3{font-size:15px;margin:0 0 8px}
+p{margin:6px 0}.muted{color:var(--muted)} .small{font-size:12px}.mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:18px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+.metric{font-size:28px;font-weight:760;letter-spacing:-.02em}.label{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
+.pill{display:inline-flex;align-items:center;border:1px solid var(--line);border-radius:999px;padding:3px 8px;font-size:12px;background:white}
+.good{color:var(--good)}.warn{color:var(--warn)}.bad{color:var(--bad)}
+.section{margin-top:22px}
+table{width:100%;border-collapse:collapse;background:white;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+th,td{padding:10px 11px;border-bottom:1px solid var(--line);text-align:left}th{font-size:12px;color:var(--muted);background:#fafbfc}
+tr:last-child td{border-bottom:0}
+.callout{border-left:4px solid var(--accent);background:#eef3ff;padding:12px 14px;border-radius:8px}
+.bar{height:9px;background:#edf0f3;border-radius:99px;overflow:hidden}.bar>span{display:block;height:100%;background:#727e91}
+.stack{height:12px;display:flex;overflow:hidden;border-radius:99px;background:#eee}.stack span:nth-child(1){background:#2d8a59}.stack span:nth-child(2){background:#8190a5}.stack span:nth-child(3){background:#c2c8d0}.stack span:nth-child(4){background:#b85454}
+.heat{display:grid;grid-template-columns:repeat(4,1fr);gap:7px;max-width:330px}
+.cell{aspect-ratio:1;border:1px solid var(--line);border-radius:7px;display:flex;flex-direction:column;align-items:center;justify-content:center;background:white;font-size:11px}
+.cell b{font-size:15px}
+.legend{display:flex;gap:12px;flex-wrap:wrap}.legend span{font-size:12px;color:var(--muted)}
+.dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:5px;background:#777}
+nav{display:flex;gap:8px;flex-wrap:wrap;margin:14px 0 0}nav a{text-decoration:none;color:var(--ink);background:white;border:1px solid var(--line);padding:5px 9px;border-radius:8px}
+details{background:white;border:1px solid var(--line);border-radius:10px;padding:12px 14px}
+@media(max-width:800px){.grid2,.grid3{grid-template-columns:1fr}.heat{max-width:none}main{padding:20px 14px}}
+
+.hero{background:#15213a;color:white;border-radius:14px;padding:22px;margin-top:18px}
+.hero .muted{color:#bfc9db} .hero strong{color:#fff}
+.signal{display:grid;grid-template-columns:160px 1fr;gap:14px;align-items:center}
+.sample{display:grid;grid-template-columns:110px 1fr;gap:12px}
+.thumb{height:92px;border-radius:9px;background:linear-gradient(135deg,#d8dde6,#aeb8c7);display:grid;place-items:center;color:#526070;font-weight:700}
+</style></head><body><main>
+<header>
+  <div class="label">Spatial Sensitivity Audit Report</div>
+  <h1>M_normal · Dataset A</h1>
+  <p class="muted">200 samples · 4×4 grid · 5 perturbation operators · margin_drop</p>
+  <nav><a href="#summary">요약</a><a href="#pattern">공간 패턴</a><a href="#samples">취약 샘플</a><a href="#reliability">신뢰성</a><a href="#details">상세</a></nav>
+</header>
+
+<section class="hero" id="summary">
+  <div class="label" style="color:#aab7d1">이 실행에서 가장 먼저 읽을 문장</div>
+  <h2 style="font-size:23px;margin-top:5px">민감도는 존재하지만 <strong>한 고정 위치에 집중되지 않습니다.</strong></h2>
+  <p class="muted">개별 샘플에는 강한 취약 영역이 있으나, 샘플마다 그 위치가 달라 데이터셋 전체에서 반복되는 단일 공간 의존성은 약합니다.</p>
+</section>
+
+<section class="section grid3">
+  <div class="card"><div class="label">Clean performance</div><div class="metric">64.0%</div><p class="muted">교란 전 기준 성능</p></div>
+  <div class="card"><div class="label">Mean degradation</div><div class="metric">0.348</div><p class="muted">클수록 교란 후 성능 저하가 큼</p></div>
+  <div class="card"><div class="label">Vs. matched control</div><div class="metric">−41.2</div><p class="muted">평균적으로 동일 면적 대조군보다 특별히 크지 않음</p></div>
+</section>
+
+<section class="section card" id="pattern">
+  <div class="grid2">
+    <div>
+      <div class="label">Dataset-level spatial pattern</div>
+      <h2>어디가 반복적으로 취약한가?</h2>
+      <p>색의 진하기는 <b>“그 위치가 각 샘플의 최다 취약 region이 된 비율”</b>을 나타냅니다. 이 값은 reliability grade가 아닙니다.</p>
+      <div class="callout"><b>해석:</b> 최대 빈도 region도 18%에 그쳐, 취약 위치가 여러 셀로 퍼져 있습니다. 고정 shortcut형 패턴이라면 하나의 셀이 압도적으로 높아집니다.</div>
+      <div style="margin-top:14px" class="legend"><span>추가 권장 지표: Dominant-region share</span><span>Normalized spatial entropy</span></div>
+    </div>
+    <div class="heat" aria-label="top region frequency heatmap">
+      <div class="cell" style="background:#eef1f5"><b>7%</b>r0/c0</div><div class="cell" style="background:#e5eaf1"><b>10%</b>r0/c1</div><div class="cell" style="background:#dfe6ef"><b>12%</b>r0/c2</div><div class="cell" style="background:#eef1f5"><b>6%</b>r0/c3</div>
+      <div class="cell" style="background:#e7ebf1"><b>9%</b>r1/c0</div><div class="cell" style="background:#dce4ef"><b>13%</b>r1/c1</div><div class="cell" style="background:#cfdbeb"><b>16%</b>r1/c2</div><div class="cell" style="background:#e4e9f1"><b>10%</b>r1/c3</div>
+      <div class="cell" style="background:#e6ebf2"><b>9%</b>r2/c0</div><div class="cell" style="background:#c8d7eb"><b>18%</b>r2/c1</div><div class="cell" style="background:#cbd9eb"><b>17%</b>r2/c2</div><div class="cell" style="background:#e3e9f1"><b>10%</b>r2/c3</div>
+      <div class="cell" style="background:#edf0f4"><b>7%</b>r3/c0</div><div class="cell" style="background:#d7e1ee"><b>14%</b>r3/c1</div><div class="cell" style="background:#d9e2ee"><b>14%</b>r3/c2</div><div class="cell" style="background:#ebeff4"><b>8%</b>r3/c3</div>
+    </div>
+  </div>
+</section>
+
+<section class="section" id="reliability">
+  <h2>위치별 결과는 “한 등급” 대신 분포로 표시</h2>
+  <table>
+    <thead><tr><th>Region</th><th>Mean degradation</th><th>Top-region share</th><th>Anchor reliability mix</th><th>읽는 법</th></tr></thead>
+    <tbody>
+      <tr><td class="mono">r2/c2</td><td>0.657</td><td>17%</td><td><div class="stack"><span style="width:34%"></span><span style="width:0%"></span><span style="width:12%"></span><span style="width:54%"></span></div><span class="small muted">HIGH 34% · LOW 12% · UNREL. 54%</span></td><td>일부 샘플에선 확실히 중요하지만 전 샘플 공통 위치는 아님</td></tr>
+      <tr><td class="mono">r0/c0</td><td>−0.367</td><td>7%</td><td><div class="stack"><span style="width:13%"></span><span></span><span style="width:31%"></span><span style="width:56%"></span></div><span class="small muted">HIGH 13% · LOW 31% · UNREL. 56%</span></td><td>고정 의존성 증거가 약함</td></tr>
+    </tbody>
+  </table>
+  <p class="small muted">핵심: dataset-level region에는 worst-case badge를 붙이지 않고, HIGH/LOW/UNRELIABLE의 <b>구성비</b>와 sign/효과의 분산을 보여줍니다.</p>
+</section>
+
+<section class="section" id="samples">
+  <h2>개별 샘플에서는 다시 sample-level evidence를 강조</h2>
+  <div class="grid2">
+    <article class="card sample"><div class="thumb">image</div><div><span class="pill good">HIGH evidence</span><h3>test-08-01608</h3><div class="metric" style="font-size:20px">Top region: r2/c2</div><p>degradation 6.99 · 5/5 fills same direction · control 초과</p><p class="muted">이 샘플에서는 r2/c2가 강한 취약 후보입니다.</p></div></article>
+    <article class="card sample"><div class="thumb">image</div><div><span class="pill bad">UNRELIABLE</span><h3>test-00-00000</h3><div class="metric" style="font-size:20px">Top region: r1/c1</div><p>fill 간 부호 불일치 · seed variation 큼</p><p class="muted">숫자가 커 보여도 이 샘플-영역의 효과 크기는 해석하지 않습니다.</p></div></article>
+  </div>
+</section>
+
+<section class="section card">
+  <h2>해석 레벨</h2>
+  <div class="grid3">
+    <div><span class="pill">직접 관측</span><p>r2/c2를 가렸을 때 margin이 얼마나 감소했는가?</p></div>
+    <div><span class="pill">제한적 해석</span><p>이 샘플-모델 조합은 r2/c2 정보 제거에 민감한가?</p></div>
+    <div><span class="pill">후속 검증</span><p>그 위치가 실제 shortcut / 배포 실패 원인인가?</p></div>
+  </div>
+</section>
+
+<section class="section" id="details"><details><summary><b>실행 설정 · threshold · provenance · 원본 CSV/JSON</b></summary><p class="muted">전처리, mask area, fill strategy, seed, threshold, manifest hash 등은 여기로 이동합니다.</p></details></section>
+</main></body></html>
