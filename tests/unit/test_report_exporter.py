@@ -33,6 +33,7 @@ from ssat.report.types import (
     RunSummary,
     SampleCard,
     SampleRankings,
+    SpatialConcentration,
     TaskKind,
     TopRegionEntry,
     VulnerabilityDistribution,
@@ -71,6 +72,8 @@ def _region_row(**overrides: object) -> RegionRow:
         "n_valid": 10,
         "reliability_grade": ReportGrade.UNRELIABLE,
         "reliability_distribution": {"high": 1, "unreliable": 1},
+        "top_region_share": 0.25,
+        "high_rate": 0.5,
     }
     defaults.update(overrides)
     return RegionRow(**defaults)  # type: ignore[arg-type]
@@ -121,6 +124,12 @@ def _report_model(*, full_sample_ids: tuple[str, ...] = ("s0", "s1", "s2")) -> R
             rows=(_region_row(),),
             reliability_distribution={"high": 1, "unreliable": 1},
             chart_asset_ref=None,
+        ),
+        spatial_concentration=SpatialConcentration(
+            dominant_region_key="grid::0",
+            dominant_region_share=0.25,
+            spatial_entropy=0.9,
+            n_scored_samples=len(full_sample_ids),
         ),
         fill_strategy_correlation_asset_ref=None,
         reliability_spotlight=ReliabilitySpotlight(flagged_examples=(_flagged_item(),)),
@@ -235,6 +244,35 @@ def test_region_summary_csv_flattens_reliability_distribution_into_count_columns
     assert row["unreliable_count"] == "1"
     assert row["moderate_count"] == "0"
     assert row["low_count"] == "0"
+
+
+def test_region_summary_csv_includes_top_region_share_and_high_rate(tmp_path: Path) -> None:
+    paths = export(_assembled_report(), tmp_path)
+
+    row = _read_csv_rows(paths.region_summary_csv)[0]
+    assert row["top_region_share"] == "0.25"
+    assert row["high_rate"] == "0.5"
+
+
+def test_region_summary_csv_encodes_none_top_region_share_and_high_rate_as_empty(
+    tmp_path: Path,
+) -> None:
+    model = _report_model()
+    model = dataclasses.replace(
+        model,
+        region_summary=RegionSummary(
+            rows=(_region_row(top_region_share=None, high_rate=None),),
+            reliability_distribution={"high": 1, "unreliable": 1},
+            chart_asset_ref=None,
+        ),
+    )
+    assembled = AssembledReport(model=model, full_sample_rankings=(_sample_card(),))
+
+    paths = export(assembled, tmp_path)
+
+    row = _read_csv_rows(paths.region_summary_csv)[0]
+    assert row["top_region_share"] == ""
+    assert row["high_rate"] == ""
 
 
 def test_region_summary_csv_empty_distribution_yields_zero_counts(tmp_path: Path) -> None:

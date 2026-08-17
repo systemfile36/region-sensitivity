@@ -102,6 +102,8 @@ _REGION_SUMMARY_FIELDS = (
     "moderate_count",
     "low_count",
     "unreliable_count",
+    "top_region_share",
+    "high_rate",
 )
 
 _FLAGGED_ITEMS_FIELDS = (
@@ -191,6 +193,8 @@ def _region_summary_row(row: RegionRow) -> dict[str, object]:
         "moderate_count": distribution.get(ReportGrade.MODERATE.value, 0),
         "low_count": distribution.get(ReportGrade.LOW.value, 0),
         "unreliable_count": distribution.get(ReportGrade.UNRELIABLE.value, 0),
+        "top_region_share": _cell(row.top_region_share),
+        "high_rate": _cell(row.high_rate),
     }
 
 
