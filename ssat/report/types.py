@@ -261,6 +261,20 @@ class RegionRow:
             precisely so the worst-case ``reliability_grade`` above does not
             read as more uniformly alarming than it is (§1 격차#3). Empty
             when no analysis run exists.
+        top_region_share: Fraction of dataset samples whose single most-
+            degraded region (across the whole sample, not just this region)
+            is this ``region_key`` — the "dominant-region share" concept
+            broken out per-region, letting a region table sort/color by
+            how often it is *the* answer rather than only by its own mean.
+            ``None`` when no sample had a determinable top region (e.g. every
+            sample's degradation values were all unavailable).
+        high_rate: ``reliability_distribution["high"] / sum(reliability_
+            distribution.values())`` — the fraction of this region's anchors
+            that passed every reliability check, alongside (not instead of)
+            the worst-case ``reliability_grade`` above (report layout
+            redesign, docs/report_layout_improve/AGENTS_OPINION_1.md: a
+            region table cell should show *composition*, not only the worst
+            anchor). ``None`` when ``reliability_distribution`` is empty.
     """
 
     region_key: str
@@ -272,6 +286,8 @@ class RegionRow:
     n_valid: int
     reliability_grade: ReportGrade | None
     reliability_distribution: Mapping[str, int]
+    top_region_share: float | None = None
+    high_rate: float | None = None
 
     def __post_init__(self) -> None:
         """Validate identity, areas, counts, grade, and distribution.
@@ -279,8 +295,9 @@ class RegionRow:
         Raises:
             TypeError: If reliability_grade has the wrong type.
             ValueError: If region_key/region_kind is empty, an area or
-                n_valid is negative, flip_rate is outside [0, 1], or
-                reliability_distribution has an unknown key or negative count.
+                n_valid is negative, flip_rate/top_region_share/high_rate is
+                outside [0, 1], or reliability_distribution has an unknown
+                key or negative count.
         """
 
         if not self.region_key or not self.region_kind:
@@ -292,6 +309,8 @@ class RegionRow:
             if value is not None and (isinstance(value, bool) or value < 0):
                 raise ValueError(f"{name} must be non-negative when provided")
         _validate_unit_interval_or_none(self.flip_rate, field_name="flip_rate")
+        _validate_unit_interval_or_none(self.top_region_share, field_name="top_region_share")
+        _validate_unit_interval_or_none(self.high_rate, field_name="high_rate")
         if isinstance(self.n_valid, bool) or self.n_valid < 0:
             raise ValueError("n_valid must be non-negative")
         if self.reliability_grade is not None and not isinstance(
@@ -509,6 +528,81 @@ class RegionSummary:
 
 
 @dataclass(frozen=True, slots=True)
+class SpatialConcentration:
+    """Dataset-wide "does this model depend on one fixed location?" summary.
+
+    Added for the report layout redesign
+    (docs/report_layout_improve/AGENTS_OPINION_1.md): the pre-redesign
+    report answered "which anchor is HIGH?" but had no dataset-level answer
+    to "is there a fixed location most samples repeatedly depend on, or is
+    sensitivity spread across many locations?" — the question layout C's
+    "behavioral fingerprint" and layout A's "공간 집중 패턴" sections both
+    center on. Every field here is a straightforward arithmetic reduction
+    (argmax-per-sample, then a Counter, then a ratio/normalized entropy) of
+    ``SpatialProfile.degradation`` values the metrics engine already
+    computed — no new model inference, matching R0's "assembles, does not
+    compute new statistics" boundary (REPORT_LAYER_DESIGN_v1.md §0,
+    ``ssat.report.assembler`` module docstring Gap#6).
+
+    Attributes:
+        dominant_region_key: The region_key that is the single most-
+            degraded region for the largest number of samples, i.e. the
+            argmax of the per-sample "top region" histogram; ``None`` when
+            no sample had a determinable top region.
+        dominant_region_share: ``dominant_region_key``'s count divided by
+            ``n_scored_samples`` — how often that one region is *the*
+            answer across the dataset. High values (concentrated on one
+            fixed location) and low values (spread across many locations)
+            are both reported as observations, never auto-labeled as
+            "shortcut" or any other causal claim (design note carried
+            through to every renderer of this field).
+        spatial_entropy: Normalized Shannon entropy, in ``[0, 1]``, of the
+            per-sample top-region histogram over every region_key present
+            in the run (``0`` = every sample's top region is the same single
+            location, ``1`` = top regions are as spread out across every
+            possible location as they could be). ``None`` when fewer than
+            two distinct region_keys exist in the run (entropy is
+            undefined, not zero, when there is nothing to spread across) or
+            no sample had a determinable top region.
+        n_scored_samples: Number of samples whose top region could be
+            determined (had at least one region with a non-``None``
+            degradation) — the denominator behind ``dominant_region_share``
+            and the population behind ``spatial_entropy``, surfaced so a
+            reader can see when these fields are based on a small or
+            partial population rather than the whole dataset.
+    """
+
+    dominant_region_key: str | None
+    dominant_region_share: float | None
+    spatial_entropy: float | None
+    n_scored_samples: int
+
+    def __post_init__(self) -> None:
+        """Validate mutual consistency, ranges, and the sample count.
+
+        Raises:
+            ValueError: If exactly one of dominant_region_key/
+                dominant_region_share is present without the other,
+                dominant_region_share/spatial_entropy is outside [0, 1], or
+                n_scored_samples is negative.
+        """
+
+        has_key = self.dominant_region_key is not None
+        has_share = self.dominant_region_share is not None
+        if has_key != has_share:
+            raise ValueError(
+                "dominant_region_key and dominant_region_share must be both "
+                "present or both None"
+            )
+        _validate_unit_interval_or_none(
+            self.dominant_region_share, field_name="dominant_region_share"
+        )
+        _validate_unit_interval_or_none(self.spatial_entropy, field_name="spatial_entropy")
+        if isinstance(self.n_scored_samples, bool) or self.n_scored_samples < 0:
+            raise ValueError("n_scored_samples must be non-negative")
+
+
+@dataclass(frozen=True, slots=True)
 class ReliabilitySpotlight:
     """"이 결과는 믿지 말라" section (design §3, §4.2 step 6).
 
@@ -662,6 +756,13 @@ class ReportModel:
         vulnerability_distribution: Dataset-wide score distribution.
         sample_rankings: Top-K/bottom-K sample galleries.
         region_summary: Dataset-wide region table.
+        spatial_concentration: Dataset-wide "fixed location dependence"
+            summary (dominant-region share, spatial entropy). Added for the
+            report layout redesign (docs/report_layout_improve/
+            AGENTS_OPINION_1.md) alongside ``RegionRow.top_region_share``/
+            ``high_rate`` — an additive, backward-compatible extension
+            (design §4.6), the same pattern ``RegionSummary.chart_asset_ref``
+            and ``RegionRow.reliability_distribution`` already used.
         fill_strategy_correlation_asset_ref: Relative path to R2's rendered
             op×op Spearman rank-correlation SVG (design §R2
             ``render_fill_strategy_correlation``); ``None`` when the
@@ -683,6 +784,7 @@ class ReportModel:
     vulnerability_distribution: VulnerabilityDistribution
     sample_rankings: SampleRankings
     region_summary: RegionSummary
+    spatial_concentration: SpatialConcentration
     fill_strategy_correlation_asset_ref: str | None
     reliability_spotlight: ReliabilitySpotlight
     provenance: ProvenanceInfo
@@ -707,6 +809,8 @@ class ReportModel:
             raise TypeError("sample_rankings must be a SampleRankings")
         if not isinstance(self.region_summary, RegionSummary):
             raise TypeError("region_summary must be a RegionSummary")
+        if not isinstance(self.spatial_concentration, SpatialConcentration):
+            raise TypeError("spatial_concentration must be a SpatialConcentration")
         if not isinstance(self.reliability_spotlight, ReliabilitySpotlight):
             raise TypeError("reliability_spotlight must be a ReliabilitySpotlight")
         if not isinstance(self.provenance, ProvenanceInfo):

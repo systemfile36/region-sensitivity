@@ -25,6 +25,7 @@ from ssat.report.types import (
     RunSummary,
     SampleCard,
     SampleRankings,
+    SpatialConcentration,
     TaskKind,
     TopRegionEntry,
     VulnerabilityDistribution,
@@ -85,9 +86,22 @@ def _region_row(**overrides: object) -> RegionRow:
         "n_valid": 10,
         "reliability_grade": ReportGrade.UNRELIABLE,
         "reliability_distribution": {"high": 1, "unreliable": 1},
+        "top_region_share": 0.5,
+        "high_rate": 0.5,
     }
     defaults.update(overrides)
     return RegionRow(**defaults)  # type: ignore[arg-type]
+
+
+def _spatial_concentration(**overrides: object) -> SpatialConcentration:
+    defaults: dict[str, object] = {
+        "dominant_region_key": "grid::0",
+        "dominant_region_share": 0.5,
+        "spatial_entropy": 0.8,
+        "n_scored_samples": 100,
+    }
+    defaults.update(overrides)
+    return SpatialConcentration(**defaults)  # type: ignore[arg-type]
 
 
 def _flagged_item(**overrides: object) -> FlaggedItem:
@@ -160,6 +174,7 @@ def _report_model(**overrides: object) -> ReportModel:
             reliability_distribution={"high": 1, "unreliable": 1},
             chart_asset_ref="assets/img/charts/region_bar.svg",
         ),
+        "spatial_concentration": _spatial_concentration(),
         "fill_strategy_correlation_asset_ref": "assets/img/charts/fill_strategy_correlation.svg",
         "reliability_spotlight": ReliabilitySpotlight(flagged_examples=(_flagged_item(),)),
         "provenance": _provenance_info(),
@@ -403,6 +418,76 @@ def test_region_row_allows_none_grade_and_empty_distribution() -> None:
     assert row.reliability_distribution == {}
 
 
+def test_region_row_rejects_top_region_share_outside_unit_interval() -> None:
+    with pytest.raises(ValueError, match="between 0 and 1"):
+        _region_row(top_region_share=1.5)
+
+
+def test_region_row_rejects_high_rate_outside_unit_interval() -> None:
+    with pytest.raises(ValueError, match="between 0 and 1"):
+        _region_row(high_rate=-0.1)
+
+
+def test_region_row_top_region_share_and_high_rate_default_to_none() -> None:
+    row = RegionRow(
+        region_key="grid::0",
+        region_kind="grid",
+        intended_area_px=64,
+        effective_area_px=60,
+        mean_degradation=0.3,
+        flip_rate=0.2,
+        n_valid=10,
+        reliability_grade=None,
+        reliability_distribution={},
+    )
+    assert row.top_region_share is None
+    assert row.high_rate is None
+
+
+# --- SpatialConcentration ---------------------------------------------------------
+
+
+def test_spatial_concentration_accepts_valid_fields() -> None:
+    concentration = _spatial_concentration()
+    assert concentration.dominant_region_share == 0.5
+
+
+def test_spatial_concentration_allows_all_none_with_zero_samples() -> None:
+    concentration = _spatial_concentration(
+        dominant_region_key=None,
+        dominant_region_share=None,
+        spatial_entropy=None,
+        n_scored_samples=0,
+    )
+    assert concentration.dominant_region_key is None
+    assert concentration.spatial_entropy is None
+
+
+def test_spatial_concentration_rejects_key_without_share() -> None:
+    with pytest.raises(ValueError, match="both present or both None"):
+        _spatial_concentration(dominant_region_share=None)
+
+
+def test_spatial_concentration_rejects_share_without_key() -> None:
+    with pytest.raises(ValueError, match="both present or both None"):
+        _spatial_concentration(dominant_region_key=None)
+
+
+def test_spatial_concentration_rejects_share_outside_unit_interval() -> None:
+    with pytest.raises(ValueError, match="between 0 and 1"):
+        _spatial_concentration(dominant_region_share=1.5)
+
+
+def test_spatial_concentration_rejects_entropy_outside_unit_interval() -> None:
+    with pytest.raises(ValueError, match="between 0 and 1"):
+        _spatial_concentration(spatial_entropy=-0.1)
+
+
+def test_spatial_concentration_rejects_negative_n_scored_samples() -> None:
+    with pytest.raises(ValueError, match="non-negative"):
+        _spatial_concentration(n_scored_samples=-1)
+
+
 # --- FlaggedItem -----------------------------------------------------------------
 
 
@@ -446,3 +531,8 @@ def test_report_model_rejects_wrong_scorecard_element_type() -> None:
 def test_report_model_rejects_wrong_meta_type() -> None:
     with pytest.raises(TypeError, match="ReportMeta"):
         _report_model(meta="not-a-meta")
+
+
+def test_report_model_rejects_wrong_spatial_concentration_type() -> None:
+    with pytest.raises(TypeError, match="SpatialConcentration"):
+        _report_model(spatial_concentration="not-a-spatial-concentration")
