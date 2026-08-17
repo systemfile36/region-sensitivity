@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from typing import Literal, Protocol, runtime_checkable
 
 from ssat.core.adapter.types import AdapterSpec
-from ssat.metrics.dump_reader import JoinedFrame
+from ssat.metrics.dump_reader import JoinedFrame, coerce_nullable_int
 from ssat.metrics.errors import MetricsRegistryError
 from ssat.metrics.normalize import NormalizedOutput, normalize_output
 from ssat.metrics.types import ExclusionReason, ItemMetrics
@@ -114,7 +114,12 @@ class MetricRegistry:
         :class:`ExclusionReason`. Items whose perturbed side is unavailable
         (``logits_perturbed`` is ``None``) still produce one unavailable
         row per applicable metric, without calling that metric's
-        ``compute``.
+        ``compute``. Items whose ``gt_label`` is unknown (``None``) produce
+        one unavailable row per applicable metric with
+        ``excluded_reason=GT_LABEL_UNKNOWN`` and ``clean_correct=None``,
+        without normalizing either side — no currently registered metric is
+        computable without a reference class (``ExclusionReason.
+        GT_LABEL_UNKNOWN`` docstring).
         """
 
         applicable = [
@@ -122,14 +127,31 @@ class MetricRegistry:
         ]
         rows: list[ItemMetrics] = []
         for row in joined.itertuples(index=False):
+            gt_label = coerce_nullable_int(row.gt_label)
+            if gt_label is None:
+                for metric in applicable:
+                    rows.append(
+                        ItemMetrics(
+                            item_id=row.item_id,
+                            sample_id=row.sample_id,
+                            metric_name=metric.name,
+                            clean_correct=None,
+                            value_clean=None,
+                            value_perturbed=None,
+                            degradation=None,
+                            available=False,
+                            excluded_reason=ExclusionReason.GT_LABEL_UNKNOWN,
+                        )
+                    )
+                continue
             clean_derived = normalize_output(
-                row.logits_clean, gt_label=int(row.gt_label), adapter_spec=adapter_spec
+                row.logits_clean, gt_label=gt_label, adapter_spec=adapter_spec
             )
             clean_correct = clean_derived.gt_rank == 1
             perturbed_derived = (
                 normalize_output(
                     row.logits_perturbed,
-                    gt_label=int(row.gt_label),
+                    gt_label=gt_label,
                     adapter_spec=adapter_spec,
                 )
                 if row.logits_perturbed is not None

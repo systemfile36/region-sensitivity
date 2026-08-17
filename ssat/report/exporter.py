@@ -3,20 +3,31 @@
 ``report_model.json`` is the whole ``ReportModel``, byte-reproducible via
 ``ssat.utils.io.write_json_atomic`` (sorted keys, fsynced, atomic replace —
 the same convention every other store's manifest already follows). The
-three CSVs exist because ``ReportModel`` itself only ever carries the
-top-K/bottom-K slice of a run (IMPLE_PLAN_REPORTING_v1.md §1 격차#5) — they
-are the only place the *full* population (every sample, every region, every
-flagged anchor) is reachable without re-running the assembler.
+CSVs exist because ``ReportModel`` itself only ever carries the top-K/
+bottom-K slice of a run (IMPLE_PLAN_REPORTING_v1.md §1 격차#5) — they are
+the only place the *full* population (every sample, every region, every
+semantic_group, every flagged anchor) is reachable without re-running the
+assembler. ``semantic_summary.csv``/``class_semantic_matrix.csv`` are the
+exception: ``semantic_summary``/``class_semantic_matrix`` are already
+dataset-wide (not top-K-limited) on ``ReportModel`` itself
+(IMPLE_PLAN_SEMANTIC_VULNERABILITY_v1.md §3.4), so their CSVs are flat
+re-exports rather than a fuller population than the JSON carries — kept as
+separate files anyway for the same "primary artifact deserves its own
+file, not a JSON blob a reader has to parse" reasoning that motivated
+``region_summary.csv``.
 
 Every ``ReportModel``/``SampleCard`` field this module writes to a CSV is
 represented, including the ones that are not scalars (``top_regions``,
-``task_extra``, ``reliability_reasons``): each becomes its own
-``*_json`` column (``json.dumps(..., sort_keys=True)``), the same
-structured-data-in-a-flat-column precedent
-``ssat.analysis.store`` already set for ``strategy_signs_json``/
-``strategy_values_json``. Rows are never silently thinned to fit CSV's flat
-shape (design §6.2 "결측이... 조용히 생략되지 않음" — the same principle,
-applied to *columns* here rather than values).
+``task_extra``, ``reliability_reasons``, ``region_ids``): each becomes its
+own flat column — ``*_json`` (``json.dumps(..., sort_keys=True)``) for
+nested structures, matching the precedent ``ssat.analysis.store`` already
+set for ``strategy_signs_json``/``strategy_values_json``, or a delimited
+string for a flat tuple of identifiers (``region_ids`` joined with ``;``,
+plan §3.4 — a JSON array would be needlessly heavy for a list of bare
+strings a reader wants to skim directly in a spreadsheet). Rows are never
+silently thinned to fit CSV's flat shape (design §6.2 "결측이... 조용히
+생략되지 않음" — the same principle, applied to *columns* here rather than
+values).
 """
 
 from __future__ import annotations
@@ -30,11 +41,13 @@ from pathlib import Path
 from typing import Protocol
 
 from ssat.report.types import (
+    ClassSemanticRow,
     FlaggedItem,
     RegionRow,
     ReportGrade,
     ReportModel,
     SampleCard,
+    SemanticGroupRow,
 )
 from ssat.utils.io import write_json_atomic
 
@@ -61,12 +74,21 @@ class AssembledReportLike(Protocol):
 
 @dataclasses.dataclass(frozen=True, slots=True)
 class ExportedPaths:
-    """Where :func:`export` wrote each of its four output files (design §R1).
+    """Where :func:`export` wrote each of its six output files (design §R1).
 
     Attributes:
         report_model_json: The full ``ReportModel``, serialized as-is.
         sample_rankings_csv: Every sample, vulnerability-ranked (§1 격차#5).
         region_summary_csv: ``region_summary.rows``, one row per region_key.
+        semantic_summary_csv: ``semantic_summary``, one row per
+            semantic_group (IMPLE_PLAN_SEMANTIC_VULNERABILITY_v1.md §3.4);
+            empty (header only) when ``semantic_concentration.
+            n_semantic_groups <= 1``.
+        class_semantic_matrix_csv: ``class_semantic_matrix``, one row per
+            ``(gt_label, semantic_group)`` — the primary artifact the
+            semantic vulnerability plan exists to produce (plan §3.4);
+            empty (header only) under the same condition as
+            ``semantic_summary_csv``.
         flagged_items_csv: ``reliability_spotlight.flagged_examples``,
             unchanged in content and order.
     """
@@ -74,6 +96,8 @@ class ExportedPaths:
     report_model_json: Path
     sample_rankings_csv: Path
     region_summary_csv: Path
+    semantic_summary_csv: Path
+    class_semantic_matrix_csv: Path
     flagged_items_csv: Path
 
 
@@ -106,6 +130,23 @@ _REGION_SUMMARY_FIELDS = (
     "high_rate",
 )
 
+_SEMANTIC_SUMMARY_FIELDS = (
+    "semantic_group",
+    "region_ids",
+    "n_samples",
+    "mean_degradation",
+    "high_rate",
+    "flip_rate",
+)
+
+_CLASS_SEMANTIC_MATRIX_FIELDS = (
+    "gt_label",
+    "semantic_group",
+    "n_samples",
+    "mean_degradation",
+    "flip_rate",
+)
+
 _FLAGGED_ITEMS_FIELDS = (
     "anchor_key_repr",
     "reason_summary",
@@ -134,6 +175,8 @@ def export(assembled: AssembledReportLike, output_dir: Path) -> ExportedPaths:
         report_model_json=output_dir / "report_model.json",
         sample_rankings_csv=output_dir / "sample_rankings.csv",
         region_summary_csv=output_dir / "region_summary.csv",
+        semantic_summary_csv=output_dir / "semantic_summary.csv",
+        class_semantic_matrix_csv=output_dir / "class_semantic_matrix.csv",
         flagged_items_csv=output_dir / "flagged_items.csv",
     )
 
@@ -147,6 +190,16 @@ def export(assembled: AssembledReportLike, output_dir: Path) -> ExportedPaths:
         paths.region_summary_csv,
         _REGION_SUMMARY_FIELDS,
         (_region_summary_row(row) for row in assembled.model.region_summary.rows),
+    )
+    _write_csv(
+        paths.semantic_summary_csv,
+        _SEMANTIC_SUMMARY_FIELDS,
+        (_semantic_summary_row(row) for row in assembled.model.semantic_summary),
+    )
+    _write_csv(
+        paths.class_semantic_matrix_csv,
+        _CLASS_SEMANTIC_MATRIX_FIELDS,
+        (_class_semantic_row(row) for row in assembled.model.class_semantic_matrix),
     )
     _write_csv(
         paths.flagged_items_csv,
@@ -195,6 +248,27 @@ def _region_summary_row(row: RegionRow) -> dict[str, object]:
         "unreliable_count": distribution.get(ReportGrade.UNRELIABLE.value, 0),
         "top_region_share": _cell(row.top_region_share),
         "high_rate": _cell(row.high_rate),
+    }
+
+
+def _semantic_summary_row(row: SemanticGroupRow) -> dict[str, object]:
+    return {
+        "semantic_group": row.semantic_group,
+        "region_ids": ";".join(row.region_ids),
+        "n_samples": row.n_samples,
+        "mean_degradation": _cell(row.mean_degradation),
+        "high_rate": _cell(row.high_rate),
+        "flip_rate": _cell(row.flip_rate),
+    }
+
+
+def _class_semantic_row(row: ClassSemanticRow) -> dict[str, object]:
+    return {
+        "gt_label": row.gt_label,
+        "semantic_group": row.semantic_group,
+        "n_samples": row.n_samples,
+        "mean_degradation": _cell(row.mean_degradation),
+        "flip_rate": _cell(row.flip_rate),
     }
 
 

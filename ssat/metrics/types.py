@@ -24,9 +24,22 @@ class ExclusionReason(str, Enum):
             Clean-side failures remove the entire sample before it reaches
             ItemMetrics and are reported via DumpHandle.summary() instead —
             they never appear here.
+        GT_LABEL_UNKNOWN: The item's sample has no ground-truth label
+            (``gt_label is None`` — a scenario the core/source layer already
+            supports explicitly for label-free, inference-only auditing,
+            ``ssat/core/source/types.py``'s ``gt_label: int | None``). Every
+            currently registered metric is defined relative to a reference
+            class (accuracy/flip/margin all need to know which class is
+            "correct"), so none can be computed for such an item — this is
+            distinct from ``PERTURBED_STATUS_NOT_OK`` because the perturbed
+            side may have succeeded perfectly; the gap is entirely on the
+            clean/label side. Follows the same "never silently drop, always
+            record a reason" principle the design docstring for N0's status
+            table already states (METRIC_ENGINE_DESIGN_v1.md §N0).
     """
 
     PERTURBED_STATUS_NOT_OK = "perturbed_status_not_ok"
+    GT_LABEL_UNKNOWN = "gt_label_unknown"
 
 
 @dataclass(frozen=True, slots=True)
@@ -73,7 +86,12 @@ class ItemMetrics:
         item_id: Identity of the perturbed WorkItem this row measures.
         sample_id: Owning sample, denormalized for convenient grouping.
         metric_name: Registered Metric name this row was computed with.
-        clean_correct: Whether the clean prediction matched ground truth.
+        clean_correct: Whether the clean prediction matched ground truth;
+            ``None`` only when ``excluded_reason`` is ``GT_LABEL_UNKNOWN`` —
+            correctness cannot be judged without a reference class. Present
+            (never ``None``) for every other row, including
+            ``PERTURBED_STATUS_NOT_OK`` exclusions, since those still know
+            the clean side's own correctness.
         value_clean: Raw clean-side metric value, when available.
         value_perturbed: Raw perturbed-side metric value, when available.
         degradation: Sign-normalized clean-minus-perturbed (or reverse)
@@ -85,7 +103,7 @@ class ItemMetrics:
     item_id: str
     sample_id: str
     metric_name: str
-    clean_correct: bool
+    clean_correct: bool | None
     value_clean: float | None
     value_perturbed: float | None
     degradation: float | None
@@ -93,11 +111,13 @@ class ItemMetrics:
     excluded_reason: ExclusionReason | None = None
 
     def __post_init__(self) -> None:
-        """Validate identity fields and the availability/value toggle.
+        """Validate identity fields, the availability/value toggle, and clean_correct.
 
         Raises:
-            ValueError: If an identity field is empty, or metric values are
-                present while unavailable/excluded, or absent while healthy.
+            ValueError: If an identity field is empty, metric values are
+                present while unavailable/excluded, absent while healthy, or
+                ``clean_correct`` is ``None`` without (or non-``None`` with)
+                ``excluded_reason`` being ``GT_LABEL_UNKNOWN``.
         """
 
         if not self.item_id or not self.sample_id or not self.metric_name:
@@ -111,6 +131,13 @@ class ItemMetrics:
         if not missing and any(value is None for value in values):
             raise ValueError(
                 "available rows without an excluded_reason require all metric values"
+            )
+        is_gt_unknown = self.excluded_reason is ExclusionReason.GT_LABEL_UNKNOWN
+        if is_gt_unknown and self.clean_correct is not None:
+            raise ValueError("gt_label_unknown rows must have clean_correct=None")
+        if not is_gt_unknown and self.clean_correct is None:
+            raise ValueError(
+                "clean_correct may only be None when excluded_reason is gt_label_unknown"
             )
 
 

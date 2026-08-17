@@ -604,12 +604,102 @@ def test_ungrouped_run_gates_semantic_concentration_but_still_computes_trivial_r
     assert len(model.class_semantic_matrix) == 1
 
 
-# gt_label=None exclusion (plan §3.3 item 6) is intentionally *not* exercised
-# end-to-end here: ssat.metrics.registry.MetricRegistry.compute_item_metrics
-# calls int(row.gt_label) unconditionally for every item regardless of which
-# metric is registered, so a synthetic dump cannot reach R0 with a gt_label
-# =None sample at all -- a pre-existing N1/N2 limitation orthogonal to this
-# plan (N3 is frozen schema, module docstring "package position" note) and
-# out of scope to change here. The exclusion/count logic itself is instead
-# fully covered at the pure-function level in tests/unit/test_report_
-# assembler.py::test_build_class_semantic_matrix_excludes_samples_with_no_gt_label.
+def test_unlabeled_sample_reaches_r0_without_crashing_and_contributes_nothing(
+    tmp_path: Path,
+) -> None:
+    """A ``gt_label=None`` sample must not crash dump/metrics/report assembly.
+
+    Was previously untestable end-to-end: ``MetricRegistry.
+    compute_item_metrics`` called ``int(row.gt_label)`` unconditionally,
+    crashing the whole run the moment any sample's ``gt_label`` was unknown
+    -- a pre-existing N1/N2 limitation orthogonal to this plan, fixed
+    alongside it (``ssat.metrics.types.ExclusionReason.GT_LABEL_UNKNOWN``).
+
+    With that fixed, a label-free sample ("s4" here, alongside the labeled
+    "foot action class" fixture) now reaches R0 cleanly, but contributes
+    *nothing* to the semantic axis: every one of its items is unavailable
+    (no currently registered metric is computable without a reference
+    class), so its ``SpatialProfile.degradation`` is ``None`` everywhere,
+    and it never even reaches ``_sample_semantic_group_degradation``'s
+    output -- there is no per-sample value to exclude by
+    ``_build_class_semantic_matrix``, so ``class_semantic_excluded_no_gt_
+    label`` stays ``0`` here. That provenance counter's "excluded despite
+    having data" path is a defensive branch for a case classification
+    metrics can never actually produce; it is instead fully covered at the
+    pure-function level in tests/unit/test_report_assembler.py::
+    test_build_class_semantic_matrix_excludes_samples_with_no_gt_label,
+    which constructs that otherwise-unreachable input by hand.
+    """
+
+    config = build_resolved_config(
+        tmp_path,
+        regions=tuple(
+            ResolvedRegionConfig(
+                region_id=region_id,
+                kind=RegionKind.GRID,
+                params={"rows": 1, "cols": 1},
+                semantic_group=semantic_group,
+            )
+            for region_id, semantic_group in _LIMB_SEMANTIC_GROUP.items()
+        ),
+    )
+
+    clean_records = [
+        clean_record(sample_id, logits=_limb_logits(gt_label, 10.0), gt_label=gt_label)
+        for sample_id, (gt_label, _by_region) in _LIMB_GT_LOGIT_BY_SAMPLE.items()
+    ]
+    clean_records.append(
+        clean_record("s4", logits=_limb_logits(0, 10.0), gt_label=None)
+    )
+    perturbed_records = []
+    index = 0
+    for sample_id, (gt_label, by_region) in _LIMB_GT_LOGIT_BY_SAMPLE.items():
+        for region_id, perturbed_value in by_region.items():
+            perturbed_records.append(
+                perturbed_record(
+                    index,
+                    sample_id=sample_id,
+                    region_id=region_id,
+                    region_instance_id=f"{region_id}/r0/c0",
+                    logits=_limb_logits(gt_label, perturbed_value),
+                )
+            )
+            index += 1
+    for region_id in _LIMB_SEMANTIC_GROUP:
+        perturbed_records.append(
+            perturbed_record(
+                index,
+                sample_id="s4",
+                region_id=region_id,
+                region_instance_id=f"{region_id}/r0/c0",
+                logits=_limb_logits(0, 5.0),
+            )
+        )
+        index += 1
+
+    dump_root = tmp_path / "dump"
+    write_dump(
+        dump_root,
+        config,
+        clean_records=tuple(clean_records),
+        perturbed_records=tuple(perturbed_records),
+    )
+    metrics_dir = tmp_path / "metrics"
+    compute_and_save_metrics(
+        dump_root, config, metrics_dir, registry=_registry(), primary_metric=_METRIC_NAME
+    )
+
+    # The whole point: this must not raise.
+    assembled = _assembler(dump_root, metrics_dir, None).assemble(_METRIC_NAME)
+    model = assembled.model
+
+    assert "s4" not in {sample_id for sample_id, _group in assembled.sample_semantic_degradation}
+    matrix_by_cell = {
+        (row.gt_label, row.semantic_group): row for row in model.class_semantic_matrix
+    }
+    # Identical to the labeled-only fixture (test_semantic_summary_and_
+    # class_semantic_matrix_reproduce_foot_action_class_pattern) -- s4
+    # changed nothing about the labeled samples' own results.
+    assert matrix_by_cell[(0, "lower_limb")].n_samples == 2
+    assert matrix_by_cell[(1, "upper_limb")].n_samples == 2
+    assert model.provenance.class_semantic_excluded_no_gt_label == 0

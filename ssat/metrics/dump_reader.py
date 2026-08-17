@@ -202,3 +202,34 @@ def _status_counts(status_column: pd.Series) -> dict[ItemStatus, int]:
     return {
         status: int((status_column == status.value).sum()) for status in ItemStatus
     }
+
+
+def coerce_nullable_int(value: object) -> int | None:
+    """Coerce one nullable-int64 ``JoinedFrame`` cell to ``int | None``.
+
+    A parquet nullable ``int64`` column with at least one missing value
+    arrives through pandas as float ``NaN`` for the missing rows (arrow's
+    default ``to_pandas`` conversion never uses bare ``None`` for a numeric
+    column), and ``NaN`` famously fails equality with itself, so neither a
+    bare ``value is None`` check nor a naive ``int(value)`` is safe. Shared
+    here — rather than duplicated per call site — because both N2
+    (``MetricRegistry.compute_item_metrics``'s ``gt_label``) and N3
+    (``aggregate._build_context``'s ``gt_label``) need the exact same
+    coercion for the exact same column (design METRIC_ENGINE_DESIGN_v1.md's
+    "결측을 조용히 버리지 않는다" principle applied here: a naive cast would
+    crash the entire run instead of letting a caller decide how to record
+    the exclusion).
+
+    Args:
+        value: One cell read from a ``JoinedFrame`` int64 column, e.g. via
+            ``row.gt_label`` from ``itertuples()``.
+
+    Returns:
+        The value as a plain ``int``, or ``None`` if it was missing.
+    """
+
+    if value is None:
+        return None
+    if isinstance(value, float) and value != value:  # NaN is unequal to itself.
+        return None
+    return int(value)

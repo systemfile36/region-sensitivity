@@ -61,6 +61,20 @@ def _item_metrics() -> list[ItemMetrics]:
             available=False,
             excluded_reason=ExclusionReason.PERTURBED_STATUS_NOT_OK,
         ),
+        ItemMetrics(
+            # Label-free auditing round trip: clean_correct=None must survive
+            # save_metrics/load_metrics on the now-nullable parquet column
+            # (METRICS_SCHEMA_VERSION 1.1.0).
+            item_id="c" * 64,
+            sample_id="s2",
+            metric_name="margin_drop",
+            clean_correct=None,
+            value_clean=None,
+            value_perturbed=None,
+            degradation=None,
+            available=False,
+            excluded_reason=ExclusionReason.GT_LABEL_UNKNOWN,
+        ),
     ]
 
 

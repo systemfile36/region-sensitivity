@@ -113,10 +113,15 @@ def clean_record(
     sample_id: str,
     *,
     logits: NDArray[np.floating] | None,
-    gt_label: int = 0,
+    gt_label: int | None = 0,
     status: ItemStatus = ItemStatus.OK,
 ) -> CleanDumpRecord:
-    """Build one clean-sample record; ``logits`` is ignored for failure statuses."""
+    """Build one clean-sample record; ``logits`` is ignored for failure statuses.
+
+    ``gt_label=None`` builds a label-free sample (core layer's supported
+    inference-only auditing scenario) — every metric requiring a reference
+    class becomes unavailable for it (``ExclusionReason.GT_LABEL_UNKNOWN``).
+    """
 
     successful = status is ItemStatus.OK
     return CleanDumpRecord(

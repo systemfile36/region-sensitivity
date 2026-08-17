@@ -79,7 +79,7 @@ def _joined_row(
     item_id: str,
     *,
     sample_id: str,
-    gt_label: int = 0,
+    gt_label: int | None = 0,
     region_id: str = "grid",
     region_instance_id: str = "grid/r0/c0",
     region_kind: RegionKind = RegionKind.GRID,
@@ -138,6 +138,22 @@ def _item(
         degradation=degradation,
         available=True,
         excluded_reason=None,
+    )
+
+
+def _unlabeled_item(item_id: str, sample_id: str, metric_name: str) -> ItemMetrics:
+    """Build an ItemMetrics row for an item whose sample has no gt_label."""
+
+    return ItemMetrics(
+        item_id=item_id,
+        sample_id=sample_id,
+        metric_name=metric_name,
+        clean_correct=None,
+        value_clean=None,
+        value_perturbed=None,
+        degradation=None,
+        available=False,
+        excluded_reason=ExclusionReason.GT_LABEL_UNKNOWN,
     )
 
 
@@ -420,6 +436,45 @@ def test_class_metrics_n_samples_counts_distinct_samples_not_items(tmp_path: Pat
     row = next(r for r in result.class_metrics if r.gt_label == 3)
     assert row.n_samples == 2
     assert row.metric_mean == pytest.approx(2.25)
+
+
+def test_unlabeled_sample_flows_through_sample_metrics_but_not_class_metrics(
+    tmp_path: Path,
+) -> None:
+    """Label-free auditing (core layer's ``gt_label: int | None``) must not crash.
+
+    A sample whose ``gt_label`` is unknown (``ExclusionReason.
+    GT_LABEL_UNKNOWN``) stays visible in ``SampleMetrics`` — with
+    ``gt_label``/``clean_correct`` explicitly ``None``, never silently
+    dropped — but has no row to join in ``ClassMetrics``, which is
+    inherently keyed by a real ground-truth class.
+    """
+
+    joined = _joined(
+        [
+            _joined_row("a" * 64, sample_id="s1", gt_label=None),
+            _joined_row("b" * 64, sample_id="s2", gt_label=3),
+        ]
+    )
+    item_metrics = [
+        _unlabeled_item("a" * 64, "s1", "fake_continuous"),
+        _item("b" * 64, "s2", "fake_continuous", degradation=2.0),
+    ]
+
+    result = aggregate_item_metrics(item_metrics, joined, _registry(), _resolved_config(tmp_path))
+
+    unlabeled_row = next(
+        r for r in result.sample_metrics if r.sample_id == "s1" and r.metric_name == "fake_continuous"
+    )
+    assert unlabeled_row.gt_label is None
+    assert unlabeled_row.clean_correct is None
+    assert unlabeled_row.n_items == 1
+    assert unlabeled_row.n_valid == 0
+    assert unlabeled_row.metric_mean is None
+
+    class_gt_labels = {r.gt_label for r in result.class_metrics}
+    assert None not in class_gt_labels
+    assert class_gt_labels == {3}
 
 
 def test_spatial_profile_averages_multiple_items_sharing_a_sample_and_region(

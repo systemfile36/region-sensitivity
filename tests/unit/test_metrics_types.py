@@ -115,6 +115,65 @@ def test_item_metrics_rejects_missing_values_when_healthy() -> None:
         )
 
 
+def test_item_metrics_accepts_gt_label_unknown_row_with_none_clean_correct() -> None:
+    row = ItemMetrics(
+        item_id="item-1",
+        sample_id="sample-1",
+        metric_name="margin_drop",
+        clean_correct=None,
+        value_clean=None,
+        value_perturbed=None,
+        degradation=None,
+        available=False,
+        excluded_reason=ExclusionReason.GT_LABEL_UNKNOWN,
+    )
+    assert row.clean_correct is None
+
+
+def test_item_metrics_rejects_none_clean_correct_for_other_exclusion_reasons() -> None:
+    with pytest.raises(ValueError, match="clean_correct may only be None"):
+        ItemMetrics(
+            item_id="item-1",
+            sample_id="sample-1",
+            metric_name="margin_drop",
+            clean_correct=None,
+            value_clean=None,
+            value_perturbed=None,
+            degradation=None,
+            available=False,
+            excluded_reason=ExclusionReason.PERTURBED_STATUS_NOT_OK,
+        )
+
+
+def test_item_metrics_rejects_none_clean_correct_when_healthy() -> None:
+    with pytest.raises(ValueError, match="clean_correct may only be None"):
+        ItemMetrics(
+            item_id="item-1",
+            sample_id="sample-1",
+            metric_name="margin_drop",
+            clean_correct=None,
+            value_clean=0.1,
+            value_perturbed=0.2,
+            degradation=0.1,
+            available=True,
+        )
+
+
+def test_item_metrics_rejects_non_none_clean_correct_for_gt_label_unknown() -> None:
+    with pytest.raises(ValueError, match="gt_label_unknown rows must have clean_correct=None"):
+        ItemMetrics(
+            item_id="item-1",
+            sample_id="sample-1",
+            metric_name="margin_drop",
+            clean_correct=True,
+            value_clean=None,
+            value_perturbed=None,
+            degradation=None,
+            available=False,
+            excluded_reason=ExclusionReason.GT_LABEL_UNKNOWN,
+        )
+
+
 # --- RegionGeometryRef -----------------------------------------------------
 
 

@@ -12,7 +12,14 @@ from __future__ import annotations
 
 import pyarrow as pa
 
-METRICS_SCHEMA_VERSION = "1.0.0"
+METRICS_SCHEMA_VERSION = "1.1.0"
+"""Bumped 1.0.0 -> 1.1.0: ``item_metrics.clean_correct`` became nullable to
+carry the new ``GT_LABEL_UNKNOWN`` exclusion reason (``ssat.metrics.types.
+ItemMetrics``/``ExclusionReason`` docstrings) — an additive metric
+*definition* change per this module's own versioning rule below, so old
+metrics stores are rejected with a clear version-mismatch error on load
+rather than silently misread against the new nullability.
+"""
 
 METRICS_SCHEMA_METADATA = {b"ssat.metrics_schema_version": METRICS_SCHEMA_VERSION.encode("ascii")}
 
@@ -22,7 +29,9 @@ ITEM_METRICS_SCHEMA = pa.schema(
         pa.field("item_id", pa.string(), nullable=False),
         pa.field("sample_id", pa.string(), nullable=False),
         pa.field("metric_name", pa.string(), nullable=False),
-        pa.field("clean_correct", pa.bool_(), nullable=False),
+        # Nullable since 1.1.0: None when excluded_reason is
+        # gt_label_unknown (ssat.metrics.types.ItemMetrics docstring).
+        pa.field("clean_correct", pa.bool_()),
         pa.field("value_clean", pa.float64()),
         pa.field("value_perturbed", pa.float64()),
         pa.field("degradation", pa.float64()),

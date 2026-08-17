@@ -33,7 +33,7 @@ import numpy as np
 
 from ssat.core.config import ResolvedConfig, ResolvedRegionConfig
 from ssat.core.types import RegionKind
-from ssat.metrics.dump_reader import JoinedFrame
+from ssat.metrics.dump_reader import JoinedFrame, coerce_nullable_int
 from ssat.metrics.errors import MetricsCorruptionError, MetricsRegistryError
 from ssat.metrics.registry import MetricRegistry
 from ssat.metrics.types import (
@@ -67,10 +67,16 @@ class AggregationResult:
 
 @dataclass(frozen=True, slots=True)
 class _ItemContext:
-    """Per-item fields ItemMetrics itself does not carry, needed for aggregation."""
+    """Per-item fields ItemMetrics itself does not carry, needed for aggregation.
+
+    ``gt_label`` is ``None`` exactly when the item's ``ExclusionReason`` (on
+    every one of its ``ItemMetrics`` rows) is ``GT_LABEL_UNKNOWN`` — the
+    same "label-free auditing is a supported scenario" case
+    ``coerce_nullable_int`` exists for.
+    """
 
     sample_id: str
-    gt_label: int
+    gt_label: int | None
     region_key: str
     region_kind: RegionKind
     intended_area_px: int | None
@@ -100,6 +106,13 @@ def aggregate_item_metrics(
     row already carries its own sample's clean_correct without needing to
     split rows). Region/class statistics therefore pool every non-control
     item regardless of clean_correct.
+
+    Samples with an unknown ``gt_label`` (label-free auditing,
+    ``ExclusionReason.GT_LABEL_UNKNOWN``) remain in ``SampleMetrics``,
+    ``RegionMetrics``, and ``SpatialProfile`` — their per-item values are
+    simply unavailable, the same as any other excluded item — but are
+    skipped from ``ClassMetrics`` entirely, since that axis has no
+    ``gt_label=None`` row to belong to (see ``_aggregate_class_metrics``).
 
     Args:
         item_metrics: Long-form item-level rows from ``registry.compute_item_metrics``.
@@ -203,7 +216,7 @@ def _build_context(
 
         context[row.item_id] = _ItemContext(
             sample_id=row.sample_id,
-            gt_label=int(row.gt_label),
+            gt_label=coerce_nullable_int(row.gt_label),
             region_key=region_key,
             region_kind=region_kind,
             intended_area_px=intended_area_px,
@@ -416,11 +429,23 @@ def _aggregate_region_metrics(
 def _aggregate_class_metrics(
     sample_metrics: Sequence[SampleMetrics], registry: MetricRegistry
 ) -> list[ClassMetrics]:
-    """Sample-grain: each (sample, metric) SampleMetrics row is one datum."""
+    """Sample-grain: each (sample, metric) SampleMetrics row is one datum.
+
+    Samples whose ``gt_label`` is unknown (``None`` — label-free auditing,
+    ``ExclusionReason.GT_LABEL_UNKNOWN``) are skipped here: ``ClassMetrics``
+    is inherently keyed by a real ground-truth class, so there is no
+    ``gt_label=None`` row for it to belong to. Such samples remain fully
+    visible in ``SampleMetrics`` (``gt_label=None`` there is an explicit,
+    typed value, not an omission) and in ``ItemMetrics`` (via
+    ``excluded_reason``) — this is a narrowing of *this* axis only, not a
+    silent drop of the underlying data.
+    """
 
     groups: dict[tuple[int, str], list[SampleMetrics]] = defaultdict(list)
     for row in sample_metrics:
-        groups[(row.gt_label, row.metric_name)].append(row)  # type: ignore[index]
+        if row.gt_label is None:
+            continue
+        groups[(row.gt_label, row.metric_name)].append(row)
 
     result: list[ClassMetrics] = []
     for (gt_label, metric_name), per_sample_rows in groups.items():

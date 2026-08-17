@@ -20,6 +20,7 @@ import pytest
 from ssat.report.assembler import AssembledReport
 from ssat.report.exporter import ExportedPaths, export
 from ssat.report.types import (
+    ClassSemanticRow,
     FlaggedItem,
     MetricCard,
     ProvenanceInfo,
@@ -34,6 +35,7 @@ from ssat.report.types import (
     SampleCard,
     SampleRankings,
     SemanticConcentration,
+    SemanticGroupRow,
     SpatialConcentration,
     TaskKind,
     TopRegionEntry,
@@ -81,6 +83,31 @@ def _region_row(**overrides: object) -> RegionRow:
     return RegionRow(**defaults)  # type: ignore[arg-type]
 
 
+def _semantic_group_row(**overrides: object) -> SemanticGroupRow:
+    defaults: dict[str, object] = {
+        "semantic_group": "upper_limb",
+        "region_ids": ("left_arm", "right_arm"),
+        "n_samples": 4,
+        "mean_degradation": 0.35,
+        "high_rate": 0.5,
+        "flip_rate": 0.25,
+    }
+    defaults.update(overrides)
+    return SemanticGroupRow(**defaults)  # type: ignore[arg-type]
+
+
+def _class_semantic_row(**overrides: object) -> ClassSemanticRow:
+    defaults: dict[str, object] = {
+        "gt_label": 0,
+        "semantic_group": "upper_limb",
+        "n_samples": 2,
+        "mean_degradation": 0.1,
+        "flip_rate": None,
+    }
+    defaults.update(overrides)
+    return ClassSemanticRow(**defaults)  # type: ignore[arg-type]
+
+
 def _flagged_item(**overrides: object) -> FlaggedItem:
     defaults: dict[str, object] = {
         "anchor_key_repr": "s0::grid::0::False",
@@ -91,7 +118,12 @@ def _flagged_item(**overrides: object) -> FlaggedItem:
     return FlaggedItem(**defaults)  # type: ignore[arg-type]
 
 
-def _report_model(*, full_sample_ids: tuple[str, ...] = ("s0", "s1", "s2")) -> ReportModel:
+def _report_model(
+    *,
+    full_sample_ids: tuple[str, ...] = ("s0", "s1", "s2"),
+    semantic_summary: tuple[SemanticGroupRow, ...] = (),
+    class_semantic_matrix: tuple[ClassSemanticRow, ...] = (),
+) -> ReportModel:
     return ReportModel(
         meta=ReportMeta(
             run_id="shortcut_A",
@@ -133,10 +165,12 @@ def _report_model(*, full_sample_ids: tuple[str, ...] = ("s0", "s1", "s2")) -> R
             spatial_entropy=0.9,
             n_scored_samples=len(full_sample_ids),
         ),
-        # §1 격차#6 graceful-degradation marker — exporter's semantic CSVs
-        # (단계 3) are not yet implemented.
-        semantic_summary=(),
-        class_semantic_matrix=(),
+        # Defaults to the §1 격차#6 graceful-degradation marker (empty
+        # tuples); tests exercising semantic_summary.csv/
+        # class_semantic_matrix.csv pass populated tuples via the
+        # semantic_summary/class_semantic_matrix parameters instead.
+        semantic_summary=semantic_summary,
+        class_semantic_matrix=class_semantic_matrix,
         semantic_concentration=SemanticConcentration(
             dominant_semantic_group=None,
             dominant_semantic_group_share=None,
@@ -158,8 +192,17 @@ def _report_model(*, full_sample_ids: tuple[str, ...] = ("s0", "s1", "s2")) -> R
     )
 
 
-def _assembled_report(*, full_sample_ids: tuple[str, ...] = ("s0", "s1", "s2")) -> AssembledReport:
-    model = _report_model(full_sample_ids=full_sample_ids)
+def _assembled_report(
+    *,
+    full_sample_ids: tuple[str, ...] = ("s0", "s1", "s2"),
+    semantic_summary: tuple[SemanticGroupRow, ...] = (),
+    class_semantic_matrix: tuple[ClassSemanticRow, ...] = (),
+) -> AssembledReport:
+    model = _report_model(
+        full_sample_ids=full_sample_ids,
+        semantic_summary=semantic_summary,
+        class_semantic_matrix=class_semantic_matrix,
+    )
     # full_sample_rankings intentionally outnumbers model.sample_rankings — the
     # whole reason it exists (§1 격차#5) — so tests can tell "full population"
     # apart from "top-K/bottom-K only" if the exporter accidentally conflates them.
@@ -307,6 +350,73 @@ def test_region_summary_csv_empty_distribution_yields_zero_counts(tmp_path: Path
     assert row["high_count"] == row["moderate_count"] == row["low_count"] == row["unreliable_count"] == "0"
 
 
+# --- semantic_summary.csv / class_semantic_matrix.csv (§3.4) --------------------
+
+
+def test_semantic_summary_csv_flattens_region_ids_with_semicolons(tmp_path: Path) -> None:
+    assembled = _assembled_report(
+        semantic_summary=(
+            _semantic_group_row(semantic_group="upper_limb", region_ids=("left_arm", "right_arm")),
+        )
+    )
+
+    paths = export(assembled, tmp_path)
+
+    row = _read_csv_rows(paths.semantic_summary_csv)[0]
+    assert row["semantic_group"] == "upper_limb"
+    assert row["region_ids"] == "left_arm;right_arm"
+    assert row["n_samples"] == "4"
+    assert row["mean_degradation"] == "0.35"
+    assert row["high_rate"] == "0.5"
+    assert row["flip_rate"] == "0.25"
+
+
+def test_semantic_summary_csv_encodes_none_flip_rate_and_high_rate_as_empty(tmp_path: Path) -> None:
+    assembled = _assembled_report(
+        semantic_summary=(_semantic_group_row(high_rate=None, flip_rate=None),)
+    )
+
+    paths = export(assembled, tmp_path)
+
+    row = _read_csv_rows(paths.semantic_summary_csv)[0]
+    assert row["high_rate"] == ""
+    assert row["flip_rate"] == ""
+
+
+def test_semantic_summary_csv_empty_when_no_semantic_groups(tmp_path: Path) -> None:
+    paths = export(_assembled_report(), tmp_path)
+
+    assert _read_csv_rows(paths.semantic_summary_csv) == []
+
+
+def test_class_semantic_matrix_csv_reproduces_foot_action_class_pattern(tmp_path: Path) -> None:
+    assembled = _assembled_report(
+        class_semantic_matrix=(
+            _class_semantic_row(gt_label=0, semantic_group="lower_limb", mean_degradation=0.85),
+            _class_semantic_row(gt_label=0, semantic_group="upper_limb", mean_degradation=0.1),
+            _class_semantic_row(gt_label=1, semantic_group="lower_limb", mean_degradation=0.15),
+            _class_semantic_row(gt_label=1, semantic_group="upper_limb", mean_degradation=0.65),
+        )
+    )
+
+    paths = export(assembled, tmp_path)
+
+    rows = _read_csv_rows(paths.class_semantic_matrix_csv)
+    assert len(rows) == 4
+    by_key = {(row["gt_label"], row["semantic_group"]): row for row in rows}
+    assert by_key[("0", "lower_limb")]["mean_degradation"] == "0.85"
+    assert by_key[("1", "upper_limb")]["mean_degradation"] == "0.65"
+    # flip_rate is always None for this plan (IMPLE_PLAN_SEMANTIC_VULNERABILITY_v1.md
+    # §1 격차#3(b) — no (gt_label × semantic_group)-grain flip signal in N3).
+    assert all(row["flip_rate"] == "" for row in rows)
+
+
+def test_class_semantic_matrix_csv_empty_when_no_semantic_groups(tmp_path: Path) -> None:
+    paths = export(_assembled_report(), tmp_path)
+
+    assert _read_csv_rows(paths.class_semantic_matrix_csv) == []
+
+
 # --- flagged_items.csv ----------------------------------------------------------
 
 
@@ -340,13 +450,23 @@ def test_flagged_items_csv_empty_when_spotlight_empty(tmp_path: Path) -> None:
 
 
 def test_export_is_byte_identical_across_repeated_calls(tmp_path: Path) -> None:
-    assembled = _assembled_report()
+    assembled = _assembled_report(
+        semantic_summary=(_semantic_group_row(),),
+        class_semantic_matrix=(_class_semantic_row(),),
+    )
 
     first_dir, second_dir = tmp_path / "first", tmp_path / "second"
     first = export(assembled, first_dir)
     second = export(assembled, second_dir)
 
-    for name in ("report_model_json", "sample_rankings_csv", "region_summary_csv", "flagged_items_csv"):
+    for name in (
+        "report_model_json",
+        "sample_rankings_csv",
+        "region_summary_csv",
+        "semantic_summary_csv",
+        "class_semantic_matrix_csv",
+        "flagged_items_csv",
+    ):
         first_bytes = getattr(first, name).read_bytes()
         second_bytes = getattr(second, name).read_bytes()
         assert first_bytes == second_bytes, name
@@ -369,6 +489,8 @@ def test_export_returns_paths_inside_output_dir(tmp_path: Path) -> None:
         paths.report_model_json,
         paths.sample_rankings_csv,
         paths.region_summary_csv,
+        paths.semantic_summary_csv,
+        paths.class_semantic_matrix_csv,
         paths.flagged_items_csv,
     ):
         assert path.parent == tmp_path

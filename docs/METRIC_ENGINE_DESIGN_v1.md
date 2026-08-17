@@ -111,8 +111,9 @@ status_perturbed, status_clean
 
 | 조합 | 처리 |
 |---|---|
-| clean=ok, perturbed=ok | 정상 계산 |
-| clean=ok, perturbed≠ok | 지표 null, `excluded_reason` 기록 |
+| clean=ok, perturbed=ok, gt_label 있음 | 정상 계산 |
+| clean=ok, perturbed≠ok | 지표 null, `excluded_reason=perturbed_status_not_ok` 기록 |
+| gt_label 없음(라벨 없는 추론 전용 감사, 코어가 이미 `gt_label: int \| None`로 지원) | perturbed 상태와 무관하게 지표 null, `excluded_reason=gt_label_unknown` 기록 — 현재 등록된 모든 지표가 정답 클래스를 전제하므로 계산 자체가 불가능 (IMPLE_PLAN_SEMANTIC_VULNERABILITY_v1.md 작업 중 발견·수정: 이전에는 `int(row.gt_label)`을 무조건 호출해 전체 실행이 크래시했다) |
 | clean≠ok | 해당 샘플 전체 제외, 별도 집계에 보고 |
 | clean 레코드 없음 | 오류로 처리. dump 무결성 문제 |
 

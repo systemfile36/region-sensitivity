@@ -39,7 +39,9 @@ class _FakeMetric:
         return MetricResult(value_clean=1.0, value_perturbed=0.5, degradation=0.5)
 
 
-def _joined_frame(*, include_failed_item: bool = False) -> pd.DataFrame:
+def _joined_frame(
+    *, include_failed_item: bool = False, include_unlabeled_item: bool = False
+) -> pd.DataFrame:
     rows = [
         {
             "item_id": "a" * 64,
@@ -64,6 +66,20 @@ def _joined_frame(*, include_failed_item: bool = False) -> pd.DataFrame:
                 "gt_label": 0,
                 "logits_clean": np.array([2.0, 0.0], dtype=np.float64),
                 "logits_perturbed": None,
+            }
+        )
+    if include_unlabeled_item:
+        # gt_label=None mixed with int rows above upcasts the whole pandas
+        # column to float64 NaN for this row (arrow/pandas nullable-int
+        # quirk) — exactly the shape MetricRegistry.compute_item_metrics
+        # must handle without crashing.
+        rows.append(
+            {
+                "item_id": "d" * 64,
+                "sample_id": "sample-d",
+                "gt_label": None,
+                "logits_clean": np.array([2.0, 0.0], dtype=np.float64),
+                "logits_perturbed": np.array([2.0, 0.0], dtype=np.float64),
             }
         )
     return pd.DataFrame(rows)
@@ -136,4 +152,33 @@ def test_compute_item_metrics_excludes_items_with_unavailable_perturbed_side() -
     assert failed_row.value_perturbed is None
     assert failed_row.degradation is None
     # compute() is only called for the two available items, not the failed one.
+    assert metric.compute_calls == 2
+
+
+def test_compute_item_metrics_excludes_items_with_unknown_gt_label() -> None:
+    """Previously crashed with ``ValueError: cannot convert float NaN to integer``.
+
+    Core/source layer explicitly supports ``gt_label: int | None`` for
+    label-free, inference-only auditing (``ssat/core/source/types.py``);
+    the registry must exclude such items with a clear reason instead of
+    crashing the entire run.
+    """
+
+    registry = MetricRegistry()
+    metric = _FakeMetric()
+    registry.register(metric)
+
+    rows = registry.compute_item_metrics(
+        _joined_frame(include_unlabeled_item=True), adapter_spec=_adapter_spec()
+    )
+
+    by_item = {row.item_id: row for row in rows}
+    unlabeled_row = by_item["d" * 64]
+    assert unlabeled_row.available is False
+    assert unlabeled_row.excluded_reason is ExclusionReason.GT_LABEL_UNKNOWN
+    assert unlabeled_row.clean_correct is None
+    assert unlabeled_row.value_clean is None
+    assert unlabeled_row.value_perturbed is None
+    assert unlabeled_row.degradation is None
+    # compute() is only called for the two labeled items.
     assert metric.compute_calls == 2
