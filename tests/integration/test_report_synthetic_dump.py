@@ -317,6 +317,30 @@ def test_region_row_worst_case_grade_and_distribution(tmp_path: Path) -> None:
     }
 
 
+def test_spatial_concentration_and_region_top_region_share(tmp_path: Path) -> None:
+    """Every sample's only non-control region is _MAIN_REGION_KEY -- a maximally concentrated fixture.
+
+    With exactly one region_key in the run, spatial_entropy is undefined
+    (not zero) -- there is nothing to spread across (report layout redesign,
+    docs/report_layout_improve/AGENTS_OPINION_1.md).
+    """
+
+    dump_root, metrics_dir = _build_dump_and_metrics(tmp_path)
+    analysis_dir = _build_analysis(tmp_path, metrics_dir)
+
+    assembled = _assembler(dump_root, metrics_dir, analysis_dir).assemble(_METRIC_NAME)
+
+    concentration = assembled.model.spatial_concentration
+    assert concentration.dominant_region_key == _MAIN_REGION_KEY
+    assert concentration.dominant_region_share == 1.0
+    assert concentration.n_scored_samples == 5
+    assert concentration.spatial_entropy is None
+
+    row = assembled.model.region_summary.rows[0]
+    assert row.top_region_share == 1.0
+    assert row.high_rate == 0.5  # 1 high / (1 high + 1 unreliable)
+
+
 def test_control_only_region_excluded_from_region_summary(tmp_path: Path) -> None:
     dump_root, metrics_dir = _build_dump_and_metrics(tmp_path)
     analysis_dir = _build_analysis(tmp_path, metrics_dir)
@@ -414,6 +438,14 @@ def test_analysis_dir_none_marks_every_analysis_derived_field_unavailable(tmp_pa
     assert model.provenance.analysis_dir is None
     assert model.provenance.analysis_manifest_hash is None
     assert model.meta.schema_versions.analysis is None
+
+    # spatial_concentration/top_region_share are derived from spatial_profile
+    # alone (never AnalysisStore), so they stay populated even with no
+    # analysis run -- unlike every reliability-grade-derived field above.
+    assert model.spatial_concentration.dominant_region_key == _MAIN_REGION_KEY
+    assert model.spatial_concentration.dominant_region_share == 1.0
+    assert region_row.top_region_share == 1.0
+    assert region_row.high_rate is None  # empty distribution -- no analysis run
 
     # Not truncated by the missing analysis run -- assembling without an
     # analysis store must not change ranking/count behavior at all.

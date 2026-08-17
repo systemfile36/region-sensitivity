@@ -26,10 +26,13 @@ from ssat.core.config.schema import ResolvedRegionConfig
 from ssat.core.types import RegionKind
 from ssat.metrics.builtin_metrics.continuous import GtLogitDrop
 from ssat.metrics.registry import MetricRegistry
+from ssat.metrics.types import RegionGeometryRef, SpatialProfile
 from ssat.report.adapters import ClassificationAdapter
 from ssat.report.assembler import (
     ReportDataAssembler,
+    _build_spatial_concentration,
     _dataset_name,
+    _dataset_top_region_by_sample,
     _failure_rate,
     _group_report_grades,
     _worst_grade,
@@ -38,6 +41,16 @@ from ssat.report.errors import ReportDataError
 from ssat.report.types import ReportGrade
 
 _METRIC_NAME = "gt_logit_drop"
+
+
+def _spatial_row(*, sample_id: str, region_key: str, degradation: float | None) -> SpatialProfile:
+    return SpatialProfile(
+        sample_id=sample_id,
+        region_key=region_key,
+        metric_name=_METRIC_NAME,
+        region_geometry_ref=RegionGeometryRef(region_kind=RegionKind.GRID, region_params_json="{}"),
+        degradation=degradation,
+    )
 
 
 def _reliability_row(
@@ -106,6 +119,94 @@ def test_group_report_grades_filters_by_metric_name_and_groups_by_key() -> None:
 
 def test_group_report_grades_empty_rows_yields_empty_dict() -> None:
     assert _group_report_grades([], _METRIC_NAME, key=lambda row: row.anchor_key.sample_id) == {}
+
+
+# --- _dataset_top_region_by_sample -------------------------------------------
+
+
+def test_dataset_top_region_by_sample_picks_max_degradation_per_sample() -> None:
+    rows = [
+        _spatial_row(sample_id="s0", region_key="r0", degradation=0.2),
+        _spatial_row(sample_id="s0", region_key="r1", degradation=0.9),
+        _spatial_row(sample_id="s1", region_key="r0", degradation=0.5),
+        _spatial_row(sample_id="s1", region_key="r1", degradation=0.1),
+    ]
+
+    assert _dataset_top_region_by_sample(rows) == {"s0": "r1", "s1": "r0"}
+
+
+def test_dataset_top_region_by_sample_breaks_ties_by_region_key_ascending() -> None:
+    rows = [
+        _spatial_row(sample_id="s0", region_key="r1", degradation=0.5),
+        _spatial_row(sample_id="s0", region_key="r0", degradation=0.5),
+    ]
+
+    assert _dataset_top_region_by_sample(rows) == {"s0": "r0"}
+
+
+def test_dataset_top_region_by_sample_excludes_samples_with_no_valid_degradation() -> None:
+    rows = [
+        _spatial_row(sample_id="s0", region_key="r0", degradation=None),
+        _spatial_row(sample_id="s1", region_key="r0", degradation=0.5),
+    ]
+
+    assert _dataset_top_region_by_sample(rows) == {"s1": "r0"}
+
+
+def test_dataset_top_region_by_sample_empty_input_yields_empty_dict() -> None:
+    assert _dataset_top_region_by_sample([]) == {}
+
+
+# --- _build_spatial_concentration ---------------------------------------------
+
+
+def test_build_spatial_concentration_computes_dominant_share_and_entropy() -> None:
+    # 3/4 samples top out at "r0" -- a concentrated, shortcut-like pattern.
+    top_region_by_sample = {"s0": "r0", "s1": "r0", "s2": "r0", "s3": "r1"}
+
+    concentration = _build_spatial_concentration(top_region_by_sample, ["r0", "r1"])
+
+    assert concentration.dominant_region_key == "r0"
+    assert concentration.dominant_region_share == pytest.approx(0.75)
+    assert concentration.n_scored_samples == 4
+    assert concentration.spatial_entropy is not None
+    assert 0.0 <= concentration.spatial_entropy <= 1.0
+
+
+def test_build_spatial_concentration_uniform_distribution_has_entropy_near_one() -> None:
+    top_region_by_sample = {"s0": "r0", "s1": "r1", "s2": "r2", "s3": "r3"}
+
+    concentration = _build_spatial_concentration(top_region_by_sample, ["r0", "r1", "r2", "r3"])
+
+    assert concentration.dominant_region_share == pytest.approx(0.25)
+    assert concentration.spatial_entropy == pytest.approx(1.0)
+
+
+def test_build_spatial_concentration_single_dominant_region_has_zero_entropy() -> None:
+    top_region_by_sample = {"s0": "r0", "s1": "r0", "s2": "r0"}
+
+    concentration = _build_spatial_concentration(top_region_by_sample, ["r0", "r1"])
+
+    assert concentration.dominant_region_share == pytest.approx(1.0)
+    assert concentration.spatial_entropy == pytest.approx(0.0)
+
+
+def test_build_spatial_concentration_empty_input_yields_all_none() -> None:
+    concentration = _build_spatial_concentration({}, ["r0", "r1"])
+
+    assert concentration.dominant_region_key is None
+    assert concentration.dominant_region_share is None
+    assert concentration.spatial_entropy is None
+    assert concentration.n_scored_samples == 0
+
+
+def test_build_spatial_concentration_single_possible_region_leaves_entropy_none() -> None:
+    """Entropy is undefined (not zero) when there is only one place to spread across."""
+
+    concentration = _build_spatial_concentration({"s0": "r0"}, ["r0"])
+
+    assert concentration.dominant_region_share == pytest.approx(1.0)
+    assert concentration.spatial_entropy is None
 
 
 # --- _dataset_name -----------------------------------------------------------

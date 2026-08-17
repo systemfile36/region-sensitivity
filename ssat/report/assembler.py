@@ -26,6 +26,19 @@ identified gets fixed here, in code, once:
   the metrics/analysis engines already computed — never a new statistic
   (design §0 "계산하지 않고 조립한다").
 
+**Report layout redesign (docs/report_layout_improve/AGENTS_OPINION_1.md).**
+An external review of the rendered report, confirmed with the user,
+concluded that the report had no dataset-level answer to "does this model
+repeatedly depend on one fixed location, or is sensitivity spread across
+many?" — only per-sample/per-region worst-case grades. ``RegionRow.
+top_region_share``/``high_rate`` and the new ``ReportModel.
+spatial_concentration`` section (:func:`_dataset_top_region_by_sample`,
+:func:`_build_spatial_concentration`) close that gap the same way Gap#3
+closed the worst-case-rollup gap: an argmax-per-sample reduction of
+``SpatialProfile.degradation`` (already computed), then a ``Counter``/
+normalized-entropy reduction of that histogram — arithmetic summary, not new
+model inference, staying inside Gap#6's boundary.
+
 ``analysis_dir=None`` is a first-class input, not an error path: a run
 that never had ``ssat analyze`` executed against it still assembles a
 complete ``ReportModel``, with every analysis-derived field explicitly
@@ -59,6 +72,7 @@ neither has an alternative data source:
 
 from __future__ import annotations
 
+import math
 from collections import Counter, defaultdict
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
@@ -101,6 +115,7 @@ from ssat.report.types import (
     RunSummary,
     SampleCard,
     SampleRankings,
+    SpatialConcentration,
     TaskKind,
     TopRegionEntry,
     VulnerabilityDistribution,
@@ -265,13 +280,18 @@ class ReportDataAssembler:
         analysis = self._load_analysis_context()
 
         full_rankings = self._build_full_rankings(sample_rows, spatial_rows, analysis, primary_metric)
+        top_region_by_sample = _dataset_top_region_by_sample(spatial_rows)
+        region_keys = {row.region_key for row in region_rows}
         model = ReportModel(
             meta=self._build_meta(run_manifest, metrics_manifest, analysis),
             run_summary=self._build_run_summary(run_manifest, metrics_manifest, sample_rows),
             scorecard=tuple(self._build_scorecard(sample_rows, analysis, primary_metric)),
             vulnerability_distribution=self._build_vulnerability_distribution(full_rankings),
             sample_rankings=self._build_sample_rankings(full_rankings),
-            region_summary=self._build_region_summary(region_rows, analysis, primary_metric),
+            region_summary=self._build_region_summary(
+                region_rows, analysis, primary_metric, top_region_by_sample
+            ),
+            spatial_concentration=_build_spatial_concentration(top_region_by_sample, region_keys),
             fill_strategy_correlation_asset_ref=None,
             reliability_spotlight=self._build_reliability_spotlight(analysis),
             provenance=self._build_provenance(analysis, handle),
@@ -530,6 +550,7 @@ class ReportDataAssembler:
         region_rows: Sequence[RegionMetrics],
         analysis: _AnalysisContext | None,
         primary_metric: str,
+        top_region_by_sample: Mapping[str, str],
     ) -> RegionSummary:
         """Join ``region_metrics.parquet`` (source of which regions exist, §1 격차#2) with grades.
 
@@ -537,6 +558,14 @@ class ReportDataAssembler:
         ``region_metrics.parquet``) rather than ``reliability.parquet`` is
         what keeps control-only regions — already excluded from N3
         aggregation — out of ``region_summary.rows`` (§1 부수 확인).
+
+        ``top_region_by_sample`` (from :func:`_dataset_top_region_by_sample`,
+        already computed once in :meth:`assemble` and shared with
+        :func:`_build_spatial_concentration`) drives each row's
+        ``top_region_share`` — the report-layout-redesign field
+        (docs/report_layout_improve/AGENTS_OPINION_1.md) that lets a region
+        table sort/color by how often a region is *the* answer across the
+        dataset, independent of the worst-case ``reliability_grade``.
         """
 
         grades_by_region = (
@@ -546,10 +575,16 @@ class ReportDataAssembler:
             if analysis is not None
             else {}
         )
+        top_region_counts = Counter(top_region_by_sample.values())
+        n_scored_samples = len(top_region_by_sample)
 
         rows = []
         for row in sorted(region_rows, key=lambda row: row.region_key):
             grades = grades_by_region.get(row.region_key, ())
+            distribution = (
+                dict(Counter(grade.value for grade in grades)) if analysis is not None else {}
+            )
+            n_graded = sum(distribution.values())
             rows.append(
                 RegionRow(
                     region_key=row.region_key,
@@ -560,10 +595,16 @@ class ReportDataAssembler:
                     flip_rate=row.flip_rate,
                     n_valid=row.n_valid,
                     reliability_grade=_worst_grade(grades) if analysis is not None else None,
-                    reliability_distribution=(
-                        dict(Counter(grade.value for grade in grades))
-                        if analysis is not None
-                        else {}
+                    reliability_distribution=distribution,
+                    top_region_share=(
+                        top_region_counts.get(row.region_key, 0) / n_scored_samples
+                        if n_scored_samples
+                        else None
+                    ),
+                    high_rate=(
+                        distribution.get(ReportGrade.HIGH.value, 0) / n_graded
+                        if n_graded
+                        else None
                     ),
                 )
             )
@@ -713,6 +754,98 @@ def _group_report_grades(
             continue
         grouped[key(row)].append(ReportGrade(row.reliability_grade.value))
     return grouped
+
+
+def _dataset_top_region_by_sample(spatial_rows: Sequence[SpatialProfile]) -> dict[str, str]:
+    """Reduce every sample to its single most-degraded region, dataset-wide.
+
+    Generalizes the same sort-and-take-first idiom
+    :meth:`ReportDataAssembler._top_regions_for_sample` already uses for the
+    top-K/bottom-K gallery, but over *every* sample in ``spatial_rows``
+    (already primary-metric-filtered by :meth:`ReportDataAssembler.assemble`
+    before this is called) rather than only ``highlighted_ids`` — the
+    dataset-wide population :func:`_build_spatial_concentration` and
+    ``RegionRow.top_region_share`` both need (report layout redesign,
+    docs/report_layout_improve/AGENTS_OPINION_1.md). A sample contributes no
+    entry when every one of its regions has ``degradation is None`` (no
+    valid item), matching the "unavailable, not zero" convention every other
+    reduction in this module follows. Ties are broken by ``region_key``
+    ascending for a deterministic result.
+
+    Returns:
+        A mapping from ``sample_id`` to its top ``region_key``, covering
+        only samples with at least one scored region.
+    """
+
+    by_sample: dict[str, list[SpatialProfile]] = defaultdict(list)
+    for row in spatial_rows:
+        by_sample[row.sample_id].append(row)
+
+    top_region: dict[str, str] = {}
+    for sample_id, rows in by_sample.items():
+        scored = [row for row in rows if row.degradation is not None]
+        if not scored:
+            continue
+        best = min(scored, key=lambda row: (-row.degradation, row.region_key))  # type: ignore[operator]
+        top_region[sample_id] = best.region_key
+    return top_region
+
+
+def _build_spatial_concentration(
+    top_region_by_sample: Mapping[str, str], region_keys: Sequence[str]
+) -> SpatialConcentration:
+    """Reduce the per-sample top-region histogram to dominant-share/entropy scalars.
+
+    Both quantities are plain arithmetic over ``top_region_by_sample``
+    (itself already a reduction of already-computed ``SpatialProfile.
+    degradation`` values, :func:`_dataset_top_region_by_sample`) — no new
+    model inference, matching R0's "assembles, does not compute new
+    statistics" boundary (module docstring Gap#6). ``region_keys`` is the
+    *possible* location count (every region_key this run has a
+    ``region_metrics.parquet`` row for), the entropy normalizer: "how spread
+    out are top regions, relative to how spread out they could be."
+
+    Args:
+        top_region_by_sample: Every sample with a determinable top region,
+            from :func:`_dataset_top_region_by_sample`.
+        region_keys: Every region_key present in this run's region_summary.
+
+    Returns:
+        ``dominant_region_key``/``dominant_region_share``/``spatial_entropy``
+        all ``None`` when ``top_region_by_sample`` is empty;
+        ``spatial_entropy`` additionally ``None`` when fewer than two
+        distinct ``region_keys`` exist (entropy is undefined, not zero, with
+        nothing to spread across).
+    """
+
+    n_scored_samples = len(top_region_by_sample)
+    if n_scored_samples == 0:
+        return SpatialConcentration(
+            dominant_region_key=None,
+            dominant_region_share=None,
+            spatial_entropy=None,
+            n_scored_samples=0,
+        )
+
+    counts = Counter(top_region_by_sample.values())
+    dominant_region_key, dominant_count = counts.most_common(1)[0]
+    dominant_region_share = dominant_count / n_scored_samples
+
+    spatial_entropy = None
+    if len(region_keys) > 1:
+        probabilities = [count / n_scored_samples for count in counts.values()]
+        raw_entropy = -sum(p * math.log(p) for p in probabilities if p > 0)
+        # Clamp away floating-point drift at the extremes (e.g. a perfectly
+        # uniform distribution computing to 1.0000000000000002) so this
+        # always satisfies SpatialConcentration's [0, 1] validation.
+        spatial_entropy = min(1.0, max(0.0, raw_entropy / math.log(len(region_keys))))
+
+    return SpatialConcentration(
+        dominant_region_key=dominant_region_key,
+        dominant_region_share=dominant_region_share,
+        spatial_entropy=spatial_entropy,
+        n_scored_samples=n_scored_samples,
+    )
 
 
 def _reason_summary(row: ReliabilityRow) -> str:
