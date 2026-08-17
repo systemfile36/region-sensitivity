@@ -21,7 +21,11 @@ from ssat.report.charts import (
 )
 from ssat.report.errors import ReportDataError, ReportError, ReportSchemaError
 from ssat.report.exporter import AssembledReportLike, ExportedPaths, export
-from ssat.report.html_renderer import ReportManifestPaths, render_report
+from ssat.report.html_renderer import (
+    ReportManifestPaths,
+    render_report,
+    render_secondary_report,
+)
 from ssat.report.types import (
     FlaggedItem,
     GRADE_COLORS,
@@ -40,6 +44,7 @@ from ssat.report.types import (
     RunSummary,
     SampleCard,
     SampleRankings,
+    SpatialConcentration,
     TaskKind,
     TopRegionEntry,
     VulnerabilityDistribution,
@@ -78,6 +83,7 @@ __all__ = [
     "SampleCard",
     "SampleMetricLike",
     "SampleRankings",
+    "SpatialConcentration",
     "TaskKind",
     "TaskPresentationAdapter",
     "TopRegionEntry",
@@ -89,5 +95,6 @@ __all__ = [
     "render_fill_strategy_correlation",
     "render_region_bar",
     "render_report",
+    "render_secondary_report",
     "render_vulnerability_histogram",
 ]

@@ -165,6 +165,121 @@ section, details {
   font-size: 0.85rem;
 }
 
+/* --- hero / executive interpretation (report layout redesign) ------------ */
+
+.hero {
+  background: #15213a;
+  color: #fff;
+  border-radius: 10px;
+  padding: 1.25rem 1.5rem;
+}
+
+.hero h2 { margin: 0.3rem 0; }
+.hero-label {
+  font-size: 0.75rem;
+  color: #aab7d1;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.hero-muted { color: #bfc9db; }
+.hero .callout {
+  background: rgba(255, 255, 255, 0.08);
+  border-left-color: #7ea1ff;
+  color: #eef2ff;
+}
+.hero code { color: #eef2ff; }
+
+/* --- dataset spatial pattern heat grid ------------------------------------ */
+
+.grid2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+}
+
+.heat {
+  display: grid;
+  gap: 0.4rem;
+  max-width: 420px;
+}
+
+.heat .cell {
+  aspect-ratio: 1;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.7rem;
+  text-align: center;
+  overflow: hidden;
+  color: var(--fg);
+}
+
+.heat .cell b { font-size: 0.95rem; }
+.heat .cell.no-data { color: var(--muted); background: var(--bg-alt); }
+
+/* --- region-summary grade-composition bar --------------------------------- */
+
+.grade-mix { display: flex; flex-direction: column; gap: 0.25rem; min-width: 160px; }
+
+.stack {
+  height: 0.6rem;
+  display: flex;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--bg-alt);
+}
+
+.stack span { display: block; height: 100%; }
+
+.grade-mix-text { font-size: 0.75rem; color: var(--muted); }
+
+/* --- question-driven (layout B) helpers ----------------------------------- */
+
+.q {
+  display: grid;
+  grid-template-columns: 2.25rem 1fr;
+  gap: 0.75rem;
+  align-items: start;
+}
+
+.qnum {
+  width: 2.1rem;
+  height: 2.1rem;
+  border-radius: 8px;
+  background: #18243b;
+  color: #fff;
+  display: grid;
+  place-items: center;
+  font-weight: 700;
+}
+
+.q-answer { font-size: 1.15rem; font-weight: 700; line-height: 1.3; margin: 0.15rem 0 0.5rem; }
+
+.section-block {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 1rem 1.25rem;
+  margin: 1.25rem 0;
+}
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 0.15rem 0.5rem;
+  font-size: 0.75rem;
+  background: var(--bg);
+}
+
+@media (max-width: 800px) {
+  .grid2 { grid-template-columns: 1fr; }
+  .heat { max-width: none; }
+}
+
 /* --- scorecard ----------------------------------------------------------- */
 
 .card-grid {
