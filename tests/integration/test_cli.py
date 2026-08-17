@@ -192,13 +192,19 @@ def test_cli_report_command(tmp_path: Path) -> None:
     assert payload["n_samples"] > 0
     assert (output / "report" / "report.html").is_file()
     assert (output / "report" / "report_manifest.json").is_file()
+    assert Path(payload["secondary_report_html"]) == (
+        output / "report" / "report_question_driven.html"
+    ).resolve()
+    assert (output / "report" / "report_question_driven.html").is_file()
 
     text_report = runner.invoke(
         app, ["report", str(output), "--report-dir", str(tmp_path / "report-again")]
     )
     assert text_report.exit_code == 0, text_report.output
     assert "SSAT report generated" in text_report.stdout
+    assert "secondary report" in text_report.stdout
     assert (tmp_path / "report-again" / "report.html").is_file()
+    assert (tmp_path / "report-again" / "report_question_driven.html").is_file()
 
     # A --analysis-dir that does not exist is an intentional "no analysis"
     # downgrade, not a CLI failure (IMPLE_PLAN_REPORTING_v1.md §5 단계7).

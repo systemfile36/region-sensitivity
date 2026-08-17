@@ -258,12 +258,18 @@ class ReportResult:
     ``ReportRequest.analysis_dir``'s docstring) -- every analysis-derived
     section of the generated report is then explicitly marked unavailable
     rather than silently absent.
+
+    ``secondary_report_html`` is the auxiliary "Question Driven" report
+    (``ssat.report.html_renderer.render_secondary_report``, report layout
+    redesign docs/report_layout_improve/AGENTS_OPINION_1.md) -- always
+    written alongside ``report_dir / "report.html"``, not behind a flag.
     """
 
     dump: Path
     metrics_dir: Path
     analysis_dir: Path | None
     report_dir: Path
+    secondary_report_html: Path
     n_samples: int
     n_regions: int
     grade_distribution: dict[str, int]

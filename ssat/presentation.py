@@ -130,6 +130,7 @@ def format_report(result: ReportResult) -> str:
             f"  metrics dir: {result.metrics_dir}",
             f"  analysis dir: {result.analysis_dir or 'none (no ssat analyze run found)'}",
             f"  report dir: {result.report_dir}",
+            f"  secondary report (question-driven): {result.secondary_report_html}",
             f"  samples: {result.n_samples:,}",
             f"  regions: {result.n_regions:,}",
             f"  reliability grades: {grades}",

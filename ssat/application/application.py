@@ -81,6 +81,7 @@ from ssat.report import (
     render_fill_strategy_correlation,
     render_region_bar,
     render_report,
+    render_secondary_report,
     render_vulnerability_histogram,
 )
 from ssat.utils.io import sha256_bytes, sha256_file
@@ -574,8 +575,14 @@ class AuditApplication:
         (assemble) -> R3 (link_assets/apply_asset_manifest, per-sample
         heatmap/thumbnail PNGs) -> R2 (render the three chart SVGs) -> R1
         (export the full population as JSON/CSV) -> R4 (render report.html
-        + report_manifest.json) -- R4 must run last because its template
-        references every asset ref R2/R3 fill in and every file R1 writes.
+        + report_manifest.json) -> R4 again for the auxiliary
+        ``report_question_driven.html`` (``render_secondary_report``,
+        report layout redesign docs/report_layout_improve/
+        AGENTS_OPINION_1.md) -- R4 must run last (twice) because its
+        templates reference every asset ref R2/R3 fill in and every file R1
+        writes, and ``render_secondary_report`` specifically must run after
+        ``render_report`` because it reuses the ``assets/css``/``assets/js``
+        the latter writes rather than duplicating them.
 
         Chart rendering (R2) is not gated by
         ``TaskPresentationAdapter.applicable_charts()`` here: the
@@ -660,6 +667,18 @@ class AuditApplication:
 
             export_report(final, report_dir / "data")
             render_report(model, report_dir, top_k=request.top_k, bottom_k=request.bottom_k)
+            # Always generated alongside the main report, not behind a flag
+            # (report layout redesign, docs/report_layout_improve/
+            # AGENTS_OPINION_1.md): render_secondary_report computes nothing
+            # new, it only reorganizes the same `model` R4 just rendered
+            # into report.html, so there is no meaningful "opt out" case to
+            # support -- and it must run after render_report, which is what
+            # writes the assets/css, assets/js this auxiliary page's own
+            # <link>/<script> tags reference (render_secondary_report's own
+            # docstring).
+            secondary_report_html = render_secondary_report(
+                model, report_dir, top_k=request.top_k, bottom_k=request.bottom_k
+            )
         except Exception as error:
             # Catches everything R0-R4 can raise: ReportDataError (bad
             # primary_metric), AnalysisCorruptionError (a *present but
@@ -677,6 +696,7 @@ class AuditApplication:
             metrics_dir=metrics_dir,
             analysis_dir=analysis_dir,
             report_dir=report_dir,
+            secondary_report_html=secondary_report_html,
             n_samples=model.run_summary.n_samples,
             n_regions=len(model.region_summary.rows),
             grade_distribution=dict(model.region_summary.reliability_distribution),

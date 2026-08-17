@@ -312,6 +312,9 @@ def test_application_generate_report_with_analysis_creates_report_html(tmp_path:
     assert result.n_regions > 0
     assert set(result.grade_distribution) <= {"high", "moderate", "low", "unreliable"}
 
+    assert result.secondary_report_html == result.report_dir / "report_question_driven.html"
+    assert result.secondary_report_html.is_file()
+
     report_dir = result.report_dir
     assert (report_dir / "report.html").is_file()
     assert (report_dir / "report_manifest.json").is_file()
@@ -337,6 +340,7 @@ def test_application_generate_report_with_analysis_creates_report_html(tmp_path:
     assert model["provenance"]["run_manifest_hash"]
     assert model["provenance"]["metrics_manifest_hash"]
     assert model["provenance"]["analysis_manifest_hash"]
+    assert "spatial_concentration" in model
     assert model["vulnerability_distribution"]["histogram_asset_ref"] == (
         "assets/img/charts/vulnerability_histogram.svg"
     )
@@ -364,6 +368,7 @@ def test_application_generate_report_without_analysis_marks_sections_unavailable
     assert result.analysis_dir is None
     assert result.grade_distribution == {}
     assert (result.report_dir / "report.html").is_file()
+    assert result.secondary_report_html.is_file()
 
     model = json.loads(
         (result.report_dir / "data" / "report_model.json").read_text(encoding="utf-8")
