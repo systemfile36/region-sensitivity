@@ -99,6 +99,24 @@ region으로 확장됩니다(grid의 셀별 확장과 달리 부위 하나가 �
 `skeleton_parts` target에 대해서는 아직 지원하지 않습니다 — target이
 `(T, H, W)`로 resolve되면 명시적인 오류가 발생합니다.
 
+`skeleton_parts`는 `region_instance_id`에 `sample_id`를 포함하므로(사람을
+프레임마다 추적해야 하기 때문), 같은 `region_id`라도 샘플마다 다른 concrete
+region으로 취급됩니다. 여러 부위(예: `occlude_left_arm`과
+`occlude_left_hand`)를 리포트/집계 단계에서 "상체"처럼 하나의 의미 단위로
+묶고 싶다면, 아래 `semantic_group`을 사용하세요.
+
+```yaml
+regions:
+  - region_id: occlude_left_arm
+    kind: skeleton_parts
+    semantic_group: upper_body
+    params: {body_part: left_arm}
+  - region_id: occlude_left_hand
+    kind: skeleton_parts
+    semantic_group: upper_body
+    params: {body_part: left_hand}
+```
+
 동작하는 전체 예시는 `configs/examples/skeleton_quickstart.yaml`(및 함께
 커밋된 `tests/fixtures/synthetic_video/skeleton_bbox.json`)을 참고하세요.
 
@@ -164,7 +182,12 @@ checkpoint는 신뢰할 수 있는 파일만 사용하며 SHA-256이 자동 기�
 
 - `regions`: `grid`, `explicit`, `skeleton_parts` region family. grid는
   `rows`, `cols`를 사용하고, `skeleton_parts`는 위 "Skeleton 부위 추적" 절을
-  참고하며 최상위 `skeleton_source`가 함께 있어야 합니다.
+  참고하며 최상위 `skeleton_source`가 함께 있어야 합니다. 모든 region kind는
+  선택적으로 `semantic_group`(region_id와 같은 문자 제약)을 가질 수 있습니다
+  — 지정하지 않으면 리포트/집계 단계는 `region_id` 자체를 의미 단위로
+  취급합니다. `semantic_group`은 순수 메타데이터로, 마스크 생성이나 결정론적
+  item ID 해시에는 전혀 영향을 주지 않습니다(자세한 사용법과 설계 근거는
+  `docs/IMPLE_PLAN_SEMANTIC_VULNERABILITY_v1.md` 참고).
 - `perturbations`: `constant_fill`, `mean_fill`, `blur`, `gaussian_noise`,
   `patch_shuffle`과 params, `invert_mask`, `seed_salts`를 정의합니다.
 - `controls`: `match_area_of`와 `n_samples`로 random area-matched control을 요청합니다.

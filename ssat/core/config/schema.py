@@ -36,6 +36,14 @@ class RegionConfig(FrozenModel):
         params: Family-specific JSON expansion parameters.
         ref: Optional path to an explicit mask.
         ref_hash: Optional precomputed hash for the referenced mask.
+        semantic_group: Optional dataset-wide label grouping this family
+            with others that share the same meaning even when their
+            concrete per-sample geometry differs (e.g. several
+            ``skeleton_parts`` families that all track the "lower body").
+            ``None`` means the reporting layer falls back to ``region_id``
+            itself as the group. Purely descriptive metadata: it never
+            reaches ``RegionSpec`` or the deterministic item-ID hash (see
+            ``docs/IMPLE_PLAN_SEMANTIC_VULNERABILITY_v1.md`` §3.1).
     """
 
     region_id: RegionId
@@ -43,6 +51,7 @@ class RegionConfig(FrozenModel):
     params: dict[str, Any] = Field(default_factory=dict)
     ref: Path | None = None
     ref_hash: str | None = Field(default=None, pattern=r"^[0-9a-fA-F]{64}$")
+    semantic_group: RegionId | None = None
 
     @field_validator("params")
     @classmethod
@@ -250,6 +259,8 @@ class ResolvedRegionConfig(FrozenModel):
         params: Family-specific JSON expansion parameters.
         ref: Absolute explicit-mask path, when applicable.
         ref_hash: Verified SHA-256 digest of the explicit mask.
+        semantic_group: Optional dataset-wide grouping label, carried over
+            verbatim from ``RegionConfig`` (see that class's docstring).
     """
 
     region_id: RegionId
@@ -257,6 +268,7 @@ class ResolvedRegionConfig(FrozenModel):
     params: dict[str, Any] = Field(default_factory=dict)
     ref: Path | None = None
     ref_hash: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
+    semantic_group: RegionId | None = None
 
     @field_validator("params")
     @classmethod

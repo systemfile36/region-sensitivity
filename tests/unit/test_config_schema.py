@@ -61,6 +61,35 @@ def test_procedural_region_rejects_ref() -> None:
         AuditConfig.model_validate(value)
 
 
+def test_semantic_group_defaults_to_none() -> None:
+    config = AuditConfig.model_validate(minimal_config())
+    assert config.regions[0].semantic_group is None
+
+
+def test_semantic_group_accepts_region_id_charset() -> None:
+    value = minimal_config()
+    value["regions"][0]["semantic_group"] = "lower_body"
+    config = AuditConfig.model_validate(value)
+    assert config.regions[0].semantic_group == "lower_body"
+
+
+def test_semantic_group_rejects_invalid_characters() -> None:
+    value = minimal_config()
+    value["regions"][0]["semantic_group"] = "lower body"
+    with pytest.raises(ValidationError):
+        AuditConfig.model_validate(value)
+
+
+def test_semantic_group_can_be_shared_across_region_ids() -> None:
+    value = minimal_config()
+    value["regions"] = [
+        {"region_id": "left_leg", "kind": "grid", "params": {}, "semantic_group": "lower_body"},
+        {"region_id": "right_leg", "kind": "grid", "params": {}, "semantic_group": "lower_body"},
+    ]
+    config = AuditConfig.model_validate(value)
+    assert {region.semantic_group for region in config.regions} == {"lower_body"}
+
+
 @pytest.mark.parametrize("bad_value", [float("nan"), float("inf"), object()])
 def test_params_reject_non_json_values(bad_value: object) -> None:
     value = minimal_config()

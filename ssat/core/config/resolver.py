@@ -327,6 +327,7 @@ class ConfigResolver:
                 region_id=region.region_id,
                 kind=region.kind,
                 params=region.params,
+                semantic_group=region.semantic_group,
             )
 
         if region.ref is None:  # RegionConfig validates this; retain a clear boundary.
@@ -364,6 +365,7 @@ class ConfigResolver:
             params=region.params,
             ref=resolved_ref,
             ref_hash=actual_hash,
+            semantic_group=region.semantic_group,
         )
 
     def _resolve_skeleton_source(

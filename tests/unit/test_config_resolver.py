@@ -307,6 +307,48 @@ def test_yaml_input_resolves_explicit_ref_and_round_trips(tmp_path: Path) -> Non
     assert restored == resolved
 
 
+def test_semantic_group_passes_through_resolution_for_procedural_and_explicit_regions(
+    tmp_path: Path,
+) -> None:
+    mask = tmp_path / "mask.bin"
+    mask.write_bytes(b"mask")
+    config = make_config()
+    config["regions"] = [
+        {"region_id": "grid", "kind": "grid", "params": {"rows": 1, "cols": 1}, "semantic_group": "upper_body"},
+        {"region_id": "mask", "kind": "explicit", "ref": "mask.bin", "semantic_group": "upper_body"},
+    ]
+
+    resolved = ConfigResolver().resolve(config, FakeAdapter(), FakeSource(), base_dir=tmp_path)
+
+    assert resolved.regions[0].semantic_group == "upper_body"
+    assert resolved.regions[1].semantic_group == "upper_body"
+
+
+def test_semantic_group_does_not_affect_region_spec_or_region_key() -> None:
+    """``semantic_group`` is descriptive metadata only (design §3.1 of
+    IMPLE_PLAN_SEMANTIC_VULNERABILITY_v1.md): two families that differ only
+    in ``semantic_group`` must expand into byte-identical ``RegionSpec``
+    sequences, so item IDs and dump hashes are unaffected.
+    """
+
+    from ssat.core.plan.expansion_base import RegionExpansionContext
+    from ssat.core.plan.region_expanders import GridRegionExpander
+
+    sample = SampleMeta(sample_id="s1", path=Path("s1.png"))
+    without_group = ResolvedRegionConfig(
+        region_id="grid", kind=RegionKind.GRID, params={"rows": 1, "cols": 2}
+    )
+    with_group = ResolvedRegionConfig(
+        region_id="grid",
+        kind=RegionKind.GRID,
+        params={"rows": 1, "cols": 2},
+        semantic_group="upper_body",
+    )
+
+    expander = GridRegionExpander(RegionExpansionContext())
+    assert expander.expand(sample, without_group) == expander.expand(sample, with_group)
+
+
 def test_mapping_relative_ref_requires_base_dir(tmp_path: Path) -> None:
     config = make_config()
     config["regions"] = [
