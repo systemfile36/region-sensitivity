@@ -14,6 +14,7 @@ from ssat.application import (
     AuditApplication,
     ComputeMetricsRequest,
     EstimateRequest,
+    ExportLabelsRequest,
     InspectRequest,
     RebuildIndexRequest,
     ReportRequest,
@@ -26,6 +27,7 @@ from ssat.presentation import (
     format_analysis,
     format_dump_summary,
     format_estimate,
+    format_export_labels,
     format_metrics,
     format_rebuild,
     format_report,
@@ -218,6 +220,39 @@ def create_app(
                 )
             )
             typer.echo(json_text(result) if json_output else format_report(result))
+        except Exception as error:
+            _fail(error)
+
+    @app.command("export-labels")
+    def export_labels_command(
+        report_dir: Path = typer.Argument(..., exists=True, file_okay=False),
+        output_dir: Path | None = typer.Option(
+            None, "--output-dir", help="Defaults to <report_dir>/labels."
+        ),
+        include_non_clean_correct: bool = typer.Option(
+            False,
+            "--include-non-clean-correct",
+            help=(
+                "Also emit samples the clean prediction already got wrong "
+                "(default: only clean-correct samples, so every positive "
+                "label is a corruption-induced failure)."
+            ),
+        ),
+        csv_output: bool = typer.Option(
+            False, "--csv", help="Also write labels.csv alongside labels.jsonl."
+        ),
+        json_output: bool = typer.Option(False, "--json", help="Emit stable JSON."),
+    ) -> None:
+        try:
+            result = service.export_labels(
+                ExportLabelsRequest(
+                    report_dir,
+                    output_dir,
+                    only_clean_correct=not include_non_clean_correct,
+                    csv=csv_output,
+                )
+            )
+            typer.echo(json_text(result) if json_output else format_export_labels(result))
         except Exception as error:
             _fail(error)
 

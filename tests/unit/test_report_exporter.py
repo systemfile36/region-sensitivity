@@ -197,6 +197,7 @@ def _assembled_report(
     full_sample_ids: tuple[str, ...] = ("s0", "s1", "s2"),
     semantic_summary: tuple[SemanticGroupRow, ...] = (),
     class_semantic_matrix: tuple[ClassSemanticRow, ...] = (),
+    sample_semantic_degradation: dict[tuple[str, str], float] | None = None,
 ) -> AssembledReport:
     model = _report_model(
         full_sample_ids=full_sample_ids,
@@ -214,7 +215,11 @@ def _assembled_report(
         )
         for index, sample_id in enumerate(full_sample_ids)
     )
-    return AssembledReport(model=model, full_sample_rankings=full_rankings)
+    return AssembledReport(
+        model=model,
+        full_sample_rankings=full_rankings,
+        sample_semantic_degradation=sample_semantic_degradation or {},
+    )
 
 
 def _read_csv_rows(path: Path) -> list[dict[str, str]]:
@@ -281,6 +286,39 @@ def test_sample_rankings_csv_nested_fields_survive_as_json_columns(tmp_path: Pat
     assert top_regions == [{"region_key": "grid::0", "degradation": 0.4, "reliability_grade": "high"}]
     assert json.loads(rows[1]["top_regions_json"]) == []
     assert json.loads(rows[0]["task_extra_json"]) == {}
+
+
+def test_sample_rankings_csv_semantic_degradation_json_groups_by_sample(tmp_path: Path) -> None:
+    # IMPLE_PLAN_SEMANTIC_VULNERABILITY_v1.md §3.5: this column is
+    # report.labels's disk source for AssembledReport.sample_semantic_
+    # degradation, so it must group strictly by sample_id -- s0's pairs must
+    # never leak into s1's cell.
+    assembled = _assembled_report(
+        full_sample_ids=("s0", "s1"),
+        sample_semantic_degradation={
+            ("s0", "upper_limb"): 0.4,
+            ("s0", "lower_limb"): 0.1,
+            ("s1", "upper_limb"): 0.9,
+        },
+    )
+
+    paths = export(assembled, tmp_path)
+
+    rows = _read_csv_rows(paths.sample_rankings_csv)
+    assert json.loads(rows[0]["semantic_degradation_json"]) == {
+        "upper_limb": 0.4,
+        "lower_limb": 0.1,
+    }
+    assert json.loads(rows[1]["semantic_degradation_json"]) == {"upper_limb": 0.9}
+
+
+def test_sample_rankings_csv_semantic_degradation_json_empty_when_no_pairs(tmp_path: Path) -> None:
+    assembled = _assembled_report(full_sample_ids=("s0",))
+
+    paths = export(assembled, tmp_path)
+
+    rows = _read_csv_rows(paths.sample_rankings_csv)
+    assert json.loads(rows[0]["semantic_degradation_json"]) == {}
 
 
 # --- region_summary.csv ---------------------------------------------------------
@@ -506,6 +544,7 @@ class _DuckTypedAssembledReport:
     def __init__(self, model: ReportModel, full_sample_rankings: tuple[SampleCard, ...]) -> None:
         self.model = model
         self.full_sample_rankings = full_sample_rankings
+        self.sample_semantic_degradation: dict[tuple[str, str], float] = {}
 
 
 def test_export_accepts_any_structurally_matching_object(tmp_path: Path) -> None:

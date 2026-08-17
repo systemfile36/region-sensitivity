@@ -89,7 +89,7 @@ for any sample_id present in both, design ``assembler.py``
 from __future__ import annotations
 
 import dataclasses
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Protocol
 
@@ -135,10 +135,20 @@ class AssembledReportLike(Protocol):
         full_sample_rankings: Every sample the run produced (module
             docstring on why :func:`apply_asset_manifest` must rebuild this
             too, not just ``model.sample_rankings``).
+        sample_semantic_degradation: Every ``(sample_id, semantic_group)``
+            pair with a determinable mean degradation
+            (``ssat.report.assembler.AssembledReport``'s field of the same
+            name, IMPLE_PLAN_SEMANTIC_VULNERABILITY_v1.md §3.3 단계 2) —
+            :func:`apply_asset_manifest` never touches it (no asset ref
+            lives on it), but must still carry it through unchanged so
+            downstream R1 (``ssat.report.exporter``) still has it after
+            this module's ``AssetLinkedReport`` replaces ``AssembledReport``
+            in ``AuditApplication.generate_report``'s pipeline.
     """
 
     model: ReportModel
     full_sample_rankings: Sequence[SampleCard]
+    sample_semantic_degradation: Mapping[tuple[str, str], float]
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
@@ -181,10 +191,13 @@ class AssetLinkedReport:
         model: ``ReportModel`` with every top-K/bottom-K ``SampleCard``'s
             asset refs filled in where :class:`AssetManifest` had one.
         full_sample_rankings: Every sample, with the same refs filled in.
+        sample_semantic_degradation: Carried through unchanged from the
+            input ``assembled`` (:class:`AssembledReportLike` docstring).
     """
 
     model: ReportModel
     full_sample_rankings: tuple[SampleCard, ...]
+    sample_semantic_degradation: Mapping[tuple[str, str], float]
 
 
 def link_assets(
@@ -295,7 +308,11 @@ def apply_asset_manifest(assembled: AssembledReportLike, manifest: AssetManifest
     )
     updated_model = dataclasses.replace(model, sample_rankings=sample_rankings)
     full_rankings = tuple(linked(card) for card in assembled.full_sample_rankings)
-    return AssetLinkedReport(model=updated_model, full_sample_rankings=full_rankings)
+    return AssetLinkedReport(
+        model=updated_model,
+        full_sample_rankings=full_rankings,
+        sample_semantic_degradation=assembled.sample_semantic_degradation,
+    )
 
 
 # --- private helpers ----------------------------------------------------------

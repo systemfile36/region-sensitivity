@@ -26,6 +26,12 @@ from ssat.report.html_renderer import (
     render_report,
     render_secondary_report,
 )
+from ssat.report.labels import (
+    LabelsManifest,
+    LabelsResult,
+    export_risk_labels,
+    load_assembled_report_for_labels,
+)
 from ssat.report.types import (
     ClassSemanticRow,
     FlaggedItem,
@@ -65,6 +71,8 @@ __all__ = [
     "ExportedPaths",
     "FlaggedItem",
     "GRADE_COLORS",
+    "LabelsManifest",
+    "LabelsResult",
     "MetricCard",
     "ProvenanceInfo",
     "RankCorrelationRowLike",
@@ -97,7 +105,9 @@ __all__ = [
     "VulnerabilitySummaryStats",
     "apply_asset_manifest",
     "export",
+    "export_risk_labels",
     "link_assets",
+    "load_assembled_report_for_labels",
     "render_fill_strategy_correlation",
     "render_region_bar",
     "render_report",

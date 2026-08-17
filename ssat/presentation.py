@@ -10,6 +10,7 @@ from ssat.application import (
     ComputeMetricsResult,
     DumpSummary,
     EstimateResult,
+    ExportLabelsResult,
     IndexRebuildResult,
     ReportResult,
     RunResult,
@@ -134,6 +135,26 @@ def format_report(result: ReportResult) -> str:
             f"  samples: {result.n_samples:,}",
             f"  regions: {result.n_regions:,}",
             f"  reliability grades: {grades}",
+            f"  generated at: {result.generated_at}",
+        ]
+    )
+
+
+def format_export_labels(result: ExportLabelsResult) -> str:
+    negative = (
+        "n/a (continuous primary metric)"
+        if result.n_negative_or_none is None
+        else f"{result.n_negative_or_none:,}"
+    )
+    return "\n".join(
+        [
+            "SSAT risk labels exported",
+            f"  labels file: {result.labels_path}",
+            f"  manifest: {result.manifest_path}",
+            f"  csv: {result.csv_path or 'not written (pass --csv to also write one)'}",
+            f"  labels: {result.n_labels:,}",
+            f"  positive: {result.n_positive:,}",
+            f"  negative: {negative}",
             f"  generated at: {result.generated_at}",
         ]
     )

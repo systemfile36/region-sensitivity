@@ -28,6 +28,19 @@ strings a reader wants to skim directly in a spreadsheet). Rows are never
 silently thinned to fit CSV's flat shape (design §6.2 "결측이... 조용히
 생략되지 않음" — the same principle, applied to *columns* here rather than
 values).
+
+``sample_rankings.csv``'s ``semantic_degradation_json`` column (added
+IMPLE_PLAN_SEMANTIC_VULNERABILITY_v1.md §3.5, confirmed with the user) is
+this module's only column whose reader is not a human: R0's
+``sample_semantic_degradation`` (a ``(sample_id, semantic_group) ->
+degradation`` mapping) is R0's non-serialized intermediate output — the
+same "extra data alongside ``model``" level as ``full_sample_rankings``
+itself — with no other on-disk home. ``ssat.report.labels.export_risk_
+labels`` needs exactly this per-sample data but, per plan §5, must work
+from an already-written ``report_dir`` without re-running R0; folding it
+into this already-per-sample CSV (one ``{semantic_group: degradation}``
+object per row) gives that module a file to read it back from instead of
+requiring a fifth CSV.
 """
 
 from __future__ import annotations
@@ -35,6 +48,7 @@ from __future__ import annotations
 import csv
 import dataclasses
 import json
+from collections import defaultdict
 from collections.abc import Iterable, Mapping, Sequence
 from enum import Enum
 from pathlib import Path
@@ -66,10 +80,19 @@ class AssembledReportLike(Protocol):
         full_sample_rankings: Every sample the run produced (not just the
             top-K/bottom-K ``model`` keeps) — the source of
             ``sample_rankings.csv``.
+        sample_semantic_degradation: Every ``(sample_id, semantic_group)``
+            pair with a determinable mean degradation (R0's non-serialized
+            intermediate, ``ssat.report.assembler.AssembledReport``'s field
+            of the same name) — folded into ``sample_rankings.csv``'s
+            ``semantic_degradation_json`` column
+            (IMPLE_PLAN_SEMANTIC_VULNERABILITY_v1.md §3.5's "sample_rankings.csv
+            확장" decision) so ``ssat.report.labels`` can rebuild it from
+            disk without R0 rerunning.
     """
 
     model: ReportModel
     full_sample_rankings: Sequence[SampleCard]
+    sample_semantic_degradation: Mapping[tuple[str, str], float]
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
@@ -111,6 +134,7 @@ _SAMPLE_RANKINGS_FIELDS = (
     "thumbnail_asset_ref",
     "top_regions_json",
     "task_extra_json",
+    "semantic_degradation_json",
 )
 
 _REGION_SUMMARY_FIELDS = (
@@ -155,16 +179,16 @@ _FLAGGED_ITEMS_FIELDS = (
 
 
 def export(assembled: AssembledReportLike, output_dir: Path) -> ExportedPaths:
-    """Write ``report_model.json`` plus three flattened CSVs (design §R1).
+    """Write ``report_model.json`` plus five flattened CSVs (design §R1).
 
     Args:
         assembled: R0's output — see :class:`AssembledReportLike` for why
             this is not typed as the concrete ``AssembledReport``.
-        output_dir: Directory the four files are written into; created
+        output_dir: Directory the six files are written into; created
             (including parents) if it does not already exist.
 
     Returns:
-        The four files' paths, in ``output_dir``, for a caller (typically
+        The six files' paths, in ``output_dir``, for a caller (typically
         R4) to link to.
     """
 
@@ -180,11 +204,21 @@ def export(assembled: AssembledReportLike, output_dir: Path) -> ExportedPaths:
         flagged_items_csv=output_dir / "flagged_items.csv",
     )
 
+    # Grouped once up front so every sample row's semantic_degradation_json
+    # cell is a single dict lookup rather than an O(n) scan of the whole
+    # (sample_id, semantic_group) mapping per row (§3.5 note above).
+    semantic_degradation_by_sample: dict[str, dict[str, float]] = defaultdict(dict)
+    for (sample_id, semantic_group), value in assembled.sample_semantic_degradation.items():
+        semantic_degradation_by_sample[sample_id][semantic_group] = value
+
     write_json_atomic(paths.report_model_json, dataclasses.asdict(assembled.model))
     _write_csv(
         paths.sample_rankings_csv,
         _SAMPLE_RANKINGS_FIELDS,
-        (_sample_ranking_row(card) for card in assembled.full_sample_rankings),
+        (
+            _sample_ranking_row(card, semantic_degradation_by_sample)
+            for card in assembled.full_sample_rankings
+        ),
     )
     _write_csv(
         paths.region_summary_csv,
@@ -215,7 +249,9 @@ def export(assembled: AssembledReportLike, output_dir: Path) -> ExportedPaths:
 # --- row builders -------------------------------------------------------
 
 
-def _sample_ranking_row(card: SampleCard) -> dict[str, object]:
+def _sample_ranking_row(
+    card: SampleCard, semantic_degradation_by_sample: Mapping[str, Mapping[str, float]]
+) -> dict[str, object]:
     return {
         "sample_id": card.sample_id,
         "gt_label": _cell(card.gt_label),
@@ -228,6 +264,9 @@ def _sample_ranking_row(card: SampleCard) -> dict[str, object]:
             [dataclasses.asdict(entry) for entry in card.top_regions], sort_keys=True
         ),
         "task_extra_json": json.dumps(dict(card.task_extra), sort_keys=True),
+        "semantic_degradation_json": json.dumps(
+            dict(semantic_degradation_by_sample.get(card.sample_id, {})), sort_keys=True
+        ),
     }
 
 

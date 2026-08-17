@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import shutil
 from pathlib import Path
 from typing import Literal
 
@@ -227,6 +228,72 @@ def test_cli_report_command(tmp_path: Path) -> None:
 
     missing_metrics = runner.invoke(app, ["report", str(tmp_path / "no-such-dump")])
     assert missing_metrics.exit_code != 0
+
+
+def test_cli_export_labels_command(tmp_path: Path) -> None:
+    manifest = tmp_path / "two_class_manifest.json"
+    _write_two_class_manifest(manifest)
+    config = tmp_path / "audit.yaml"
+    output = tmp_path / "dump"
+    _write_config_with_controls(config, manifest=manifest)
+    runner = CliRunner()
+    app = _app()
+
+    # report_dir is deliberately outside `output` -- this test later deletes
+    # the whole dump directory to prove export-labels never reopens it, and
+    # `report`'s default --report-dir (<dump>/report) would be deleted right
+    # along with it otherwise.
+    report_dir = tmp_path / "report"
+    assert runner.invoke(app, ["run", str(config), "--output", str(output)]).exit_code == 0
+    metrics = runner.invoke(
+        app, ["metrics", str(output), "--primary-metric", "flip_correct_to_wrong"]
+    )
+    assert metrics.exit_code == 0, metrics.output
+    report = runner.invoke(
+        app,
+        [
+            "report",
+            str(output),
+            "--primary-metric",
+            "flip_correct_to_wrong",
+            "--report-dir",
+            str(report_dir),
+            "--json",
+        ],
+    )
+    assert report.exit_code == 0, report.output
+    assert Path(json.loads(report.stdout)["report_dir"]) == report_dir.resolve()
+
+    # generate_report never runs export-labels automatically (plan §5) --
+    # confirm the labels dir does not already exist before this command.
+    assert not (report_dir / "labels").exists()
+
+    exported = runner.invoke(app, ["export-labels", str(report_dir), "--json"])
+    assert exported.exit_code == 0, exported.output
+    payload = json.loads(exported.stdout)
+    assert Path(payload["labels_path"]) == (report_dir / "labels" / "labels.jsonl")
+    assert Path(payload["labels_path"]).is_file()
+    assert payload["csv_path"] is None
+    assert payload["n_labels"] >= 0
+
+    # --csv also writes labels.csv, into a caller-chosen --output-dir.
+    csv_output_dir = tmp_path / "labels-csv"
+    text_exported = runner.invoke(
+        app, ["export-labels", str(report_dir), "--output-dir", str(csv_output_dir), "--csv"]
+    )
+    assert text_exported.exit_code == 0, text_exported.output
+    assert "SSAT risk labels exported" in text_exported.stdout
+    assert (csv_output_dir / "labels.jsonl").is_file()
+    assert (csv_output_dir / "labels.csv").is_file()
+
+    # R0 is never rerun by export-labels (plan §5) -- deleting the dump
+    # this report was built from must not break a re-export from report_dir.
+    shutil.rmtree(output)
+    still_works = runner.invoke(app, ["export-labels", str(report_dir)])
+    assert still_works.exit_code == 0, still_works.output
+
+    missing_report = runner.invoke(app, ["export-labels", str(tmp_path / "no-such-report")])
+    assert missing_report.exit_code != 0
 
 
 def test_cli_json_run_inspect_and_rebuild(tmp_path: Path) -> None:

@@ -33,6 +33,7 @@ class ApplicationErrorCode(str, Enum):
     METRICS = "metrics_error"
     ANALYSIS = "analysis_error"
     REPORT = "report_error"
+    EXPORT_LABELS = "export_labels_error"
 
 
 class ApplicationError(RuntimeError):
@@ -273,6 +274,53 @@ class ReportResult:
     n_samples: int
     n_regions: int
     grade_distribution: dict[str, int]
+    generated_at: str
+
+    def to_dict(self) -> dict[str, Any]:
+        return to_primitive(self)
+
+
+@dataclass(frozen=True, slots=True)
+class ExportLabelsRequest:
+    """Ask for a risk-label file (JSONL + optional CSV) for one already-generated report.
+
+    Deliberately takes only ``report_dir``, not ``dump``/``metrics_dir``/
+    ``analysis_dir`` like ``ReportRequest`` -- this is ``report_model.json``
+    read back off disk, not a fresh assembly
+    (IMPLE_PLAN_SEMANTIC_VULNERABILITY_v1.md §5: "이미 계산된 것을 export", R0
+    never reruns). ``report_dir`` must be a directory a prior
+    ``AuditApplication.generate_report()`` call wrote to.
+    """
+
+    report_dir: Path
+    output_dir: Path | None = None
+    only_clean_correct: bool = True
+    csv: bool = False
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "report_dir", Path(self.report_dir))
+        if self.output_dir is not None:
+            object.__setattr__(self, "output_dir", Path(self.output_dir))
+
+
+@dataclass(frozen=True, slots=True)
+class ExportLabelsResult:
+    """Summarize one persisted risk-label export.
+
+    ``n_negative_or_none`` is ``None`` exactly when the source report's
+    primary metric was continuous -- no row carries ``risk_label`` at all,
+    so a plain ``0`` here would misrepresent "not computed" as "computed and
+    zero" (the same distinction ``ssat.report.labels.LabelsManifest.
+    n_negative`` already makes, just renamed at this boundary for clarity
+    to a caller who never sees that dataclass).
+    """
+
+    labels_path: Path
+    manifest_path: Path
+    csv_path: Path | None
+    n_labels: int
+    n_positive: int
+    n_negative_or_none: int | None
     generated_at: str
 
     def to_dict(self) -> dict[str, Any]:

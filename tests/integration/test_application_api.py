@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+import shutil
 import subprocess
 import sys
 from typing import Literal
@@ -18,6 +19,7 @@ from ssat.application import (
     AuditApplication,
     CancellationToken,
     ComputeMetricsRequest,
+    ExportLabelsRequest,
     InspectRequest,
     RebuildIndexRequest,
     ReportRequest,
@@ -393,6 +395,71 @@ def test_application_generate_report_rejects_unknown_primary_metric(tmp_path: Pa
         application.generate_report(ReportRequest(output, primary_metric="not_a_real_metric"))
     assert caught.value.code is ApplicationErrorCode.REPORT
     assert not (output / "report").exists()
+
+
+def test_application_export_labels_reads_report_dir_without_rerunning_r0(
+    tmp_path: Path,
+) -> None:
+    application = _application()
+    manifest = tmp_path / "two_class_manifest.json"
+    _write_two_class_manifest(manifest)
+    output = tmp_path / "dump"
+    with application.prepare_run(
+        RunRequest(_config_with_controls(manifest), output, base_dir=tmp_path)
+    ) as prepared:
+        application.execute_run(prepared)
+    application.compute_metrics(
+        ComputeMetricsRequest(output, primary_metric="flip_correct_to_wrong")
+    )
+    # report_dir is deliberately outside `output` -- this test later deletes
+    # the whole dump directory to prove export_labels never reopens it, and
+    # ReportRequest.report_dir defaults to <dump>/report which would be
+    # deleted right along with it otherwise.
+    report_dir = tmp_path / "report"
+    report = application.generate_report(
+        ReportRequest(output, primary_metric="flip_correct_to_wrong", report_dir=report_dir)
+    )
+
+    # generate_report never runs export_labels automatically (plan §5).
+    default_labels_dir = report.report_dir / "labels"
+    assert not default_labels_dir.exists()
+
+    result = application.export_labels(ExportLabelsRequest(report.report_dir))
+
+    assert result.labels_path == default_labels_dir / "labels.jsonl"
+    assert result.labels_path.is_file()
+    assert result.manifest_path == default_labels_dir / "labels_manifest.json"
+    assert result.manifest_path.is_file()
+    assert result.csv_path is None
+    assert result.n_labels >= 0
+    assert result.n_labels == result.n_positive + (result.n_negative_or_none or 0)
+
+    lines = result.labels_path.read_text(encoding="utf-8").splitlines()
+    meta = json.loads(lines[0])
+    assert meta["is_binary_primary_metric"] is True
+
+    # R0 is never rerun: the dump/metrics this report was built from can be
+    # deleted entirely and export_labels must still succeed from report_dir
+    # alone (plan §5 "이미 계산된 것을 export").
+    shutil.rmtree(output)
+    csv_output_dir = tmp_path / "labels-again"
+    again = application.export_labels(
+        ExportLabelsRequest(report.report_dir, csv_output_dir, csv=True)
+    )
+    assert again.csv_path == csv_output_dir / "labels.csv"
+    assert again.csv_path.is_file()
+
+
+def test_application_export_labels_rejects_report_dir_without_report_model(
+    tmp_path: Path,
+) -> None:
+    application = _application()
+    empty_report_dir = tmp_path / "not-a-report"
+    empty_report_dir.mkdir()
+
+    with pytest.raises(ApplicationError) as caught:
+        application.export_labels(ExportLabelsRequest(empty_report_dir))
+    assert caught.value.code is ApplicationErrorCode.EXPORT_LABELS
 
 
 def test_confirmation_is_application_policy_and_does_not_create_dump(
