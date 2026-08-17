@@ -12,6 +12,7 @@ import pytest
 
 import ssat.report
 from ssat.report.types import (
+    ClassSemanticRow,
     FlaggedItem,
     MetricCard,
     ProvenanceInfo,
@@ -25,6 +26,8 @@ from ssat.report.types import (
     RunSummary,
     SampleCard,
     SampleRankings,
+    SemanticConcentration,
+    SemanticGroupRow,
     SpatialConcentration,
     TaskKind,
     TopRegionEntry,
@@ -78,6 +81,7 @@ def _sample_card(**overrides: object) -> SampleCard:
 def _region_row(**overrides: object) -> RegionRow:
     defaults: dict[str, object] = {
         "region_key": "grid::0",
+        "region_id": "grid",
         "region_kind": "grid",
         "intended_area_px": 64,
         "effective_area_px": 60,
@@ -102,6 +106,43 @@ def _spatial_concentration(**overrides: object) -> SpatialConcentration:
     }
     defaults.update(overrides)
     return SpatialConcentration(**defaults)  # type: ignore[arg-type]
+
+
+def _semantic_group_row(**overrides: object) -> SemanticGroupRow:
+    defaults: dict[str, object] = {
+        "semantic_group": "upper_limb",
+        "region_ids": ("left_arm", "right_arm"),
+        "n_samples": 40,
+        "mean_degradation": 0.4,
+        "high_rate": 0.5,
+        "flip_rate": 0.3,
+    }
+    defaults.update(overrides)
+    return SemanticGroupRow(**defaults)  # type: ignore[arg-type]
+
+
+def _class_semantic_row(**overrides: object) -> ClassSemanticRow:
+    defaults: dict[str, object] = {
+        "gt_label": 0,
+        "semantic_group": "upper_limb",
+        "n_samples": 20,
+        "mean_degradation": 0.4,
+        "flip_rate": 0.3,
+    }
+    defaults.update(overrides)
+    return ClassSemanticRow(**defaults)  # type: ignore[arg-type]
+
+
+def _semantic_concentration(**overrides: object) -> SemanticConcentration:
+    defaults: dict[str, object] = {
+        "dominant_semantic_group": "upper_limb",
+        "dominant_semantic_group_share": 0.6,
+        "semantic_group_entropy": 0.9,
+        "n_semantic_groups": 2,
+        "n_scored_samples": 100,
+    }
+    defaults.update(overrides)
+    return SemanticConcentration(**defaults)  # type: ignore[arg-type]
 
 
 def _flagged_item(**overrides: object) -> FlaggedItem:
@@ -175,6 +216,9 @@ def _report_model(**overrides: object) -> ReportModel:
             chart_asset_ref="assets/img/charts/region_bar.svg",
         ),
         "spatial_concentration": _spatial_concentration(),
+        "semantic_summary": (_semantic_group_row(),),
+        "class_semantic_matrix": (_class_semantic_row(),),
+        "semantic_concentration": _semantic_concentration(),
         "fill_strategy_correlation_asset_ref": "assets/img/charts/fill_strategy_correlation.svg",
         "reliability_spotlight": ReliabilitySpotlight(flagged_examples=(_flagged_item(),)),
         "provenance": _provenance_info(),
@@ -397,6 +441,18 @@ def test_region_row_rejects_negative_area() -> None:
         _region_row(intended_area_px=-1)
 
 
+def test_region_row_rejects_empty_region_id() -> None:
+    with pytest.raises(ValueError, match="must not be empty"):
+        _region_row(region_id="")
+
+
+def test_region_row_region_id_is_independent_of_region_key() -> None:
+    """region_id is a plain field here — R0 (단계 2) owns deriving it from region_key."""
+
+    row = _region_row(region_key="skeleton_parts/left_arm/sample-1", region_id="left_arm")
+    assert row.region_id == "left_arm"
+
+
 def test_region_row_rejects_flip_rate_outside_unit_interval() -> None:
     with pytest.raises(ValueError, match="between 0 and 1"):
         _region_row(flip_rate=1.5)
@@ -431,6 +487,7 @@ def test_region_row_rejects_high_rate_outside_unit_interval() -> None:
 def test_region_row_top_region_share_and_high_rate_default_to_none() -> None:
     row = RegionRow(
         region_key="grid::0",
+        region_id="grid",
         region_kind="grid",
         intended_area_px=64,
         effective_area_px=60,
@@ -488,6 +545,165 @@ def test_spatial_concentration_rejects_negative_n_scored_samples() -> None:
         _spatial_concentration(n_scored_samples=-1)
 
 
+# --- SemanticGroupRow --------------------------------------------------------------
+
+
+def test_semantic_group_row_accepts_valid_fields() -> None:
+    row = _semantic_group_row()
+    assert row.region_ids == ("left_arm", "right_arm")
+
+
+def test_semantic_group_row_rejects_empty_semantic_group() -> None:
+    with pytest.raises(ValueError, match="must not be empty"):
+        _semantic_group_row(semantic_group="")
+
+
+def test_semantic_group_row_rejects_empty_region_ids() -> None:
+    with pytest.raises(ValueError, match="non-empty"):
+        _semantic_group_row(region_ids=())
+
+
+def test_semantic_group_row_rejects_empty_region_id_entry() -> None:
+    with pytest.raises(ValueError, match="no empty entries"):
+        _semantic_group_row(region_ids=("left_arm", ""))
+
+
+def test_semantic_group_row_rejects_negative_n_samples() -> None:
+    with pytest.raises(ValueError, match="non-negative"):
+        _semantic_group_row(n_samples=-1)
+
+
+def test_semantic_group_row_rejects_high_rate_outside_unit_interval() -> None:
+    with pytest.raises(ValueError, match="between 0 and 1"):
+        _semantic_group_row(high_rate=1.5)
+
+
+def test_semantic_group_row_rejects_flip_rate_outside_unit_interval() -> None:
+    with pytest.raises(ValueError, match="between 0 and 1"):
+        _semantic_group_row(flip_rate=-0.1)
+
+
+def test_semantic_group_row_allows_none_degradation_high_rate_flip_rate() -> None:
+    row = _semantic_group_row(mean_degradation=None, high_rate=None, flip_rate=None)
+    assert row.mean_degradation is None
+    assert row.high_rate is None
+    assert row.flip_rate is None
+
+
+# --- ClassSemanticRow --------------------------------------------------------------
+
+
+def test_class_semantic_row_accepts_valid_fields() -> None:
+    row = _class_semantic_row()
+    assert row.gt_label == 0
+    assert row.semantic_group == "upper_limb"
+
+
+def test_class_semantic_row_rejects_empty_semantic_group() -> None:
+    with pytest.raises(ValueError, match="must not be empty"):
+        _class_semantic_row(semantic_group="")
+
+
+def test_class_semantic_row_rejects_negative_n_samples() -> None:
+    with pytest.raises(ValueError, match="non-negative"):
+        _class_semantic_row(n_samples=-1)
+
+
+def test_class_semantic_row_rejects_flip_rate_outside_unit_interval() -> None:
+    with pytest.raises(ValueError, match="between 0 and 1"):
+        _class_semantic_row(flip_rate=1.5)
+
+
+def test_class_semantic_row_allows_none_degradation_and_flip_rate() -> None:
+    row = _class_semantic_row(mean_degradation=None, flip_rate=None)
+    assert row.mean_degradation is None
+    assert row.flip_rate is None
+
+
+# --- SemanticConcentration ----------------------------------------------------------
+
+
+def test_semantic_concentration_accepts_valid_fields() -> None:
+    concentration = _semantic_concentration()
+    assert concentration.dominant_semantic_group_share == 0.6
+
+
+def test_semantic_concentration_allows_graceful_degradation_at_or_below_one_group() -> None:
+    concentration = _semantic_concentration(
+        dominant_semantic_group=None,
+        dominant_semantic_group_share=None,
+        semantic_group_entropy=None,
+        n_semantic_groups=1,
+        n_scored_samples=0,
+    )
+    assert concentration.n_semantic_groups == 1
+    assert concentration.dominant_semantic_group is None
+
+
+def test_semantic_concentration_allows_zero_groups() -> None:
+    concentration = _semantic_concentration(
+        dominant_semantic_group=None,
+        dominant_semantic_group_share=None,
+        semantic_group_entropy=None,
+        n_semantic_groups=0,
+        n_scored_samples=0,
+    )
+    assert concentration.n_semantic_groups == 0
+
+
+def test_semantic_concentration_rejects_dominant_group_at_or_below_one_group() -> None:
+    """§1 격차#6's graceful degradation is enforced at the type level here.
+
+    Unlike ``SpatialConcentration`` (which merely allows a missing dominant
+    region), a single-group (or zero-group) run must never carry a
+    self-evidently-trivial "dominant" value — plan §3.2.
+    """
+
+    with pytest.raises(ValueError, match="n_semantic_groups <= 1"):
+        _semantic_concentration(n_semantic_groups=1)
+
+
+def test_semantic_concentration_rejects_nonzero_scored_samples_at_or_below_one_group() -> None:
+    with pytest.raises(ValueError, match="n_semantic_groups <= 1"):
+        _semantic_concentration(
+            dominant_semantic_group=None,
+            dominant_semantic_group_share=None,
+            semantic_group_entropy=None,
+            n_semantic_groups=1,
+            n_scored_samples=5,
+        )
+
+
+def test_semantic_concentration_rejects_group_without_share() -> None:
+    with pytest.raises(ValueError, match="both present or both None"):
+        _semantic_concentration(dominant_semantic_group_share=None)
+
+
+def test_semantic_concentration_rejects_share_without_group() -> None:
+    with pytest.raises(ValueError, match="both present or both None"):
+        _semantic_concentration(dominant_semantic_group=None)
+
+
+def test_semantic_concentration_rejects_share_outside_unit_interval() -> None:
+    with pytest.raises(ValueError, match="between 0 and 1"):
+        _semantic_concentration(dominant_semantic_group_share=1.5)
+
+
+def test_semantic_concentration_rejects_entropy_outside_unit_interval() -> None:
+    with pytest.raises(ValueError, match="between 0 and 1"):
+        _semantic_concentration(semantic_group_entropy=-0.1)
+
+
+def test_semantic_concentration_rejects_negative_n_semantic_groups() -> None:
+    with pytest.raises(ValueError, match="non-negative"):
+        _semantic_concentration(n_semantic_groups=-1)
+
+
+def test_semantic_concentration_rejects_negative_n_scored_samples() -> None:
+    with pytest.raises(ValueError, match="non-negative"):
+        _semantic_concentration(n_scored_samples=-1)
+
+
 # --- FlaggedItem -----------------------------------------------------------------
 
 
@@ -536,3 +752,37 @@ def test_report_model_rejects_wrong_meta_type() -> None:
 def test_report_model_rejects_wrong_spatial_concentration_type() -> None:
     with pytest.raises(TypeError, match="SpatialConcentration"):
         _report_model(spatial_concentration="not-a-spatial-concentration")
+
+
+def test_report_model_rejects_wrong_semantic_summary_element_type() -> None:
+    with pytest.raises(TypeError, match="SemanticGroupRow"):
+        _report_model(semantic_summary=("not-a-semantic-group-row",))
+
+
+def test_report_model_rejects_wrong_class_semantic_matrix_element_type() -> None:
+    with pytest.raises(TypeError, match="ClassSemanticRow"):
+        _report_model(class_semantic_matrix=("not-a-class-semantic-row",))
+
+
+def test_report_model_rejects_wrong_semantic_concentration_type() -> None:
+    with pytest.raises(TypeError, match="SemanticConcentration"):
+        _report_model(semantic_concentration="not-a-semantic-concentration")
+
+
+def test_report_model_allows_empty_semantic_sections_when_ungrouped() -> None:
+    """The n_semantic_groups<=1 grid-run path: computed, but self-evidently empty (§1 격차#6)."""
+
+    model = _report_model(
+        semantic_summary=(),
+        class_semantic_matrix=(),
+        semantic_concentration=_semantic_concentration(
+            dominant_semantic_group=None,
+            dominant_semantic_group_share=None,
+            semantic_group_entropy=None,
+            n_semantic_groups=1,
+            n_scored_samples=0,
+        ),
+    )
+    assert model.semantic_summary == ()
+    assert model.class_semantic_matrix == ()
+    assert model.semantic_concentration.n_semantic_groups == 1

@@ -33,6 +33,7 @@ from ssat.report.types import (
     RunSummary,
     SampleCard,
     SampleRankings,
+    SemanticConcentration,
     SpatialConcentration,
     TaskKind,
     TopRegionEntry,
@@ -64,6 +65,7 @@ def _sample_card(**overrides: object) -> SampleCard:
 def _region_row(**overrides: object) -> RegionRow:
     defaults: dict[str, object] = {
         "region_key": "grid::0",
+        "region_id": "grid",
         "region_kind": "grid",
         "intended_area_px": 64,
         "effective_area_px": 60,
@@ -130,6 +132,17 @@ def _report_model(*, full_sample_ids: tuple[str, ...] = ("s0", "s1", "s2")) -> R
             dominant_region_share=0.25,
             spatial_entropy=0.9,
             n_scored_samples=len(full_sample_ids),
+        ),
+        # §1 격차#6 graceful-degradation marker — exporter's semantic CSVs
+        # (단계 3) are not yet implemented.
+        semantic_summary=(),
+        class_semantic_matrix=(),
+        semantic_concentration=SemanticConcentration(
+            dominant_semantic_group=None,
+            dominant_semantic_group_share=None,
+            semantic_group_entropy=None,
+            n_semantic_groups=0,
+            n_scored_samples=0,
         ),
         fill_strategy_correlation_asset_ref=None,
         reliability_spotlight=ReliabilitySpotlight(flagged_examples=(_flagged_item(),)),

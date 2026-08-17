@@ -16,6 +16,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import numpy as np
+import pytest
 from synthetic_dump_builder import (
     build_resolved_config,
     clean_record,
@@ -450,3 +451,165 @@ def test_analysis_dir_none_marks_every_analysis_derived_field_unavailable(tmp_pa
     # Not truncated by the missing analysis run -- assembling without an
     # analysis store must not change ranking/count behavior at all.
     assert len(assembled.full_sample_rankings) == 5
+
+
+# --- semantic_group axis (IMPLE_PLAN_SEMANTIC_VULNERABILITY_v1.md §3.3) -----
+
+# sample_id -> (gt_label, {region_id: perturbed gt-logit}). gt_label=0
+# samples degrade most under lower_limb occlusion (a "foot action" class);
+# gt_label=1 samples degrade most under upper_limb occlusion (a "hand
+# action" class) -- clean gt-logit is always 10.0, so degradation = 10.0
+# minus the perturbed value below.
+_LIMB_GT_LOGIT_BY_SAMPLE: dict[str, tuple[int, dict[str, float]]] = {
+    "s0": (0, {"left_arm": 9.9, "right_arm": 9.9, "left_leg": 9.15, "right_leg": 9.15}),
+    "s1": (0, {"left_arm": 9.9, "right_arm": 9.9, "left_leg": 9.35, "right_leg": 9.35}),
+    "s2": (1, {"left_arm": 9.15, "right_arm": 9.15, "left_leg": 9.85, "right_leg": 9.85}),
+    "s3": (1, {"left_arm": 9.35, "right_arm": 9.35, "left_leg": 9.95, "right_leg": 9.95}),
+}
+_LIMB_SEMANTIC_GROUP = {
+    "left_arm": "upper_limb",
+    "right_arm": "upper_limb",
+    "left_leg": "lower_limb",
+    "right_leg": "lower_limb",
+}
+
+
+def _limb_logits(gt_label: int, value: float) -> np.ndarray:
+    logits = [0.0, 0.0]
+    logits[gt_label] = value
+    return np.array(logits)
+
+
+def _build_dump_and_metrics_semantic_groups(tmp_path: Path) -> tuple[Path, Path]:
+    """4 region families grouped into upper_limb/lower_limb via ``semantic_group``.
+
+    Reproduces, end-to-end through the real dump/metrics/assemble pipeline,
+    the exact "foot action class" scenario already hand-verified at the
+    pure-function level in tests/unit/test_report_assembler.py.
+    """
+
+    config = build_resolved_config(
+        tmp_path,
+        regions=tuple(
+            ResolvedRegionConfig(
+                region_id=region_id,
+                kind=RegionKind.GRID,
+                params={"rows": 1, "cols": 1},
+                semantic_group=semantic_group,
+            )
+            for region_id, semantic_group in _LIMB_SEMANTIC_GROUP.items()
+        ),
+    )
+
+    clean_records = [
+        clean_record(sample_id, logits=_limb_logits(gt_label, 10.0), gt_label=gt_label)
+        for sample_id, (gt_label, _by_region) in _LIMB_GT_LOGIT_BY_SAMPLE.items()
+    ]
+    perturbed_records = []
+    index = 0
+    for sample_id, (gt_label, by_region) in _LIMB_GT_LOGIT_BY_SAMPLE.items():
+        for region_id, perturbed_value in by_region.items():
+            perturbed_records.append(
+                perturbed_record(
+                    index,
+                    sample_id=sample_id,
+                    region_id=region_id,
+                    region_instance_id=f"{region_id}/r0/c0",
+                    logits=_limb_logits(gt_label, perturbed_value),
+                )
+            )
+            index += 1
+
+    dump_root = tmp_path / "dump"
+    write_dump(
+        dump_root,
+        config,
+        clean_records=tuple(clean_records),
+        perturbed_records=tuple(perturbed_records),
+    )
+    metrics_dir = tmp_path / "metrics"
+    compute_and_save_metrics(
+        dump_root, config, metrics_dir, registry=_registry(), primary_metric=_METRIC_NAME
+    )
+    return dump_root, metrics_dir
+
+
+def test_semantic_summary_and_class_semantic_matrix_reproduce_foot_action_class_pattern(
+    tmp_path: Path,
+) -> None:
+    dump_root, metrics_dir = _build_dump_and_metrics_semantic_groups(tmp_path)
+
+    assembled = _assembler(dump_root, metrics_dir, None).assemble(_METRIC_NAME)
+    model = assembled.model
+
+    assert model.semantic_concentration.n_semantic_groups == 2
+    assert model.semantic_concentration.n_scored_samples == 4
+
+    summary_by_group = {row.semantic_group: row for row in model.semantic_summary}
+    assert set(summary_by_group) == {"upper_limb", "lower_limb"}
+    assert summary_by_group["upper_limb"].region_ids == ("left_arm", "right_arm")
+    assert summary_by_group["lower_limb"].region_ids == ("left_leg", "right_leg")
+    assert summary_by_group["upper_limb"].flip_rate is None  # gt_logit_drop is continuous
+
+    matrix_by_cell = {
+        (row.gt_label, row.semantic_group): row for row in model.class_semantic_matrix
+    }
+    # The core finding: for gt_label=0 (foot action), lower_limb dominates;
+    # for gt_label=1 (hand action), upper_limb dominates.
+    assert (
+        matrix_by_cell[(0, "lower_limb")].mean_degradation
+        > matrix_by_cell[(0, "upper_limb")].mean_degradation
+    )
+    assert (
+        matrix_by_cell[(1, "upper_limb")].mean_degradation
+        > matrix_by_cell[(1, "lower_limb")].mean_degradation
+    )
+    assert all(row.n_samples == 2 for row in model.class_semantic_matrix)
+    assert all(row.flip_rate is None for row in model.class_semantic_matrix)
+    assert model.provenance.class_semantic_excluded_no_gt_label == 0
+
+    # AssembledReport.sample_semantic_degradation (plan §6 단계4 note: this
+    # interface change belongs to 단계 2) carries the per-sample values
+    # class_semantic_matrix was built from, for the future labels.py export.
+    assert assembled.sample_semantic_degradation[("s0", "lower_limb")] == pytest.approx(0.85)
+    assert assembled.sample_semantic_degradation[("s2", "upper_limb")] == pytest.approx(0.85)
+
+
+def test_ungrouped_run_gates_semantic_concentration_but_still_computes_trivial_rows(
+    tmp_path: Path,
+) -> None:
+    """A plain grid+control run (no regions[].semantic_group) -- the common, self-evident case.
+
+    The "control" family (RANDOM_AREA_MATCH, never in region_metrics.parquet)
+    must not inflate n_semantic_groups -- it is excluded from the semantic
+    axis the same way it is already excluded from region_summary.
+    """
+
+    dump_root, metrics_dir = _build_dump_and_metrics(tmp_path)
+
+    assembled = _assembler(dump_root, metrics_dir, None).assemble(_METRIC_NAME)
+    model = assembled.model
+
+    concentration = model.semantic_concentration
+    assert concentration.n_semantic_groups == 1
+    assert concentration.dominant_semantic_group is None
+    assert concentration.dominant_semantic_group_share is None
+    assert concentration.semantic_group_entropy is None
+    assert concentration.n_scored_samples == 0
+
+    # §1 격차#6: computed, not display-suppressed -- one self-evident row/cell.
+    assert len(model.semantic_summary) == 1
+    assert model.semantic_summary[0].semantic_group == "grid"
+    assert model.semantic_summary[0].region_ids == ("grid",)
+    assert len(model.class_semantic_matrix) == 1
+
+
+# gt_label=None exclusion (plan §3.3 item 6) is intentionally *not* exercised
+# end-to-end here: ssat.metrics.registry.MetricRegistry.compute_item_metrics
+# calls int(row.gt_label) unconditionally for every item regardless of which
+# metric is registered, so a synthetic dump cannot reach R0 with a gt_label
+# =None sample at all -- a pre-existing N1/N2 limitation orthogonal to this
+# plan (N3 is frozen schema, module docstring "package position" note) and
+# out of scope to change here. The exclusion/count logic itself is instead
+# fully covered at the pure-function level in tests/unit/test_report_
+# assembler.py::test_build_class_semantic_matrix_excludes_samples_with_no_gt_label.

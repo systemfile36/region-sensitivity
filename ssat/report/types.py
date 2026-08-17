@@ -244,6 +244,14 @@ class RegionRow:
 
     Attributes:
         region_key: Stable concrete-region identity.
+        region_id: The region family this ``region_key`` belongs to, e.g.
+            ``"left_arm"`` — recovered as ``region_key.split("::", 1)[0]``
+            (IMPLE_PLAN_SEMANTIC_VULNERABILITY_v1.md §1 격차#4: ``RegionId``'s
+            pattern forbids ``"::"``, so the split is always safe). Unlike
+            ``region_key`` (which for ``skeleton_parts`` regions is unique
+            per sample, §1 격차#1), ``region_id`` is the stable semantic
+            identity a reader recognizes across samples — the field this
+            plan adds so that identity survives into the report layer.
         region_kind: Mask materialization strategy, e.g. ``"grid"`` — a
             plain string (see module docstring on why this is not
             ``ssat.core.types.RegionKind``).
@@ -278,6 +286,7 @@ class RegionRow:
     """
 
     region_key: str
+    region_id: str
     region_kind: str
     intended_area_px: int | None
     effective_area_px: int | None
@@ -294,14 +303,14 @@ class RegionRow:
 
         Raises:
             TypeError: If reliability_grade has the wrong type.
-            ValueError: If region_key/region_kind is empty, an area or
-                n_valid is negative, flip_rate/top_region_share/high_rate is
-                outside [0, 1], or reliability_distribution has an unknown
-                key or negative count.
+            ValueError: If region_key/region_id/region_kind is empty, an
+                area or n_valid is negative, flip_rate/top_region_share/
+                high_rate is outside [0, 1], or reliability_distribution has
+                an unknown key or negative count.
         """
 
-        if not self.region_key or not self.region_kind:
-            raise ValueError("region_key and region_kind must not be empty")
+        if not self.region_key or not self.region_id or not self.region_kind:
+            raise ValueError("region_key, region_id, and region_kind must not be empty")
         for name, value in (
             ("intended_area_px", self.intended_area_px),
             ("effective_area_px", self.effective_area_px),
@@ -318,6 +327,115 @@ class RegionRow:
         ):
             raise TypeError("reliability_grade must be a ReportGrade or None")
         _validate_grade_distribution(self.reliability_distribution)
+
+
+@dataclass(frozen=True, slots=True)
+class SemanticGroupRow:
+    """One semantic_group's dataset-wide summary (design §1 격차#2/#3, §3.2).
+
+    A semantic_group is a user-declared grouping of one or more concrete
+    ``region_id`` families (``ssat/core/config/schema.py``'s
+    ``RegionConfig.semantic_group``) into a single meaning-bearing unit,
+    e.g. ``region_id in {"left_arm", "right_arm"} -> semantic_group
+    "upper_limb"``. This row is the semantic-group counterpart of
+    ``RegionRow`` — same shape of summary, but keyed on the coarser axis a
+    reader recognizes across the whole dataset rather than one concrete
+    region family (IMPLE_PLAN_SEMANTIC_VULNERABILITY_v1.md §3.2).
+
+    Attributes:
+        semantic_group: The semantic grouping key, e.g. ``"upper_limb"``.
+        region_ids: Every concrete ``region_id`` family folded into this
+            group, kept for transparency so a reader can see what "upper
+            limb" actually means in this run's config rather than trusting
+            the label blindly.
+        n_samples: Number of samples with at least one valid degradation
+            value among this group's regions.
+        mean_degradation: Mean degradation across this group's regions,
+            averaged within-sample first when a sample has more than one
+            concrete region in the group, then across samples (plan §3.3
+            item 3 — mean, not worst-case, matching the primary-value
+            aggregation convention this report package already follows).
+            ``None`` when no sample contributed a value.
+        high_rate: Fraction of this group's anchors graded HIGH, defined
+            identically to ``RegionRow.high_rate``; ``None`` when no
+            analysis run exists.
+        flip_rate: Fraction of valid items that flipped, populated only
+            when the run's primary metric is binary (plan §3.3 item 5);
+            ``None`` for continuous metrics.
+    """
+
+    semantic_group: str
+    region_ids: tuple[str, ...]
+    n_samples: int
+    mean_degradation: float | None
+    high_rate: float | None
+    flip_rate: float | None
+
+    def __post_init__(self) -> None:
+        """Validate identity, membership, counts, and rate ranges.
+
+        Raises:
+            ValueError: If semantic_group is empty, region_ids is empty or
+                contains an empty entry, n_samples is negative, or
+                high_rate/flip_rate is outside [0, 1].
+        """
+
+        if not self.semantic_group:
+            raise ValueError("semantic_group must not be empty")
+        if not self.region_ids or not all(self.region_ids):
+            raise ValueError("region_ids must be non-empty and contain no empty entries")
+        if isinstance(self.n_samples, bool) or self.n_samples < 0:
+            raise ValueError("n_samples must be non-negative")
+        _validate_unit_interval_or_none(self.high_rate, field_name="high_rate")
+        _validate_unit_interval_or_none(self.flip_rate, field_name="flip_rate")
+
+
+@dataclass(frozen=True, slots=True)
+class ClassSemanticRow:
+    """One ``(gt_label, semantic_group)`` cell of the cross-tabulation (design §1 격차#3).
+
+    The primary artifact this plan exists to produce: a table a reader can
+    scan to answer "for this action class, which body part matters most?"
+    (IMPLE_PLAN_SEMANTIC_VULNERABILITY_v1.md §3.3 item 6, e.g. "발 동작이
+    중요한 클래스에서만 하반신 가림이 치명적"). Computed in R0 by joining
+    per-sample ``gt_label`` with the same per-sample semantic_group values
+    ``SemanticGroupRow`` averages — no new statistic, only a finer grouping
+    key (plan §1 격차#3(c)).
+
+    Attributes:
+        gt_label: Ground-truth class this row summarizes.
+        semantic_group: The semantic grouping key.
+        n_samples: Number of samples of this class with at least one valid
+            degradation value among this group's regions.
+        mean_degradation: Mean degradation for this ``(gt_label,
+            semantic_group)`` cell, aggregated the same way as
+            ``SemanticGroupRow.mean_degradation``; ``None`` when no sample
+            contributed a value. Always shown alongside ``n_samples`` so a
+            small-sample cell is never mistaken for a well-evidenced one
+            (plan §9 risk table).
+        flip_rate: Fraction of this cell's valid items that flipped, when
+            the primary metric is binary; ``None`` for continuous metrics.
+    """
+
+    gt_label: int
+    semantic_group: str
+    n_samples: int
+    mean_degradation: float | None
+    flip_rate: float | None
+
+    def __post_init__(self) -> None:
+        """Validate identity, counts, and flip_rate's range.
+
+        Raises:
+            ValueError: If semantic_group is empty, n_samples is negative,
+                or flip_rate is outside [0, 1].
+        """
+
+        if not self.semantic_group:
+            raise ValueError("semantic_group must not be empty")
+        if isinstance(self.n_samples, bool) or self.n_samples < 0:
+            raise ValueError("n_samples must be non-negative")
+        _validate_unit_interval_or_none(self.flip_rate, field_name="flip_rate")
 
 
 @dataclass(frozen=True, slots=True)
@@ -603,6 +721,91 @@ class SpatialConcentration:
 
 
 @dataclass(frozen=True, slots=True)
+class SemanticConcentration:
+    """Dataset-wide "does this model depend on one fixed body part?" summary.
+
+    The semantic-group counterpart of ``SpatialConcentration`` — same
+    computation (argmax-per-sample over the semantic-group-averaged
+    degradation, then a Counter, then a ratio/normalized entropy), but over
+    the ``semantic_group`` axis instead of raw ``region_key``
+    (IMPLE_PLAN_SEMANTIC_VULNERABILITY_v1.md §3.2, §3.3 item 4).
+
+    Unlike ``SpatialConcentration``, this type enforces its own graceful
+    degradation at the type level (plan §1 격차#6, §3.2): when
+    ``n_semantic_groups <= 1`` — the common case for a plain grid run where
+    ``regions[].semantic_group`` was never set, so every region family
+    collapses to one semantic group by default — every other field must be
+    the explicit "해당 없음" marker (``None``/``0``), never a value that
+    would misleadingly look like a real finding computed over a single,
+    self-evidently-dominant group.
+
+    Attributes:
+        dominant_semantic_group: The semantic_group that is the single
+            most-degraded group for the largest number of samples;
+            ``None`` when no sample had a determinable top group, or when
+            ``n_semantic_groups <= 1``.
+        dominant_semantic_group_share: ``dominant_semantic_group``'s count
+            divided by ``n_scored_samples``; ``None`` under the same
+            conditions as ``dominant_semantic_group``.
+        semantic_group_entropy: Normalized Shannon entropy, in ``[0, 1]``,
+            of the per-sample top-semantic-group histogram; ``None`` when
+            ``n_semantic_groups <= 1`` or no sample had a determinable top
+            group.
+        n_semantic_groups: Number of distinct semantic_group values among
+            the region families this run actually reports on (i.e. present
+            in ``region_summary``, control-comparison-only families already
+            excluded — the same population ``SpatialConcentration``'s
+            entropy normalizer uses) — the gate this whole type is built
+            around (plan §1 격차#6).
+        n_scored_samples: Number of samples whose top semantic_group could
+            be determined; ``0`` when ``n_semantic_groups <= 1``.
+    """
+
+    dominant_semantic_group: str | None
+    dominant_semantic_group_share: float | None
+    semantic_group_entropy: float | None
+    n_semantic_groups: int
+    n_scored_samples: int
+
+    def __post_init__(self) -> None:
+        """Validate mutual consistency, ranges, counts, and the ``<= 1`` gate.
+
+        Raises:
+            ValueError: If exactly one of dominant_semantic_group/
+                dominant_semantic_group_share is present without the other,
+                either share/entropy is outside [0, 1], n_semantic_groups
+                or n_scored_samples is negative, or n_semantic_groups <= 1
+                while any other field is not its "해당 없음" marker.
+        """
+
+        has_group = self.dominant_semantic_group is not None
+        has_share = self.dominant_semantic_group_share is not None
+        if has_group != has_share:
+            raise ValueError(
+                "dominant_semantic_group and dominant_semantic_group_share "
+                "must be both present or both None"
+            )
+        _validate_unit_interval_or_none(
+            self.dominant_semantic_group_share, field_name="dominant_semantic_group_share"
+        )
+        _validate_unit_interval_or_none(
+            self.semantic_group_entropy, field_name="semantic_group_entropy"
+        )
+        if isinstance(self.n_semantic_groups, bool) or self.n_semantic_groups < 0:
+            raise ValueError("n_semantic_groups must be non-negative")
+        if isinstance(self.n_scored_samples, bool) or self.n_scored_samples < 0:
+            raise ValueError("n_scored_samples must be non-negative")
+        if self.n_semantic_groups <= 1 and (
+            has_group or self.semantic_group_entropy is not None or self.n_scored_samples != 0
+        ):
+            raise ValueError(
+                "n_semantic_groups <= 1 requires dominant_semantic_group, "
+                "dominant_semantic_group_share, and semantic_group_entropy to be "
+                "None and n_scored_samples to be 0 (graceful degradation, plan §1 격차#6)"
+            )
+
+
+@dataclass(frozen=True, slots=True)
 class ReliabilitySpotlight:
     """"이 결과는 믿지 말라" section (design §3, §4.2 step 6).
 
@@ -715,6 +918,14 @@ class ProvenanceInfo:
             when an analysis run was provided.
         thresholds: Every threshold used to derive grades/flags upstream
             (A2-A6), carried through verbatim for reproducibility.
+        class_semantic_excluded_no_gt_label: Number of samples omitted from
+            ``ReportModel.class_semantic_matrix`` because ``gt_label`` was
+            unknown (IMPLE_PLAN_SEMANTIC_VULNERABILITY_v1.md §3.3 item 6).
+            A dedicated field rather than a ``thresholds`` entry — that
+            mapping is documented as "thresholds used to derive grades",
+            and an exclusion count is not a threshold (confirmed with the
+            user). Always ``0`` when no exclusions occurred or the run
+            predates this plan's semantic analysis.
     """
 
     dump_path: str
@@ -724,13 +935,15 @@ class ProvenanceInfo:
     metrics_manifest_hash: str
     analysis_manifest_hash: str | None
     thresholds: Mapping[str, float]
+    class_semantic_excluded_no_gt_label: int = 0
 
     def __post_init__(self) -> None:
-        """Validate identity fields.
+        """Validate identity fields and the exclusion count.
 
         Raises:
             ValueError: If dump_path, metrics_dir, run_manifest_hash, or
-                metrics_manifest_hash is empty.
+                metrics_manifest_hash is empty, or
+                class_semantic_excluded_no_gt_label is negative.
         """
 
         if (
@@ -743,6 +956,11 @@ class ProvenanceInfo:
                 "dump_path, metrics_dir, run_manifest_hash, and "
                 "metrics_manifest_hash must not be empty"
             )
+        if (
+            isinstance(self.class_semantic_excluded_no_gt_label, bool)
+            or self.class_semantic_excluded_no_gt_label < 0
+        ):
+            raise ValueError("class_semantic_excluded_no_gt_label must be non-negative")
 
 
 @dataclass(frozen=True, slots=True)
@@ -763,6 +981,19 @@ class ReportModel:
             ``high_rate`` — an additive, backward-compatible extension
             (design §4.6), the same pattern ``RegionSummary.chart_asset_ref``
             and ``RegionRow.reliability_distribution`` already used.
+        semantic_summary: Dataset-wide semantic_group table, the
+            semantic-axis counterpart of ``region_summary``. Empty when
+            ``semantic_concentration.n_semantic_groups <= 1`` (plan §1
+            격차#6) — computed either way (a single, self-evident row), just
+            not a meaningfully differentiated summary.
+        class_semantic_matrix: ``(gt_label, semantic_group)`` cross-
+            tabulation — the primary artifact
+            IMPLE_PLAN_SEMANTIC_VULNERABILITY_v1.md exists to add (§1
+            격차#3). Empty under the same ``n_semantic_groups <= 1``
+            condition as ``semantic_summary``.
+        semantic_concentration: Dataset-wide "fixed body-part dependence"
+            summary, the semantic-axis counterpart of
+            ``spatial_concentration`` (plan §3.2, §3.3 item 4).
         fill_strategy_correlation_asset_ref: Relative path to R2's rendered
             op×op Spearman rank-correlation SVG (design §R2
             ``render_fill_strategy_correlation``); ``None`` when the
@@ -785,6 +1016,9 @@ class ReportModel:
     sample_rankings: SampleRankings
     region_summary: RegionSummary
     spatial_concentration: SpatialConcentration
+    semantic_summary: tuple[SemanticGroupRow, ...]
+    class_semantic_matrix: tuple[ClassSemanticRow, ...]
+    semantic_concentration: SemanticConcentration
     fill_strategy_correlation_asset_ref: str | None
     reliability_spotlight: ReliabilitySpotlight
     provenance: ProvenanceInfo
@@ -793,8 +1027,9 @@ class ReportModel:
         """Validate every section's type.
 
         Raises:
-            TypeError: If any section has the wrong type, or a scorecard
-                element is not a MetricCard.
+            TypeError: If any section has the wrong type, or a scorecard/
+                semantic_summary/class_semantic_matrix element has the
+                wrong type.
         """
 
         if not isinstance(self.meta, ReportMeta):
@@ -811,6 +1046,12 @@ class ReportModel:
             raise TypeError("region_summary must be a RegionSummary")
         if not isinstance(self.spatial_concentration, SpatialConcentration):
             raise TypeError("spatial_concentration must be a SpatialConcentration")
+        if not all(isinstance(row, SemanticGroupRow) for row in self.semantic_summary):
+            raise TypeError("semantic_summary elements must be SemanticGroupRow")
+        if not all(isinstance(row, ClassSemanticRow) for row in self.class_semantic_matrix):
+            raise TypeError("class_semantic_matrix elements must be ClassSemanticRow")
+        if not isinstance(self.semantic_concentration, SemanticConcentration):
+            raise TypeError("semantic_concentration must be a SemanticConcentration")
         if not isinstance(self.reliability_spotlight, ReliabilitySpotlight):
             raise TypeError("reliability_spotlight must be a ReliabilitySpotlight")
         if not isinstance(self.provenance, ProvenanceInfo):

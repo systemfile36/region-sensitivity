@@ -27,6 +27,7 @@ from ssat.report.html_renderer import (
     render_secondary_report,
 )
 from ssat.report.types import (
+    ClassSemanticRow,
     FlaggedItem,
     GRADE_COLORS,
     MetricCard,
@@ -44,6 +45,8 @@ from ssat.report.types import (
     RunSummary,
     SampleCard,
     SampleRankings,
+    SemanticConcentration,
+    SemanticGroupRow,
     SpatialConcentration,
     TaskKind,
     TopRegionEntry,
@@ -56,6 +59,7 @@ __all__ = [
     "AssembledReportLike",
     "AssetLinkedReport",
     "AssetManifest",
+    "ClassSemanticRow",
     "ClassificationAdapter",
     "DetectionAdapter",
     "ExportedPaths",
@@ -83,6 +87,8 @@ __all__ = [
     "SampleCard",
     "SampleMetricLike",
     "SampleRankings",
+    "SemanticConcentration",
+    "SemanticGroupRow",
     "SpatialConcentration",
     "TaskKind",
     "TaskPresentationAdapter",

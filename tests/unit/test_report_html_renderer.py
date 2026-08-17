@@ -45,6 +45,7 @@ from ssat.report.types import (
     RunSummary,
     SampleCard,
     SampleRankings,
+    SemanticConcentration,
     SpatialConcentration,
     TaskKind,
     TopRegionEntry,
@@ -76,6 +77,7 @@ def _sample_card(**overrides: object) -> SampleCard:
 def _region_row(**overrides: object) -> RegionRow:
     defaults: dict[str, object] = {
         "region_key": "grid::0",
+        "region_id": "grid",
         "region_kind": "grid",
         "intended_area_px": 64,
         "effective_area_px": 60,
@@ -110,6 +112,18 @@ def _spatial_concentration(**overrides: object) -> SpatialConcentration:
     }
     defaults.update(overrides)
     return SpatialConcentration(**defaults)  # type: ignore[arg-type]
+
+
+def _no_semantic_groups() -> SemanticConcentration:
+    """The §1 격차#6 graceful-degradation marker — html_renderer's semantic section (단계 5) is not yet implemented."""
+
+    return SemanticConcentration(
+        dominant_semantic_group=None,
+        dominant_semantic_group_share=None,
+        semantic_group_entropy=None,
+        n_semantic_groups=0,
+        n_scored_samples=0,
+    )
 
 
 def _report_model(**overrides: object) -> ReportModel:
@@ -171,6 +185,9 @@ def _report_model(**overrides: object) -> ReportModel:
             chart_asset_ref="assets/img/charts/region_bar.svg",
         ),
         "spatial_concentration": _spatial_concentration(),
+        "semantic_summary": (),
+        "class_semantic_matrix": (),
+        "semantic_concentration": _no_semantic_groups(),
         "fill_strategy_correlation_asset_ref": "assets/img/charts/fill_strategy_correlation.svg",
         "reliability_spotlight": ReliabilitySpotlight(flagged_examples=(_flagged_item(),)),
         "provenance": ProvenanceInfo(

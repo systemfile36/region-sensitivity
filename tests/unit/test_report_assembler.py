@@ -26,19 +26,27 @@ from ssat.core.config.schema import ResolvedRegionConfig
 from ssat.core.types import RegionKind
 from ssat.metrics.builtin_metrics.continuous import GtLogitDrop
 from ssat.metrics.registry import MetricRegistry
-from ssat.metrics.types import RegionGeometryRef, SpatialProfile
+from ssat.metrics.types import RegionGeometryRef, RegionMetrics, SpatialProfile
 from ssat.report.adapters import ClassificationAdapter
 from ssat.report.assembler import (
     ReportDataAssembler,
+    _build_class_semantic_matrix,
+    _build_semantic_concentration,
+    _build_semantic_summary,
     _build_spatial_concentration,
     _dataset_name,
     _dataset_top_region_by_sample,
+    _dataset_top_semantic_group_by_sample,
     _failure_rate,
     _group_report_grades,
+    _is_binary_primary_metric,
+    _region_id_from_region_key,
+    _sample_semantic_group_degradation,
+    _semantic_group_by_region_id,
     _worst_grade,
 )
 from ssat.report.errors import ReportDataError
-from ssat.report.types import ReportGrade
+from ssat.report.types import MetricCard, ReportGrade
 
 _METRIC_NAME = "gt_logit_drop"
 
@@ -207,6 +215,311 @@ def test_build_spatial_concentration_single_possible_region_leaves_entropy_none(
 
     assert concentration.dominant_region_share == pytest.approx(1.0)
     assert concentration.spatial_entropy is None
+
+
+# --- semantic_group axis (IMPLE_PLAN_SEMANTIC_VULNERABILITY_v1.md §3.3) -----
+
+
+class _FakeRegionFamily:
+    def __init__(self, region_id: str, semantic_group: str | None) -> None:
+        self.region_id = region_id
+        self.semantic_group = semantic_group
+
+
+class _FakeResolvedConfigWithRegions:
+    def __init__(self, regions: list[_FakeRegionFamily]) -> None:
+        self.regions = regions
+
+
+def _region_metrics_row(
+    *, region_key: str, flip_rate: float | None, n_valid: int = 10
+) -> RegionMetrics:
+    return RegionMetrics(
+        region_key=region_key,
+        metric_name=_METRIC_NAME,
+        region_kind=RegionKind.SKELETON_PARTS,
+        intended_area_px=64,
+        effective_area_px=60,
+        n_samples=n_valid,
+        n_valid=n_valid,
+        flip_rate=flip_rate,
+        metric_mean=0.5,
+    )
+
+
+# region_id -> semantic_group fixture shared by the "foot action class"
+# scenario below: two upper_limb families, two lower_limb families.
+_UPPER_LOWER_LIMB_MAP = {
+    "left_arm": "upper_limb",
+    "right_arm": "upper_limb",
+    "left_leg": "lower_limb",
+    "right_leg": "lower_limb",
+}
+
+
+def test_region_id_from_region_key_splits_on_first_double_colon() -> None:
+    assert _region_id_from_region_key("grid::0") == "grid"
+    # A skeleton_parts region_key looks like "{region_id}::{region_id}/
+    # {sample_id}" (§1 격차#1) -- region_id itself may contain every
+    # character RegionId's pattern allows (letters/digits/"_"/"."/"-", but
+    # never "::"), exercised here with "." and "-".
+    assert _region_id_from_region_key("left-arm.v2::left-arm.v2/sample-1") == "left-arm.v2"
+
+
+def test_semantic_group_by_region_id_falls_back_to_region_id_when_unset() -> None:
+    config = _FakeResolvedConfigWithRegions(
+        [
+            _FakeRegionFamily("left_arm", "upper_limb"),
+            _FakeRegionFamily("right_arm", "upper_limb"),
+            _FakeRegionFamily("grid", None),
+        ]
+    )
+
+    assert _semantic_group_by_region_id(config) == {
+        "left_arm": "upper_limb",
+        "right_arm": "upper_limb",
+        "grid": "grid",
+    }
+
+
+def test_is_binary_primary_metric_true_when_flip_rate_card_has_a_value() -> None:
+    scorecard = (
+        MetricCard(key="accuracy", label="Accuracy", value=0.9, unit="%", higher_is_better=True),
+        MetricCard(key="flip_rate", label="Flip Rate", value=0.3, unit="%", higher_is_better=False),
+    )
+    assert _is_binary_primary_metric(scorecard) is True
+
+
+def test_is_binary_primary_metric_false_when_flip_rate_card_value_is_none() -> None:
+    scorecard = (
+        MetricCard(
+            key="flip_rate",
+            label="Flip Rate",
+            value=None,
+            unit="%",
+            higher_is_better=False,
+            note="해당 없음: continuous 지표라 flip 개념이 없습니다.",
+        ),
+    )
+    assert _is_binary_primary_metric(scorecard) is False
+
+
+def test_sample_semantic_group_degradation_averages_within_sample_across_group() -> None:
+    rows = [
+        _spatial_row(sample_id="s0", region_key="left_arm::s0", degradation=0.1),
+        _spatial_row(sample_id="s0", region_key="right_arm::s0", degradation=0.3),
+        _spatial_row(sample_id="s0", region_key="left_leg::s0", degradation=0.8),
+    ]
+
+    result = _sample_semantic_group_degradation(rows, _UPPER_LOWER_LIMB_MAP)
+
+    assert result == {
+        ("s0", "upper_limb"): pytest.approx(0.2),  # (0.1 + 0.3) / 2
+        ("s0", "lower_limb"): pytest.approx(0.8),
+    }
+
+
+def test_sample_semantic_group_degradation_skips_none_and_falls_back_when_ungrouped() -> None:
+    rows = [
+        _spatial_row(sample_id="s0", region_key="left_arm::s0", degradation=None),
+        _spatial_row(sample_id="s0", region_key="grid::0", degradation=0.5),
+    ]
+
+    result = _sample_semantic_group_degradation(rows, _UPPER_LOWER_LIMB_MAP)
+
+    # left_arm contributed no value (None); "grid" is absent from the map, so
+    # it falls back to being its own semantic_group (§1 격차#2 default).
+    assert result == {("s0", "grid"): pytest.approx(0.5)}
+
+
+def test_dataset_top_semantic_group_by_sample_picks_max_degradation_group() -> None:
+    sample_semantic_degradation = {
+        ("s0", "upper_limb"): 0.1,
+        ("s0", "lower_limb"): 0.85,
+        ("s1", "upper_limb"): 0.85,
+        ("s1", "lower_limb"): 0.15,
+    }
+
+    assert _dataset_top_semantic_group_by_sample(sample_semantic_degradation) == {
+        "s0": "lower_limb",
+        "s1": "upper_limb",
+    }
+
+
+def test_dataset_top_semantic_group_by_sample_breaks_ties_ascending() -> None:
+    sample_semantic_degradation = {("s0", "upper_limb"): 0.5, ("s0", "lower_limb"): 0.5}
+
+    assert _dataset_top_semantic_group_by_sample(sample_semantic_degradation) == {
+        "s0": "lower_limb"
+    }
+
+
+def test_build_semantic_concentration_gate_forces_graceful_degradation_at_or_below_one_group() -> None:
+    concentration = _build_semantic_concentration({"s0": "grid"}, n_semantic_groups=1)
+
+    assert concentration.dominant_semantic_group is None
+    assert concentration.dominant_semantic_group_share is None
+    assert concentration.semantic_group_entropy is None
+    assert concentration.n_semantic_groups == 1
+    assert concentration.n_scored_samples == 0
+
+
+def test_build_semantic_concentration_zero_groups_is_also_gated() -> None:
+    concentration = _build_semantic_concentration({}, n_semantic_groups=0)
+    assert concentration.n_semantic_groups == 0
+    assert concentration.n_scored_samples == 0
+
+
+def test_build_semantic_concentration_computes_dominant_share_and_entropy() -> None:
+    top_semantic_group_by_sample = {
+        "s0": "upper_limb",
+        "s1": "upper_limb",
+        "s2": "upper_limb",
+        "s3": "lower_limb",
+    }
+
+    concentration = _build_semantic_concentration(top_semantic_group_by_sample, n_semantic_groups=2)
+
+    assert concentration.dominant_semantic_group == "upper_limb"
+    assert concentration.dominant_semantic_group_share == pytest.approx(0.75)
+    assert concentration.n_scored_samples == 4
+    assert concentration.semantic_group_entropy is not None
+    assert 0.0 <= concentration.semantic_group_entropy <= 1.0
+
+
+def test_build_semantic_concentration_no_scored_samples_yields_all_none() -> None:
+    concentration = _build_semantic_concentration({}, n_semantic_groups=2)
+
+    assert concentration.dominant_semantic_group is None
+    assert concentration.dominant_semantic_group_share is None
+    assert concentration.semantic_group_entropy is None
+    assert concentration.n_scored_samples == 0
+
+
+def test_build_semantic_summary_mean_degradation_and_n_samples() -> None:
+    """Hand-computed "foot action class" fixture, reused by the class_semantic_matrix tests below."""
+
+    sample_semantic_degradation = {
+        ("s0", "upper_limb"): 0.1,
+        ("s0", "lower_limb"): 0.85,
+        ("s1", "upper_limb"): 0.1,
+        ("s1", "lower_limb"): 0.65,
+        ("s2", "upper_limb"): 0.85,
+        ("s2", "lower_limb"): 0.15,
+        ("s3", "upper_limb"): 0.65,
+        ("s3", "lower_limb"): 0.05,
+    }
+
+    rows = _build_semantic_summary(
+        sample_semantic_degradation,
+        _UPPER_LOWER_LIMB_MAP,
+        region_rows=[],
+        grades_by_semantic_group={},
+        is_binary_primary_metric=False,
+    )
+
+    by_group = {row.semantic_group: row for row in rows}
+    assert set(by_group) == {"upper_limb", "lower_limb"}
+    assert by_group["upper_limb"].region_ids == ("left_arm", "right_arm")
+    assert by_group["upper_limb"].n_samples == 4
+    assert by_group["upper_limb"].mean_degradation == pytest.approx((0.1 + 0.1 + 0.85 + 0.65) / 4)
+    assert by_group["lower_limb"].mean_degradation == pytest.approx((0.85 + 0.65 + 0.15 + 0.05) / 4)
+    # is_binary_primary_metric=False -- flip_rate must stay unavailable, not 0.
+    assert by_group["upper_limb"].flip_rate is None
+    assert by_group["upper_limb"].high_rate is None  # no analysis run (empty grades)
+
+
+def test_build_semantic_summary_flip_rate_averages_region_metrics_when_binary() -> None:
+    sample_semantic_degradation = {("s0", "upper_limb"): 0.5}
+    region_rows = [
+        _region_metrics_row(region_key="left_arm::s0", flip_rate=0.2),
+        _region_metrics_row(region_key="right_arm::s0", flip_rate=0.6),
+    ]
+
+    rows = _build_semantic_summary(
+        sample_semantic_degradation,
+        _UPPER_LOWER_LIMB_MAP,
+        region_rows=region_rows,
+        grades_by_semantic_group={},
+        is_binary_primary_metric=True,
+    )
+
+    assert rows[0].flip_rate == pytest.approx((0.2 + 0.6) / 2)
+
+
+def test_build_semantic_summary_high_rate_regroups_reliability_grades() -> None:
+    sample_semantic_degradation = {("s0", "upper_limb"): 0.5}
+    grades_by_semantic_group = {
+        "upper_limb": [ReportGrade.HIGH, ReportGrade.HIGH, ReportGrade.UNRELIABLE]
+    }
+
+    rows = _build_semantic_summary(
+        sample_semantic_degradation,
+        _UPPER_LOWER_LIMB_MAP,
+        region_rows=[],
+        grades_by_semantic_group=grades_by_semantic_group,
+        is_binary_primary_metric=False,
+    )
+
+    assert rows[0].high_rate == pytest.approx(2 / 3)
+
+
+def test_build_class_semantic_matrix_reproduces_foot_action_class_pattern() -> None:
+    """The scenario the user asked to see: a class whose dominant body part differs.
+
+    gt_label=0 samples degrade most under lower_limb occlusion (a "foot
+    action" class); gt_label=1 samples degrade most under upper_limb
+    occlusion (a "hand action" class) -- reproduced exactly here from the
+    same per-(sample, semantic_group) values used above.
+    """
+
+    sample_semantic_degradation = {
+        ("s0", "upper_limb"): 0.1,
+        ("s0", "lower_limb"): 0.85,
+        ("s1", "upper_limb"): 0.1,
+        ("s1", "lower_limb"): 0.65,
+        ("s2", "upper_limb"): 0.85,
+        ("s2", "lower_limb"): 0.15,
+        ("s3", "upper_limb"): 0.65,
+        ("s3", "lower_limb"): 0.05,
+    }
+    gt_label_by_sample = {"s0": 0, "s1": 0, "s2": 1, "s3": 1}
+
+    rows, n_excluded = _build_class_semantic_matrix(sample_semantic_degradation, gt_label_by_sample)
+
+    by_cell = {(row.gt_label, row.semantic_group): row for row in rows}
+    assert by_cell[(0, "lower_limb")].mean_degradation == pytest.approx((0.85 + 0.65) / 2)
+    assert by_cell[(0, "upper_limb")].mean_degradation == pytest.approx((0.1 + 0.1) / 2)
+    assert by_cell[(1, "upper_limb")].mean_degradation == pytest.approx((0.85 + 0.65) / 2)
+    assert by_cell[(1, "lower_limb")].mean_degradation == pytest.approx((0.15 + 0.05) / 2)
+    # The core finding: for gt_label=0, lower_limb dominates; for gt_label=1, upper_limb does.
+    assert by_cell[(0, "lower_limb")].mean_degradation > by_cell[(0, "upper_limb")].mean_degradation
+    assert by_cell[(1, "upper_limb")].mean_degradation > by_cell[(1, "lower_limb")].mean_degradation
+    assert all(row.n_samples == 2 for row in rows)
+    assert all(row.flip_rate is None for row in rows)  # no (sample, semantic_group)-grain flip data
+    assert n_excluded == 0
+
+
+def test_build_class_semantic_matrix_excludes_samples_with_no_gt_label() -> None:
+    sample_semantic_degradation = {
+        ("s0", "upper_limb"): 0.5,
+        ("s1", "upper_limb"): 0.5,
+        ("s1", "lower_limb"): 0.2,
+    }
+    gt_label_by_sample = {"s0": 0, "s1": None}
+
+    rows, n_excluded = _build_class_semantic_matrix(sample_semantic_degradation, gt_label_by_sample)
+
+    assert {(row.gt_label, row.semantic_group) for row in rows} == {(0, "upper_limb")}
+    # s1 contributed two (sample, semantic_group) pairs but is one distinct
+    # sample -- the exclusion count must not double it.
+    assert n_excluded == 1
+
+
+def test_build_class_semantic_matrix_empty_input_yields_no_rows_no_exclusions() -> None:
+    rows, n_excluded = _build_class_semantic_matrix({}, {})
+    assert rows == ()
+    assert n_excluded == 0
 
 
 # --- _dataset_name -----------------------------------------------------------

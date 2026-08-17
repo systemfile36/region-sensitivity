@@ -68,6 +68,35 @@ neither has an alternative data source:
   §R4), but :meth:`_build_provenance` only ever populated the latter two.
   Computed the same way ``metrics_manifest_hash`` already was, via
   ``sha256_file`` on ``DumpHandle.manifest_path``.
+
+**Semantic region profiling (IMPLE_PLAN_SEMANTIC_VULNERABILITY_v1.md §3.3,
+단계 2).** ``ReportModel.semantic_summary``/``class_semantic_matrix``/
+``semantic_concentration`` add a ``semantic_group`` axis alongside
+``region_key`` — a user-declared grouping of concrete region families
+(``ResolvedRegionConfig.semantic_group``) into one meaning-bearing unit
+(e.g. ``"left_arm"``/``"right_arm"`` -> ``"upper_limb"``). Every value here
+is again an arithmetic reduction of already-computed numbers (Gap#6):
+``SpatialProfile.degradation`` averaged within a sample across a group's
+concrete regions, then across samples/semantic_groups exactly the way
+:func:`_dataset_top_region_by_sample`/:func:`_build_spatial_concentration`
+already reduce the ``region_key`` axis (see :func:`_dataset_top_semantic_
+group_by_sample`/:func:`_build_semantic_concentration`).
+
+Two data-availability decisions confirmed with the user, since MetricsStore
+(N3, frozen schema) has no counterpart to plug in directly:
+
+- ``ClassSemanticRow.flip_rate`` is always ``None``. A per-``(gt_label,
+  semantic_group)`` cell would need a flip signal at the ``(sample,
+  region)`` grain, but N3 only carries flip at the whole-sample grain
+  (``SampleMetrics.flip_rate``, blind to region) or the whole-region grain
+  (``RegionMetrics.flip_rate``, blind to sample/label) — never both axes
+  at once. Approximating with either would silently misrepresent a
+  different quantity as this cell's flip rate, so it is left unavailable
+  rather than guessed (:func:`_build_class_semantic_matrix`).
+- ``ProvenanceInfo.class_semantic_excluded_no_gt_label`` is a dedicated
+  field, not a ``thresholds`` entry — that mapping is documented as
+  "thresholds used to derive grades", and an exclusion count is not a
+  threshold.
 """
 
 from __future__ import annotations
@@ -75,9 +104,10 @@ from __future__ import annotations
 import math
 from collections import Counter, defaultdict
 from collections.abc import Callable, Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
+from types import MappingProxyType
 from typing import Any, TypeVar
 
 import numpy as np
@@ -102,6 +132,7 @@ from ssat.report.adapters import DetectionAdapter, TaskPresentationAdapter
 from ssat.report.errors import ReportDataError
 from ssat.report.types import (
     REPORT_SCHEMA_VERSION,
+    ClassSemanticRow,
     FlaggedItem,
     MetricCard,
     ProvenanceInfo,
@@ -115,6 +146,8 @@ from ssat.report.types import (
     RunSummary,
     SampleCard,
     SampleRankings,
+    SemanticConcentration,
+    SemanticGroupRow,
     SpatialConcentration,
     TaskKind,
     TopRegionEntry,
@@ -155,11 +188,23 @@ class AssembledReport:
             these raw op-pair rows have no ``ReportModel`` field of their
             own (only a rendered SVG's ref does, ``ReportModel.
             fill_strategy_correlation_asset_ref``).
+        sample_semantic_degradation: Every ``(sample_id, semantic_group)``
+            pair with a determinable mean degradation, from
+            :func:`_sample_semantic_group_degradation` — the same "extra
+            data alongside ``model``" level as ``full_sample_rankings``.
+            Added in IMPLE_PLAN_SEMANTIC_VULNERABILITY_v1.md §3.3 단계 2 for
+            §3.5's future ``ssat.report.labels`` module, which needs the
+            per-sample values ``ReportModel.semantic_summary``/
+            ``class_semantic_matrix`` only ever expose pre-aggregated
+            (plan §6 단계4 note: "이 인터페이스 변경은 단계 2에 포함").
     """
 
     model: ReportModel
     full_sample_rankings: tuple[SampleCard, ...]
     rank_correlation_rows: tuple[RankCorrelationRow, ...] = ()
+    sample_semantic_degradation: Mapping[tuple[str, str], float] = field(
+        default_factory=lambda: MappingProxyType({})
+    )
 
 
 @dataclass(frozen=True, slots=True)
@@ -282,25 +327,78 @@ class ReportDataAssembler:
         full_rankings = self._build_full_rankings(sample_rows, spatial_rows, analysis, primary_metric)
         top_region_by_sample = _dataset_top_region_by_sample(spatial_rows)
         region_keys = {row.region_key for row in region_rows}
+        scorecard = tuple(self._build_scorecard(sample_rows, analysis, primary_metric))
+
+        # --- semantic_group axis (IMPLE_PLAN_SEMANTIC_VULNERABILITY_v1.md §3.3) ---
+        semantic_group_by_region_id = _semantic_group_by_region_id(run_manifest.resolved_config)
+        # Scoped to region_keys (already control-excluded, same population
+        # _build_spatial_concentration's entropy normalizer uses) rather than
+        # every resolved_config.regions family -- a control-comparison-only
+        # family (RANDOM_AREA_MATCH, never in region_metrics.parquet) would
+        # otherwise inflate this count and defeat the n_semantic_groups <= 1
+        # gate for an otherwise-ungrouped run (§1 격차#6).
+        n_semantic_groups = len(
+            {
+                semantic_group_by_region_id.get(region_id, region_id)
+                for region_id in {_region_id_from_region_key(key) for key in region_keys}
+            }
+        )
+        sample_semantic_degradation = _sample_semantic_group_degradation(
+            spatial_rows, semantic_group_by_region_id
+        )
+        top_semantic_group_by_sample = _dataset_top_semantic_group_by_sample(
+            sample_semantic_degradation
+        )
+        is_binary_primary_metric = _is_binary_primary_metric(scorecard)
+        grades_by_semantic_group = (
+            _group_report_grades(
+                analysis.reliability_rows,
+                primary_metric,
+                key=lambda row: semantic_group_by_region_id.get(
+                    _region_id_from_region_key(row.anchor_key.region_key),
+                    _region_id_from_region_key(row.anchor_key.region_key),
+                ),
+            )
+            if analysis is not None
+            else {}
+        )
+        semantic_summary = _build_semantic_summary(
+            sample_semantic_degradation,
+            semantic_group_by_region_id,
+            region_rows,
+            grades_by_semantic_group,
+            is_binary_primary_metric,
+        )
+        gt_label_by_sample = {card.sample_id: card.gt_label for card in full_rankings}
+        class_semantic_matrix, excluded_no_gt_label = _build_class_semantic_matrix(
+            sample_semantic_degradation, gt_label_by_sample
+        )
+
         model = ReportModel(
             meta=self._build_meta(run_manifest, metrics_manifest, analysis),
             run_summary=self._build_run_summary(run_manifest, metrics_manifest, sample_rows),
-            scorecard=tuple(self._build_scorecard(sample_rows, analysis, primary_metric)),
+            scorecard=scorecard,
             vulnerability_distribution=self._build_vulnerability_distribution(full_rankings),
             sample_rankings=self._build_sample_rankings(full_rankings),
             region_summary=self._build_region_summary(
                 region_rows, analysis, primary_metric, top_region_by_sample
             ),
             spatial_concentration=_build_spatial_concentration(top_region_by_sample, region_keys),
+            semantic_summary=semantic_summary,
+            class_semantic_matrix=class_semantic_matrix,
+            semantic_concentration=_build_semantic_concentration(
+                top_semantic_group_by_sample, n_semantic_groups
+            ),
             fill_strategy_correlation_asset_ref=None,
             reliability_spotlight=self._build_reliability_spotlight(analysis),
-            provenance=self._build_provenance(analysis, handle),
+            provenance=self._build_provenance(analysis, handle, excluded_no_gt_label),
         )
         rank_correlation_rows = analysis.rank_correlation_rows if analysis is not None else ()
         return AssembledReport(
             model=model,
             full_sample_rankings=full_rankings,
             rank_correlation_rows=rank_correlation_rows,
+            sample_semantic_degradation=MappingProxyType(dict(sample_semantic_degradation)),
         )
 
     # --- source loading ----------------------------------------------------
@@ -588,6 +686,7 @@ class ReportDataAssembler:
             rows.append(
                 RegionRow(
                     region_key=row.region_key,
+                    region_id=_region_id_from_region_key(row.region_key),
                     region_kind=row.region_kind.value,
                     intended_area_px=row.intended_area_px,
                     effective_area_px=row.effective_area_px,
@@ -648,7 +747,12 @@ class ReportDataAssembler:
 
     # --- provenance / meta ---------------------------------------------------
 
-    def _build_provenance(self, analysis: _AnalysisContext | None, handle: DumpHandle) -> ProvenanceInfo:
+    def _build_provenance(
+        self,
+        analysis: _AnalysisContext | None,
+        handle: DumpHandle,
+        class_semantic_excluded_no_gt_label: int,
+    ) -> ProvenanceInfo:
         analysis_dir_str = None
         analysis_manifest_hash = None
         thresholds: dict[str, float] = {}
@@ -663,6 +767,7 @@ class ReportDataAssembler:
             run_manifest_hash=sha256_file(handle.manifest_path),
             metrics_manifest_hash=sha256_file(self._metrics_dir / "metrics_manifest.json"),
             analysis_manifest_hash=analysis_manifest_hash,
+            class_semantic_excluded_no_gt_label=class_semantic_excluded_no_gt_label,
             thresholds=thresholds,
         )
 
@@ -846,6 +951,301 @@ def _build_spatial_concentration(
         spatial_entropy=spatial_entropy,
         n_scored_samples=n_scored_samples,
     )
+
+
+# --- semantic_group axis (IMPLE_PLAN_SEMANTIC_VULNERABILITY_v1.md §3.3) -----
+
+
+def _region_id_from_region_key(region_key: str) -> str:
+    """Recover a concrete region's family identity from its ``region_key``.
+
+    Always safe: ``RegionId`` (``ssat.core.config.schema``) forbids ``"::"``,
+    so this split never ambiguously cuts through the family name itself
+    (plan §1 격차#4, verified by code inspection rather than assumed).
+    """
+
+    return region_key.split("::", 1)[0]
+
+
+def _semantic_group_by_region_id(resolved_config: Any) -> dict[str, str]:
+    """Build the ``region_id -> semantic_group`` map from the run's resolved config.
+
+    A family with no declared ``semantic_group`` falls back to its own
+    ``region_id`` (plan §1 격차#2's default policy) — the common case for a
+    plain grid/explicit run, where every family is its own, singleton
+    semantic group.
+
+    Typed ``resolved_config: Any`` for the same reason :func:`_dataset_name`
+    is (module §3.3 dependency-rule note): this reads
+    ``ResolvedConfig.regions[*].region_id``/``semantic_group`` via plain
+    attribute access rather than importing ``ssat.core.config.schema``.
+    """
+
+    return {
+        family.region_id: (family.semantic_group or family.region_id)
+        for family in resolved_config.regions
+    }
+
+
+def _is_binary_primary_metric(scorecard: Sequence[MetricCard]) -> bool:
+    """Reuse the adapter's existing binary/continuous determination (plan §3.3 item 5).
+
+    ``ClassificationAdapter.summarize_performance`` always emits a
+    ``"flip_rate"`` card, but only gives it a real ``value`` when the
+    primary metric is binary (``value=None`` plus a "continuous 지표" note
+    otherwise, ``ssat.report.adapters._flip_rate_card``) — that non-``None``
+    check is the exact determination this function reuses rather than
+    re-deriving "is this metric binary" from scratch.
+    """
+
+    return any(card.key == "flip_rate" and card.value is not None for card in scorecard)
+
+
+def _sample_semantic_group_degradation(
+    spatial_rows: Sequence[SpatialProfile], semantic_group_by_region_id: Mapping[str, str]
+) -> dict[tuple[str, str], float]:
+    """Reduce each sample's concrete-region degradations to one value per semantic_group.
+
+    When a semantic_group folds together several concrete region families
+    (e.g. ``"left_arm"``/``"right_arm"`` -> ``"upper_limb"``), a sample
+    contributes one degradation value per family; this averages those
+    within the sample (plan §3.3 item 3's "평균" policy — a worst-case/max
+    rollup is reserved for grade badges only, per the report-layout
+    redesign's own principle). Regions with ``degradation is None`` are
+    skipped, matching every other "unavailable, not zero" reduction here.
+
+    Returns:
+        A mapping from ``(sample_id, semantic_group)`` to the sample's mean
+        degradation across that group's concrete regions, covering only
+        pairs with at least one valid value.
+    """
+
+    grouped: dict[tuple[str, str], list[float]] = defaultdict(list)
+    for row in spatial_rows:
+        if row.degradation is None:
+            continue
+        region_id = _region_id_from_region_key(row.region_key)
+        semantic_group = semantic_group_by_region_id.get(region_id, region_id)
+        grouped[(row.sample_id, semantic_group)].append(row.degradation)
+    return {key: sum(values) / len(values) for key, values in grouped.items()}
+
+
+def _dataset_top_semantic_group_by_sample(
+    sample_semantic_degradation: Mapping[tuple[str, str], float]
+) -> dict[str, str]:
+    """Reduce every sample to its single most-degraded semantic_group, dataset-wide.
+
+    The semantic-axis counterpart of :func:`_dataset_top_region_by_sample`,
+    over :func:`_sample_semantic_group_degradation`'s per-``(sample,
+    semantic_group)`` averages instead of raw per-region values. Ties are
+    broken by ``semantic_group`` ascending for a deterministic result.
+
+    Returns:
+        A mapping from ``sample_id`` to its top ``semantic_group``, covering
+        only samples with at least one scored semantic_group.
+    """
+
+    by_sample: dict[str, list[tuple[str, float]]] = defaultdict(list)
+    for (sample_id, semantic_group), value in sample_semantic_degradation.items():
+        by_sample[sample_id].append((semantic_group, value))
+
+    top_semantic_group: dict[str, str] = {}
+    for sample_id, entries in by_sample.items():
+        best_group, _best_value = min(entries, key=lambda entry: (-entry[1], entry[0]))
+        top_semantic_group[sample_id] = best_group
+    return top_semantic_group
+
+
+def _build_semantic_concentration(
+    top_semantic_group_by_sample: Mapping[str, str], n_semantic_groups: int
+) -> SemanticConcentration:
+    """Reduce the per-sample top-semantic_group histogram to dominant-share/entropy scalars.
+
+    The semantic-axis counterpart of :func:`_build_spatial_concentration`.
+    Unlike that function, the ``n_semantic_groups <= 1`` gate is checked
+    first and unconditionally forces the graceful-degradation marker (plan
+    §1 격차#6, enforced again at the type level by ``SemanticConcentration.
+    __post_init__``) — the common case for a run that never declared
+    ``regions[].semantic_group``, where every family collapses to its own
+    singleton group.
+
+    Args:
+        top_semantic_group_by_sample: Every sample with a determinable top
+            semantic_group, from :func:`_dataset_top_semantic_group_by_sample`.
+        n_semantic_groups: Distinct semantic_group count among the region
+            families this run actually reports on (the gate; control-
+            comparison-only families excluded, see :meth:`ReportDataAssembler.
+            assemble`), not merely how many appear in ``top_semantic_group_
+            by_sample``.
+
+    Returns:
+        The graceful-degradation marker when ``n_semantic_groups <= 1`` or
+        no sample has a determinable top semantic_group; the real
+        dominant-share/normalized-entropy reduction otherwise.
+    """
+
+    if n_semantic_groups <= 1:
+        return SemanticConcentration(
+            dominant_semantic_group=None,
+            dominant_semantic_group_share=None,
+            semantic_group_entropy=None,
+            n_semantic_groups=n_semantic_groups,
+            n_scored_samples=0,
+        )
+
+    n_scored_samples = len(top_semantic_group_by_sample)
+    if n_scored_samples == 0:
+        return SemanticConcentration(
+            dominant_semantic_group=None,
+            dominant_semantic_group_share=None,
+            semantic_group_entropy=None,
+            n_semantic_groups=n_semantic_groups,
+            n_scored_samples=0,
+        )
+
+    counts = Counter(top_semantic_group_by_sample.values())
+    dominant_semantic_group, dominant_count = counts.most_common(1)[0]
+    dominant_semantic_group_share = dominant_count / n_scored_samples
+
+    probabilities = [count / n_scored_samples for count in counts.values()]
+    raw_entropy = -sum(p * math.log(p) for p in probabilities if p > 0)
+    # Clamp away floating-point drift at the extremes, same as
+    # _build_spatial_concentration. n_semantic_groups >= 2 here (the <= 1
+    # gate above already returned), so this normalizer is always defined.
+    semantic_group_entropy = min(1.0, max(0.0, raw_entropy / math.log(n_semantic_groups)))
+
+    return SemanticConcentration(
+        dominant_semantic_group=dominant_semantic_group,
+        dominant_semantic_group_share=dominant_semantic_group_share,
+        semantic_group_entropy=semantic_group_entropy,
+        n_semantic_groups=n_semantic_groups,
+        n_scored_samples=n_scored_samples,
+    )
+
+
+def _build_semantic_summary(
+    sample_semantic_degradation: Mapping[tuple[str, str], float],
+    semantic_group_by_region_id: Mapping[str, str],
+    region_rows: Sequence[RegionMetrics],
+    grades_by_semantic_group: Mapping[str, Sequence[ReportGrade]],
+    is_binary_primary_metric: bool,
+) -> tuple[SemanticGroupRow, ...]:
+    """Build one ``SemanticGroupRow`` per semantic_group with at least one scored sample.
+
+    Mirrors :meth:`ReportDataAssembler._build_region_summary`'s join
+    pattern, one axis coarser: ``mean_degradation``/``n_samples`` reduce
+    :func:`_sample_semantic_group_degradation` (plan §3.3 item 5);
+    ``high_rate`` regroups the same per-anchor reliability grades
+    ``RegionRow.high_rate`` already uses, just keyed by semantic_group
+    instead of region_key (Gap#3's worst-case-adjacent, no-new-statistic
+    pattern); ``flip_rate`` averages ``RegionMetrics.flip_rate`` across the
+    group's concrete regions, populated only when ``is_binary_primary_
+    metric`` (plan §3.3 item 5) — never from sample-grain data, since no
+    ``(sample, semantic_group)``-grain flip signal exists (module
+    docstring).
+
+    Args:
+        sample_semantic_degradation: From :func:`_sample_semantic_group_
+            degradation`.
+        semantic_group_by_region_id: From :func:`_semantic_group_by_region_id`.
+        region_rows: This run's primary-metric-filtered ``region_metrics.
+            parquet`` rows, the ``flip_rate`` source.
+        grades_by_semantic_group: Reliability grades already regrouped by
+            semantic_group (empty when no analysis run exists).
+        is_binary_primary_metric: From :func:`_is_binary_primary_metric`.
+
+    Returns:
+        Rows sorted by semantic_group for a deterministic result.
+    """
+
+    region_ids_by_group: dict[str, list[str]] = defaultdict(list)
+    for region_id, semantic_group in semantic_group_by_region_id.items():
+        region_ids_by_group[semantic_group].append(region_id)
+
+    degradation_by_group: dict[str, list[float]] = defaultdict(list)
+    samples_by_group: dict[str, set[str]] = defaultdict(set)
+    for (sample_id, semantic_group), value in sample_semantic_degradation.items():
+        degradation_by_group[semantic_group].append(value)
+        samples_by_group[semantic_group].add(sample_id)
+
+    flip_values_by_group: dict[str, list[float]] = defaultdict(list)
+    if is_binary_primary_metric:
+        for row in region_rows:
+            if row.flip_rate is None:
+                continue
+            region_id = _region_id_from_region_key(row.region_key)
+            semantic_group = semantic_group_by_region_id.get(region_id, region_id)
+            flip_values_by_group[semantic_group].append(row.flip_rate)
+
+    rows = []
+    for semantic_group in sorted(degradation_by_group):
+        values = degradation_by_group[semantic_group]
+        grades = grades_by_semantic_group.get(semantic_group, ())
+        n_graded = len(grades)
+        high_count = sum(1 for grade in grades if grade is ReportGrade.HIGH)
+        flip_values = flip_values_by_group.get(semantic_group, [])
+        rows.append(
+            SemanticGroupRow(
+                semantic_group=semantic_group,
+                region_ids=tuple(
+                    sorted(region_ids_by_group.get(semantic_group, (semantic_group,)))
+                ),
+                n_samples=len(samples_by_group[semantic_group]),
+                mean_degradation=sum(values) / len(values) if values else None,
+                high_rate=(high_count / n_graded) if n_graded else None,
+                flip_rate=(sum(flip_values) / len(flip_values)) if flip_values else None,
+            )
+        )
+    return tuple(rows)
+
+
+def _build_class_semantic_matrix(
+    sample_semantic_degradation: Mapping[tuple[str, str], float],
+    gt_label_by_sample: Mapping[str, int | None],
+) -> tuple[tuple[ClassSemanticRow, ...], int]:
+    """Build the ``(gt_label, semantic_group)`` cross-tabulation (plan §3.3 item 6).
+
+    Joins :func:`_sample_semantic_group_degradation`'s per-sample values
+    with each sample's ``gt_label`` (from ``full_sample_rankings``, already
+    computed) and regroups by the coarser ``(gt_label, semantic_group)``
+    key — the primary artifact this plan exists to add: a table answering
+    "for this action class, which body part matters most?"
+
+    Samples with ``gt_label is None`` are excluded (their body-part
+    contribution cannot be attributed to a class) rather than folded into a
+    misleading "unknown class" row; ``ClassSemanticRow.flip_rate`` is always
+    ``None`` (module docstring — no ``(sample, semantic_group)``-grain flip
+    signal exists in N3).
+
+    Returns:
+        ``(rows, n_excluded)`` — rows sorted by ``(gt_label, semantic_
+        group)``, and the count of *distinct* samples excluded for having no
+        ``gt_label`` (not occurrences, since one such sample can contribute
+        to several semantic_groups).
+    """
+
+    grouped: dict[tuple[int, str], list[float]] = defaultdict(list)
+    samples_by_cell: dict[tuple[int, str], set[str]] = defaultdict(set)
+    excluded_sample_ids: set[str] = set()
+    for (sample_id, semantic_group), value in sample_semantic_degradation.items():
+        gt_label = gt_label_by_sample.get(sample_id)
+        if gt_label is None:
+            excluded_sample_ids.add(sample_id)
+            continue
+        grouped[(gt_label, semantic_group)].append(value)
+        samples_by_cell[(gt_label, semantic_group)].add(sample_id)
+
+    rows = tuple(
+        ClassSemanticRow(
+            gt_label=gt_label,
+            semantic_group=semantic_group,
+            n_samples=len(samples_by_cell[(gt_label, semantic_group)]),
+            mean_degradation=sum(values) / len(values) if values else None,
+            flip_rate=None,
+        )
+        for (gt_label, semantic_group), values in sorted(grouped.items())
+    )
+    return rows, len(excluded_sample_ids)
 
 
 def _reason_summary(row: ReliabilityRow) -> str:
