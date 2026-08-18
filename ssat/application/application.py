@@ -67,7 +67,12 @@ from ssat.core.region.skeleton_store import (
 )
 from ssat.core.resume import ResumeIndex
 from ssat.core.runtime import RuntimeCancelledError, run_audit
-from ssat.core.source.base import SampleSource
+from ssat.core.source import (
+    SampleSource,
+    SourceProviderError,
+    SourceProviderRegistry,
+    default_source_provider_registry,
+)
 from ssat.core.types import ItemStatus
 from ssat.metrics.aggregate import aggregate_item_metrics
 from ssat.metrics.builtin_metrics import default_metric_registry
@@ -170,11 +175,13 @@ class AuditApplication:
         self,
         adapter_registry: AdapterProviderRegistry | None = None,
         *,
+        source_registry: SourceProviderRegistry | None = None,
         code_version: str = CODE_VERSION,
     ) -> None:
         if not code_version:
             raise ValueError("code_version must not be empty")
         self._registry = adapter_registry or default_adapter_provider_registry()
+        self._source_registry = source_registry or default_source_provider_registry()
         self._code_version = code_version
         self._logger = get_logger(__name__)
 
@@ -791,6 +798,7 @@ class AuditApplication:
             loaded = load_application_config(
                 config,  # type: ignore[arg-type]
                 self._registry,
+                source_registry=self._source_registry,
                 base_dir=base_dir,
             )
             adapter = self._registry.build(
@@ -821,7 +829,7 @@ class AuditApplication:
             )
         except ApplicationConfigError as error:
             raise ApplicationError(ApplicationErrorCode.CONFIG, str(error)) from error
-        except AdapterProviderError as error:
+        except (AdapterProviderError, SourceProviderError) as error:
             raise ApplicationError(ApplicationErrorCode.PROVIDER, str(error)) from error
         except Exception as error:
             raise ApplicationError(

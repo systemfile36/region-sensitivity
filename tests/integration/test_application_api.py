@@ -19,6 +19,7 @@ from ssat.application import (
     AuditApplication,
     CancellationToken,
     ComputeMetricsRequest,
+    EstimateRequest,
     ExportLabelsRequest,
     InspectRequest,
     RebuildIndexRequest,
@@ -32,8 +33,17 @@ from ssat.core.adapter import (
     CallableAdapter,
     ProviderConfig,
 )
+from ssat.core.config import SourceProvenance
 from ssat.core.estimate import EstimateOptions, EstimationLimits
+from ssat.core.source import (
+    ImageFolderSource,
+    SampleMeta,
+    SourceProvider,
+    SourceProviderConfig,
+    SourceProviderRegistry,
+)
 from ssat.metrics.store import load_metrics
+from ssat.utils.io import sha256_file
 
 
 FIXTURE = Path(__file__).parents[1] / "fixtures" / "synthetic_classification"
@@ -109,6 +119,82 @@ def _config(manifest: Path = FIXTURE / "manifest.json") -> dict:
         },
         "dump": {"flush_every": 5},
     }
+
+
+class _EchoSourceConfig(SourceProviderConfig):
+    kind: Literal["test_echo"] = "test_echo"
+    manifest: Path
+
+
+class _EchoSourceProvider(SourceProvider):
+    """Build an in-memory sample list while still citing a real manifest file.
+
+    Proves a caller-registered SourceProvider is reachable end to end and
+    need not reuse image_manifest's own file-parsing path, while keeping
+    SourceProvenance backed by a real file + hash -- the reproducibility
+    contract this registry does not relax
+    (docs/IMPLE_PLAN_DATASET_INGESTION_v1.md §1 item5).
+    """
+
+    name = "test_echo"
+    config_model = _EchoSourceConfig
+
+    def build(self, config: SourceProviderConfig, *, base_dir: Path):
+        assert isinstance(config, _EchoSourceConfig)
+        manifest_path = config.manifest
+        if not manifest_path.is_absolute():
+            manifest_path = base_dir / manifest_path
+        manifest_path = manifest_path.resolve(strict=True)
+
+        fixture_manifest = json.loads((FIXTURE / "manifest.json").read_text(encoding="utf-8"))
+        samples = [
+            SampleMeta(sample["sample_id"], FIXTURE / sample["path"], sample["gt_label"])
+            for sample in fixture_manifest["samples"]
+            if sample["gt_label"] in (0, 1)
+        ]
+        provenance = SourceProvenance(
+            kind=config.kind,
+            manifest=manifest_path,
+            manifest_hash=sha256_file(manifest_path),
+        )
+        return ImageFolderSource(samples), provenance
+
+
+def _application_with_echo_source() -> AuditApplication:
+    adapter_registry = AdapterProviderRegistry()
+    adapter_registry.register(_FixtureProvider())
+    source_registry = SourceProviderRegistry()
+    source_registry.register(_EchoSourceProvider())
+    return AuditApplication(
+        adapter_registry,
+        source_registry=source_registry,
+        code_version="application-test",
+    )
+
+
+def test_custom_source_provider_runs_estimate_and_run_end_to_end(tmp_path: Path) -> None:
+    """A caller-registered SourceProvider must be reachable through the public API.
+
+    Without this test the source_registry extension point could regress
+    into an unused shell -- the registry accepting registration without any
+    real code path ever building a sample source through it
+    (docs/IMPLE_PLAN_DATASET_INGESTION_v1.md §9).
+    """
+
+    application = _application_with_echo_source()
+    config = _config()
+    config["source"] = {"kind": "test_echo", "manifest": str(FIXTURE / "manifest.json")}
+
+    estimate = application.estimate(EstimateRequest(config, base_dir=tmp_path))
+    assert estimate.report.total_perturbed_items > 0
+
+    output = tmp_path / "dump"
+    with application.prepare_run(RunRequest(config, output, base_dir=tmp_path)) as prepared:
+        result = application.execute_run(prepared)
+
+    assert result.status == "completed"
+    assert result.summary is not None
+    assert result.summary.records_written > 0
 
 
 def test_application_prepare_execute_resume_inspect_and_rebuild(tmp_path: Path) -> None:

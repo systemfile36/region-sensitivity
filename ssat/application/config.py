@@ -12,8 +12,12 @@ from ssat.core.adapter import (
     ProviderConfig,
 )
 from ssat.core.config import AuditConfig, SourceProvenance
-from ssat.core.source import SourceProviderRegistry, default_source_provider_registry
-from ssat.core.source.base import SampleSource
+from ssat.core.source import (
+    SampleSource,
+    SourceProviderError,
+    SourceProviderRegistry,
+    default_source_provider_registry,
+)
 from ssat.utils.io import load_yaml, sha256_file
 
 
@@ -66,7 +70,7 @@ def load_application_config(
             config_source=config_source,
             config_hash=config_hash,
         )
-    except (ApplicationConfigError, AdapterProviderError):
+    except (ApplicationConfigError, AdapterProviderError, SourceProviderError):
         raise
     except Exception as error:
         raise ApplicationConfigError(f"invalid application configuration: {error}") from error
