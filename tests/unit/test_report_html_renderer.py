@@ -24,6 +24,7 @@ import pytest
 
 from ssat.report.html_renderer import (
     ReportManifestPaths,
+    _class_semantic_grid,
     _grade_distribution_percentages,
     _grid_layout,
     _heat_color,
@@ -32,6 +33,7 @@ from ssat.report.html_renderer import (
 )
 from ssat.report.static import ENHANCE_JS, STYLE_CSS
 from ssat.report.types import (
+    ClassSemanticRow,
     FlaggedItem,
     MetricCard,
     ProvenanceInfo,
@@ -115,7 +117,12 @@ def _spatial_concentration(**overrides: object) -> SpatialConcentration:
 
 
 def _no_semantic_groups() -> SemanticConcentration:
-    """The §1 격차#6 graceful-degradation marker — html_renderer's semantic section (단계 5) is not yet implemented."""
+    """The §1 격차#6 graceful-degradation marker.
+
+    The default fixture used by every non-semantic-focused test, so those
+    tests exercise (and pin) the ``#semantic-profile`` section's collapsed
+    "해당 없음" branch by default.
+    """
 
     return SemanticConcentration(
         dominant_semantic_group=None,
@@ -124,6 +131,30 @@ def _no_semantic_groups() -> SemanticConcentration:
         n_semantic_groups=0,
         n_scored_samples=0,
     )
+
+
+def _semantic_concentration(**overrides: object) -> SemanticConcentration:
+    defaults: dict[str, object] = {
+        "dominant_semantic_group": "upper_limb",
+        "dominant_semantic_group_share": 0.6,
+        "semantic_group_entropy": 0.4,
+        "n_semantic_groups": 2,
+        "n_scored_samples": 100,
+    }
+    defaults.update(overrides)
+    return SemanticConcentration(**defaults)  # type: ignore[arg-type]
+
+
+def _class_semantic_row(**overrides: object) -> ClassSemanticRow:
+    defaults: dict[str, object] = {
+        "gt_label": 0,
+        "semantic_group": "upper_limb",
+        "n_samples": 12,
+        "mean_degradation": 0.3,
+        "flip_rate": None,
+    }
+    defaults.update(overrides)
+    return ClassSemanticRow(**defaults)  # type: ignore[arg-type]
 
 
 def _report_model(**overrides: object) -> ReportModel:
@@ -362,6 +393,7 @@ def test_render_report_full_model_renders_every_section(tmp_path: Path) -> None:
         "stability-controls",
         "flagged-anchors",
         "provenance",
+        "semantic-profile",
     ):
         assert f'id="{section_id}"' in html
     assert "Clean Accuracy" in html
@@ -621,6 +653,114 @@ def test_flagged_anchors_section_lists_spotlight_items(tmp_path: Path) -> None:
     assert "sign flips across fill strategies" in html
 
 
+# --- semantic region profile (IMPLE_PLAN_SEMANTIC_VULNERABILITY_v1.md §4, 단계5) --
+
+
+def test_semantic_profile_gate_collapses_to_not_applicable_notice(tmp_path: Path) -> None:
+    """The default fixture's semantic_concentration has n_semantic_groups == 0 (§1 격차#6)."""
+
+    paths = render_report(_report_model(), tmp_path, top_k=20, bottom_k=20)
+    html = paths.report_html.read_text(encoding="utf-8")
+
+    assert "regions[].semantic_group</code> 미설정" in html
+    assert "gt_label × semantic_group 교차표" not in html
+
+
+def test_semantic_profile_renders_class_semantic_table_for_multiple_groups(tmp_path: Path) -> None:
+    model = _report_model(
+        class_semantic_matrix=(
+            _class_semantic_row(gt_label=0, semantic_group="lower_limb", mean_degradation=0.7),
+            _class_semantic_row(gt_label=0, semantic_group="upper_limb", mean_degradation=0.1),
+            _class_semantic_row(gt_label=1, semantic_group="upper_limb", mean_degradation=0.6),
+            # gt_label=1 × lower_limb intentionally absent -> renders as "no data" cell.
+        ),
+        semantic_concentration=_semantic_concentration(),
+    )
+    paths = render_report(model, tmp_path, top_k=20, bottom_k=20)
+    html = paths.report_html.read_text(encoding="utf-8")
+
+    assert "gt_label × semantic_group 교차표" in html
+    assert "<th>lower_limb</th>" in html
+    assert "<th>upper_limb</th>" in html
+    assert 'title="n_samples=12"' in html
+
+
+def test_semantic_profile_missing_combination_renders_no_data_cell(tmp_path: Path) -> None:
+    model = _report_model(
+        class_semantic_matrix=(
+            _class_semantic_row(gt_label=0, semantic_group="lower_limb"),
+            _class_semantic_row(gt_label=1, semantic_group="upper_limb"),
+        ),
+        semantic_concentration=_semantic_concentration(),
+    )
+    paths = render_report(model, tmp_path, top_k=20, bottom_k=20)
+    html = paths.report_html.read_text(encoding="utf-8")
+
+    assert '<td class="no-data">—</td>' in html
+
+
+def test_semantic_profile_flip_rate_shown_only_when_present(tmp_path: Path) -> None:
+    model = _report_model(
+        class_semantic_matrix=(
+            _class_semantic_row(gt_label=0, semantic_group="lower_limb", flip_rate=0.42),
+        ),
+        semantic_concentration=_semantic_concentration(n_semantic_groups=2),
+    )
+    paths = render_report(model, tmp_path, top_k=20, bottom_k=20)
+    html = paths.report_html.read_text(encoding="utf-8")
+
+    assert "(flip 42.00%)" in html
+
+
+def test_semantic_profile_dominant_group_wording_above_half_share(tmp_path: Path) -> None:
+    model = _report_model(
+        class_semantic_matrix=(_class_semantic_row(),),
+        semantic_concentration=_semantic_concentration(
+            dominant_semantic_group="lower_limb", dominant_semantic_group_share=0.75
+        ),
+    )
+    paths = render_report(model, tmp_path, top_k=20, bottom_k=20)
+    html = paths.report_html.read_text(encoding="utf-8")
+
+    assert "집중되어 있습니다" in html
+    assert "lower_limb" in html
+    assert "75.00%" in html
+
+
+def test_semantic_profile_dominant_group_wording_below_half_share(tmp_path: Path) -> None:
+    model = _report_model(
+        class_semantic_matrix=(_class_semantic_row(),),
+        semantic_concentration=_semantic_concentration(
+            dominant_semantic_group="lower_limb", dominant_semantic_group_share=0.2
+        ),
+    )
+    paths = render_report(model, tmp_path, top_k=20, bottom_k=20)
+    html = paths.report_html.read_text(encoding="utf-8")
+
+    assert "집중되지 않습니다" in html
+    assert "20.00%" in html
+
+
+def test_semantic_profile_includes_export_labels_cli_guidance(tmp_path: Path) -> None:
+    model = _report_model(
+        class_semantic_matrix=(_class_semantic_row(),),
+        semantic_concentration=_semantic_concentration(),
+    )
+    paths = render_report(model, tmp_path, top_k=20, bottom_k=20)
+    html = paths.report_html.read_text(encoding="utf-8")
+
+    assert "ssat export-labels" in html
+    assert "labels.jsonl" in html
+
+
+def test_semantic_profile_provenance_download_links_present(tmp_path: Path) -> None:
+    paths = render_report(_report_model(), tmp_path, top_k=20, bottom_k=20)
+    html = paths.report_html.read_text(encoding="utf-8")
+
+    assert 'href="data/semantic_summary.csv"' in html
+    assert 'href="data/class_semantic_matrix.csv"' in html
+
+
 # --- badges/colors -------------------------------------------------------------
 
 
@@ -818,6 +958,40 @@ def test_grid_layout_returns_none_for_unparseable_region_key() -> None:
 
 def test_grid_layout_returns_none_for_empty_rows() -> None:
     assert _grid_layout(()) is None
+
+
+def test_class_semantic_grid_lays_out_sorted_axes_and_fills_missing_cells() -> None:
+    rows = (
+        _class_semantic_row(gt_label=1, semantic_group="upper_limb", mean_degradation=0.5),
+        _class_semantic_row(gt_label=0, semantic_group="lower_limb", mean_degradation=0.9),
+    )
+
+    grid = _class_semantic_grid(rows)
+
+    assert grid is not None
+    assert grid["gt_labels"] == [0, 1]
+    assert grid["semantic_groups"] == ["lower_limb", "upper_limb"]
+    assert grid["cells"][0][0].mean_degradation == 0.9  # (gt_label=0, lower_limb)
+    assert grid["cells"][0][1] is None  # (gt_label=0, upper_limb) absent
+    assert grid["cells"][1][0] is None  # (gt_label=1, lower_limb) absent
+    assert grid["cells"][1][1].mean_degradation == 0.5  # (gt_label=1, upper_limb)
+    assert grid["max_mean_degradation"] == 0.9
+
+
+def test_class_semantic_grid_max_degradation_ignores_none_values() -> None:
+    rows = (
+        _class_semantic_row(gt_label=0, semantic_group="a", mean_degradation=None),
+        _class_semantic_row(gt_label=0, semantic_group="b", mean_degradation=0.3),
+    )
+
+    grid = _class_semantic_grid(rows)
+
+    assert grid is not None
+    assert grid["max_mean_degradation"] == 0.3
+
+
+def test_class_semantic_grid_returns_none_for_empty_rows() -> None:
+    assert _class_semantic_grid(()) is None
 
 
 def test_heat_color_returns_neutral_for_none_value_or_max() -> None:

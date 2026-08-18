@@ -96,6 +96,35 @@ questions (baseline → sensitivity magnitude → spatial concentration →
 control & stability → actionable examples) for a first-time reader, and
 cross-links back to the main report's detailed sections rather than
 duplicating them.
+
+**"Semantic Region Profile" — the 9th section
+(IMPLE_PLAN_SEMANTIC_VULNERABILITY_v1.md §4, 단계5).** Added after every
+pre-existing section (including the Provenance appendix), so the A+C
+8-section structure and Layout B above are unchanged byte-for-byte in their
+own content — this stage only appends. The section is gated on
+``model.semantic_concentration.n_semantic_groups <= 1``: the common case
+(no ``regions[].semantic_group`` configured, e.g. every existing grid run)
+collapses to a one-line "해당 없음" notice rather than a self-evidently
+trivial single-group table (plan §1 격차#6, mirrored at the type level by
+``SemanticConcentration.__post_init__``). When more than one semantic group
+exists, the section renders the executive-style dominant-group sentence
+(same non-causal caveat wording as ``#executive-interpretation``), then the
+``(gt_label × semantic_group)`` cross-tabulation from ``model.
+class_semantic_matrix`` as a plain HTML table whose cells are colored with
+the same :func:`_heat_color` helper the Dataset Spatial Pattern heat grid
+already uses (:func:`_class_semantic_grid` only reshapes already-computed
+rows into a 2D grid, the same "no new statistic" role :func:`_grid_layout`
+plays for ``region_summary``) — a table rather than a CSS grid because,
+unlike the spatial-pattern heat grid, this one needs real row/column
+headers (``gt_label`` values, ``semantic_group`` names). Each cell shows
+``mean_degradation`` and, when the run's primary metric is binary,
+``flip_rate``; the ``n_samples`` behind every cell is always available via
+its ``title`` attribute so a sparse combination is never mistaken for a
+well-evidenced one (plan §9 risk table). The section ends with a plain-text
+pointer to the separate ``ssat export-labels`` CLI command (plan §5: label
+export is deliberately not run automatically by ``ssat report``, so this
+module never renders a real link to ``labels.jsonl``, only instructions for
+generating it).
 """
 
 from __future__ import annotations
@@ -109,7 +138,7 @@ from pathlib import Path
 import jinja2
 
 from ssat.report.static import ENHANCE_JS, STYLE_CSS
-from ssat.report.types import GRADE_COLORS, RegionRow, ReportGrade, ReportModel
+from ssat.report.types import GRADE_COLORS, ClassSemanticRow, RegionRow, ReportGrade, ReportModel
 
 # Distinct from every real GRADE_COLORS value — a badge for "no analysis run"
 # must never read as any specific grade (mirrors report.charts._NO_GRADE_COLOR;
@@ -305,6 +334,7 @@ def _build_environment() -> jinja2.Environment:
     environment.filters["fmt_distribution"] = _format_distribution
     environment.filters["grade_distribution_percentages"] = _grade_distribution_percentages
     environment.filters["grid_layout"] = _grid_layout
+    environment.filters["class_semantic_grid"] = _class_semantic_grid
     environment.filters["heat_color"] = _heat_color
     environment.globals["grade_color"] = _grade_color
     environment.globals["unreliable_badge_color"] = GRADE_COLORS[ReportGrade.UNRELIABLE]
@@ -398,6 +428,47 @@ def _grid_layout(rows: Sequence[RegionRow]) -> Mapping[str, object] | None:
         "cells": cells,
         "max_top_region_share": max(top_shares) if top_shares else None,
         "max_high_rate": max(high_rates) if high_rates else None,
+    }
+
+
+def _class_semantic_grid(
+    rows: Sequence[ClassSemanticRow],
+) -> Mapping[str, object] | None:
+    """Reshape ``class_semantic_matrix`` into a ``(gt_label × semantic_group)`` grid.
+
+    Same pure-reshaping role as :func:`_grid_layout` (module docstring): a
+    ``ClassSemanticRow`` tuple is already every cell of this cross-tab
+    (``ssat.report.assembler``, IMPLE_PLAN_SEMANTIC_VULNERABILITY_v1.md §3.3
+    item 6) — this only lays it out as a 2D table a template can loop over
+    by row/column, it does not compute anything the rows did not already
+    carry.
+
+    Returns:
+        ``None`` when ``rows`` is empty. Otherwise a mapping with
+        ``"gt_labels"``/``"semantic_groups"`` (sorted axis labels),
+        ``"cells"`` (row-major 2D list of ``ClassSemanticRow | None`` —
+        ``None`` for any ``(gt_label, semantic_group)`` combination absent
+        from ``rows``, e.g. a class with zero samples in that group), and
+        ``"max_mean_degradation"`` (the heat-color scale's denominator,
+        ``None`` when every row's ``mean_degradation`` is ``None``).
+    """
+
+    if not rows:
+        return None
+
+    gt_labels = sorted({row.gt_label for row in rows})
+    semantic_groups = sorted({row.semantic_group for row in rows})
+    by_key = {(row.gt_label, row.semantic_group): row for row in rows}
+    cells = [
+        [by_key.get((gt_label, semantic_group)) for semantic_group in semantic_groups]
+        for gt_label in gt_labels
+    ]
+    degradations = [row.mean_degradation for row in rows if row.mean_degradation is not None]
+    return {
+        "gt_labels": gt_labels,
+        "semantic_groups": semantic_groups,
+        "cells": cells,
+        "max_mean_degradation": max(degradations) if degradations else None,
     }
 
 
@@ -851,8 +922,86 @@ _REPORT_TEMPLATE = """
     <li><a href="data/sample_rankings.csv">sample_rankings.csv</a></li>
     <li><a href="data/region_summary.csv">region_summary.csv</a></li>
     <li><a href="data/flagged_items.csv">flagged_items.csv</a></li>
+    <li><a href="data/semantic_summary.csv">semantic_summary.csv</a></li>
+    <li><a href="data/class_semantic_matrix.csv">class_semantic_matrix.csv</a></li>
   </ul>
 </details>
+
+<section id="semantic-profile">
+  <h2>Semantic Region Profile</h2>
+  {% if model.semantic_concentration.n_semantic_groups <= 1 %}
+  <p class="no-data">
+    이 실행에는 grid 좌표 외의 의미적 영역 구분이 설정되어 있지 않습니다
+    (<code>regions[].semantic_group</code> 미설정) — 이 섹션은 표시할 내용이 없습니다.
+  </p>
+  {% else %}
+  {% set semantic_share = model.semantic_concentration.dominant_semantic_group_share %}
+  <p class="section-note">
+    {% if semantic_share is none %}
+    의미적 영역 집중도를 판단할 데이터가 없습니다.
+    {% elif semantic_share >= 0.5 %}
+    민감도가 <strong>{{ model.semantic_concentration.dominant_semantic_group }}</strong> 부위에
+    비교적 집중되어 있습니다({{ semantic_share | fmt_pct }},
+    {{ model.semantic_concentration.n_scored_samples }}개 샘플 기준).
+    {% else %}
+    민감도는 존재하지만 <strong>한 고정 부위에 집중되지 않습니다</strong> — 가장 자주 꼽히는 부위
+    (<code>{{ model.semantic_concentration.dominant_semantic_group }}</code>)도
+    {{ semantic_share | fmt_pct }}에 그칩니다.
+    {% endif %}
+  </p>
+  <p class="callout">
+    이 문장은 이번 실행에서 관측된 패턴을 서술할 뿐입니다 — shortcut 여부나 원인을 자동으로 판정하지
+    않으며, 실제 원인 확인에는 후속 검증이 필요합니다.
+  </p>
+
+  <h3>Class × Semantic-group</h3>
+  <p class="section-note">
+    행은 정답 라벨(gt_label), 열은 의미적 영역(semantic_group)입니다 — 셀 색이 진할수록 그 라벨에서
+    그 부위를 가렸을 때 저하도(mean_degradation)가 큽니다. 표본이 적은 조합은 참고용으로만
+    해석하세요 — 각 셀에 마우스를 올리면(title) n_samples를 확인할 수 있습니다.
+  </p>
+  {% set grid = model.class_semantic_matrix | class_semantic_grid %}
+  {% if grid %}
+  <table>
+    <caption>gt_label × semantic_group 교차표 (mean_degradation, 이진 지표에서는 flip_rate도 함께 표시)</caption>
+    <thead>
+      <tr>
+        <th>gt_label</th>
+        {% for semantic_group in grid.semantic_groups %}
+        <th>{{ semantic_group }}</th>
+        {% endfor %}
+      </tr>
+    </thead>
+    <tbody>
+      {% for gt_label in grid.gt_labels %}
+      <tr>
+        <th>{{ gt_label }}</th>
+        {% for cell in grid.cells[loop.index0] %}
+        {% if cell %}
+        <td style="background-color: {{ cell.mean_degradation | heat_color(grid.max_mean_degradation) }};"
+            title="n_samples={{ cell.n_samples }}">
+          {{ cell.mean_degradation | fmt }}{% if cell.flip_rate is not none %} (flip {{ cell.flip_rate | fmt_pct }}){% endif %}
+        </td>
+        {% else %}
+        <td class="no-data">—</td>
+        {% endif %}
+        {% endfor %}
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="no-data">데이터 없음</p>
+  {% endif %}
+
+  <p class="section-note">
+    샘플 단위 라벨 파일(후속 학습 파이프라인용)이 필요하면 이 리포트와 별도로
+    <code>ssat export-labels &lt;report_dir&gt;</code>를 실행하세요 — <code>ssat report</code>는
+    라벨 파일을 자동으로 생성하지 않습니다. 실행하면 이 리포트 디렉터리 하위에
+    <code>labels.jsonl</code>과 <code>labels_manifest.json</code>이 생성됩니다.
+  </p>
+  {% endif %}
+</section>
 
 <script src="assets/js/enhance.js" defer></script>
 </body>
