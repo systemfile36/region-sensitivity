@@ -23,7 +23,7 @@ def test_default_registry_is_fresh_and_contains_only_builtins() -> None:
     first = default_source_provider_registry()
     second = default_source_provider_registry()
     assert first is not second
-    assert first.names == ("image_manifest", "video_manifest")
+    assert first.names == ("image_manifest", "video_manifest", "imagenet", "kinetics400")
 
 
 def test_register_rejects_duplicate_or_invalid_providers() -> None:

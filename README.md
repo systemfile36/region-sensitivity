@@ -42,6 +42,24 @@ print(result.to_dict())
 [설정 레퍼런스](docs/CONFIG_REFERENCE.md),
 [애플리케이션/WebUI 연동](docs/APPLICATION_API.md)을 참고하세요.
 
+## 내장 지원 데이터셋 (source provider)
+
+아래 데이터셋은 오프라인 전처리 스크립트 없이 `source.kind`만 지정하면
+바로 감사할 수 있도록 SSAT 기본 레지스트리에 provider가 내장돼 있습니다.
+
+- **ImageNet** (`source.kind: imagenet`): 파일 리스트(`<relative_path>
+  <label>`)와 이미지 루트 디렉터리.
+- **Kinetics-400** (`source.kind: kinetics400`): DeepMind Kinetics 주석
+  CSV(`label,youtube_id,time_start,time_end,split`)와 클립 디렉터리.
+
+두 provider의 정확한 입력 포맷은 [설정 레퍼런스](docs/CONFIG_REFERENCE.md)의
+"내장 데이터셋 source provider" 절을 참고하세요.
+
+> **실제 데이터로 검증되지 않았습니다.** 두 provider 모두 문서화된 포맷을
+> 흉내 낸 소규모 합성 fixture로만 테스트되었으며, 실제 대규모 ImageNet/
+> Kinetics 다운로드에 대해서는 아직 검증된 적이 없습니다. 적용 전 자신의
+> 배포본이 문서화된 포맷과 정확히 일치하는지 직접 확인하세요.
+
 ## 지원 데이터셋 레시피
 
 `ssat estimate`/`ssat run`은 `source.kind: image_manifest`/`video_manifest`

@@ -213,7 +213,15 @@ class SourceProviderRegistry:
 def default_source_provider_registry() -> SourceProviderRegistry:
     """Return a fresh registry containing only v1 built-in providers."""
 
+    # Imported here rather than at module scope: both modules import
+    # SourceProvider/SourceProviderConfig/SourceProviderError from this
+    # module, so a top-level import back into this module would be circular.
+    from ssat.core.source.imagenet import ImageNetSourceProvider
+    from ssat.core.source.kinetics import KineticsSourceProvider
+
     registry = SourceProviderRegistry()
     registry.register(ImageManifestProvider())
     registry.register(VideoManifestProvider())
+    registry.register(ImageNetSourceProvider())
+    registry.register(KineticsSourceProvider())
     return registry

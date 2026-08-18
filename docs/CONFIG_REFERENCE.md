@@ -120,11 +120,64 @@ regions:
 동작하는 전체 예시는 `configs/examples/skeleton_quickstart.yaml`(및 함께
 커밋된 `tests/fixtures/synthetic_video/skeleton_bbox.json`)을 참고하세요.
 
+### 내장 데이터셋 source provider (imagenet, kinetics400)
+
+`image_manifest`/`video_manifest` 외에, 잘 알려진 공개 분류 데이터셋을
+자체 매니페스트 JSON 없이 바로 가리킬 수 있도록 `imagenet`, `kinetics400`
+두 `source.kind`가 기본 레지스트리에 내장되어 있습니다. 두 provider 모두
+원본 배포물이 흔히 동반하는 텍스트 포맷(파일 리스트, 주석 CSV)을 그대로
+읽어 `SampleMeta` 목록으로 변환할 뿐, 이미지/비디오 디코딩 자체는 기존
+`image_manifest`/`video_manifest`와 동일하게 `ImageFolderSource`/
+`VideoFolderSource`가 수행합니다.
+
+> **주의:** 두 provider 모두 지금까지 실제 대규모 ImageNet/Kinetics
+> 다운로드로 검증된 적이 없습니다 — 아래 문서화된 포맷을 그대로 흉내 낸
+> 소규모 합성 fixture(`tests/unit/test_imagenet_source.py`,
+> `tests/unit/test_kinetics_source.py`)로만 검증되었습니다. 실제 데이터에
+> 적용하기 전에 자신의 배포본이 정말 이 포맷과 일치하는지 직접 확인하세요.
+
+**imagenet** — `<relative_path> <label>` 파일 리스트(한 줄에 하나, 공백
+구분, `label`은 0-based 음이 아닌 정수)와 그 경로들이 기준으로 삼는 이미지
+루트 디렉터리로 구성됩니다. 이 파일 리스트 포맷은 ImageNet 자체보다 오래된
+포맷(Caffe `ImageDataLayer`)이지만 지금도 torchvision의 클래스별 폴더
+(`ImageFolder`) 대신 이 방식을 쓰는 ImageNet 파생 학습 파이프라인 다수에서
+표준처럼 쓰입니다. 원본 ImageNet 배포(devkit, `LOC_val_solution.csv`,
+`valprep.sh` 재배치 등)에서 이 파일을 만드는 과정은 SSAT 범위 밖입니다.
+
+```yaml
+source:
+  kind: imagenet
+  root: /path/to/imagenet/images
+  annotation_file: /path/to/train.txt   # "n01440764/img.JPEG 0" 형식, 줄당 1개
+```
+
+**kinetics400** — DeepMind Kinetics가 배포하는 주석 CSV(헤더
+`label,youtube_id,time_start,time_end,split`, `is_cc` 등 추가 컬럼은 무시)와
+클립 디렉터리로 구성됩니다. 클립 파일명은 대다수 다운로드 스크립트(예:
+`cvdfoundation/kinetics-dataset`)가 만드는 관례인
+`<youtube_id>_<time_start:06d>_<time_end:06d>.<extension>`을 그대로
+기대합니다. CSV는 클래스 인덱스를 담지 않으므로 `classes`를 지정하지 않으면
+CSV에 등장하는 `label` 문자열을 알파벳순으로 정렬해 인덱스를 매깁니다(공개
+Kinetics `label_map.txt`/`mmaction2` 등 통용 관례). 체크포인트가 다른 순서를
+기대하면 `classes`로 직접 순서를 고정하세요.
+
+```yaml
+source:
+  kind: kinetics400
+  csv_path: /path/to/kinetics400_train.csv
+  video_root: /path/to/clips
+  num_frames: 16
+  split: train        # 선택, 지정하면 해당 split 행만 사용
+  extension: mp4       # 선택, 기본 mp4
+  classes: null         # 선택, 지정하면 CSV의 알파벳 정렬 대신 이 순서 사용
+```
+
 ### 커스텀 source provider 등록
 
-`source.kind`는 v1에서 `image_manifest`/`video_manifest` 두 가지만 기본
-등록되어 있습니다. 세 번째 kind가 필요하면(예: 자체 매니페스트 포맷, 이미
-메모리에 있는 목록으로 소스를 구성하는 경우) `ssat.core.source`의
+`source.kind`는 기본적으로 `image_manifest`/`video_manifest`/`imagenet`/
+`kinetics400` 네 가지가 등록되어 있습니다. 다섯 번째 kind가 필요하면(예:
+자체 매니페스트 포맷, 이미 메모리에 있는 목록으로 소스를 구성하는 경우)
+`ssat.core.source`의
 `SourceProvider`/`SourceProviderRegistry`에 직접 등록해
 `AuditApplication(source_registry=...)`로 주입할 수 있습니다 — 어댑터 쪽
 `AdapterProvider`/`AdapterProviderRegistry`/`AuditApplication(adapter_registry=...)`와

@@ -2,6 +2,8 @@
 
 from ssat.core.source.base import SampleSource
 from ssat.core.source.image_folder import ImageFolderSource
+from ssat.core.source.imagenet import ImageNetSourceConfig, ImageNetSourceProvider
+from ssat.core.source.kinetics import KineticsSourceConfig, KineticsSourceProvider
 from ssat.core.source.provider import (
     ImageManifestProvider,
     ImageManifestSourceConfig,
@@ -20,6 +22,10 @@ __all__ = [
     "ImageFolderSource",
     "ImageManifestProvider",
     "ImageManifestSourceConfig",
+    "ImageNetSourceConfig",
+    "ImageNetSourceProvider",
+    "KineticsSourceConfig",
+    "KineticsSourceProvider",
     "LoadError",
     "LoadedSample",
     "SampleMeta",
