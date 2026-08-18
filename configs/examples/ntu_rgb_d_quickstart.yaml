@@ -1,0 +1,48 @@
+# NTU-RGB+D 실데이터 예시. CI/기본 테스트 대상이 아닙니다 -- data/ 아래 실제
+# NTU-RGB+D 서브셋을 필요로 하며(.gitignore 대상, 저장소에는 커밋되지 않음),
+# 아래 경로가 존재하려면 먼저 scripts/dataset_prep/ntu_rgb_d.py를 실행해야
+# 합니다(IMPLE_PLAN_DATASET_INGESTION_v1.md §6 단계6 실데이터 검증에서 사용한
+# 재현 가능한 선택 방법: video_key 정렬 후 --actions로 지정한 클래스만 취해
+# 결과가 실행할 때마다 동일함).
+#
+#   python scripts/dataset_prep/ntu_rgb_d.py \
+#     --rgb-root data/nturgb+d_rgb \
+#     --skeleton-root data/nturgbd_skeletons_s001_to_s017/nturgb+d_skeletons \
+#     --split xsub --num-frames 16 \
+#     --actions 8,9,23 \
+#     --limit 24 \
+#     --out data/ntu_rgb_d_quickstart
+#
+# --actions 8,9,23은 sitting down/standing up/hand waving -- 팔다리 움직임이
+# 뚜렷해 skeleton_parts 마스크를 육안으로 확인하기 좋은 세 클래스를 고른
+# 것일 뿐 특별한 의미는 없습니다. 다른 서브셋으로 시험해 보려면 --out을
+# 바꾸고 이 파일의 manifest/bbox_data 경로도 함께 바꾸세요.
+schema_version: 1.0.0
+source:
+  kind: video_manifest
+  manifest: ../../data/ntu_rgb_d_quickstart/video_manifest.json
+  num_frames: 16
+adapter:
+  provider: torchvision_video
+  model_name: r3d_18
+  weights: null
+  device: cpu
+  max_batch_size: 2
+skeleton_source:
+  bbox_data: ../../data/ntu_rgb_d_quickstart/skeleton_bbox.json
+regions:
+  - region_id: occlude_left_arm
+    kind: skeleton_parts
+    params:
+      body_part: left_arm
+      bbox_scale: 1.15
+perturbations:
+  - op: constant_fill
+    params:
+      value: [0, 0, 0]
+runtime:
+  variants_per_chunk: 2
+  target_batch_size: 2
+  num_workers: 0
+dump:
+  flush_every: 8

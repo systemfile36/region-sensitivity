@@ -120,6 +120,66 @@ regions:
 동작하는 전체 예시는 `configs/examples/skeleton_quickstart.yaml`(및 함께
 커밋된 `tests/fixtures/synthetic_video/skeleton_bbox.json`)을 참고하세요.
 
+### 커스텀 source provider 등록
+
+`source.kind`는 v1에서 `image_manifest`/`video_manifest` 두 가지만 기본
+등록되어 있습니다. 세 번째 kind가 필요하면(예: 자체 매니페스트 포맷, 이미
+메모리에 있는 목록으로 소스를 구성하는 경우) `ssat.core.source`의
+`SourceProvider`/`SourceProviderRegistry`에 직접 등록해
+`AuditApplication(source_registry=...)`로 주입할 수 있습니다 — 어댑터 쪽
+`AdapterProvider`/`AdapterProviderRegistry`/`AuditApplication(adapter_registry=...)`와
+동일한 패턴입니다.
+
+```python
+from pathlib import Path
+
+from ssat.application import AuditApplication, RunRequest
+from ssat.core.config import SourceProvenance
+from ssat.core.source import (
+    ImageFolderSource,
+    SourceProvider,
+    SourceProviderConfig,
+    default_source_provider_registry,
+)
+from ssat.utils.io import sha256_file
+
+
+class MySourceConfig(SourceProviderConfig):
+    kind: str = "my_source"
+    manifest: Path  # provenance용 실제 파일 경로는 여전히 필요
+
+
+class MySourceProvider(SourceProvider):
+    name = "my_source"
+    config_model = MySourceConfig
+
+    def build(self, config, *, base_dir):
+        samples = ...  # 자체 로직으로 만든 SampleMeta 목록
+        manifest_path = (base_dir / config.manifest).resolve(strict=True)
+        provenance = SourceProvenance(
+            kind=config.kind,
+            manifest=manifest_path,
+            manifest_hash=sha256_file(manifest_path),
+        )
+        return ImageFolderSource(samples), provenance
+
+
+registry = default_source_provider_registry()
+registry.register(MySourceProvider())
+
+application = AuditApplication(source_registry=registry)
+application.prepare_run(
+    RunRequest({"source": {"kind": "my_source", "manifest": "..."}, ...}, Path("/tmp/out"))
+)
+```
+
+이 확장 지점은 **Python API 전용**입니다 — CLI(`ssat run`/`ssat estimate`)는
+항상 기본 레지스트리만 사용하며 커스텀 provider를 등록할 방법이 없습니다
+(어댑터 쪽도 CLI에는 동일한 비대칭이 있습니다). 어떤 provider를 등록하든
+`SourceProvenance`(실제 파일 경로 + SHA-256)를 채워야 하는 재현성 계약은
+완화되지 않습니다 — "이 실행이 정확히 어떤 데이터로 감사됐는지"를 보장하는
+핵심 계약이기 때문입니다.
+
 ## Adapter
 
 Torchvision:
