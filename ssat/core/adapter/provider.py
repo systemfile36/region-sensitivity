@@ -48,6 +48,7 @@ class TorchvisionProviderConfig(ProviderConfig):
     init_seed: int = Field(default=0, ge=0, le=2**63 - 1)
     weights_hash: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
     preprocessing: tuple[dict[str, Any], ...] | None = None
+    pipeline_config: tuple[dict[str, Any], ...] | None = None
 
     @model_validator(mode="after")
     def validate_weights(self) -> TorchvisionProviderConfig:
@@ -76,6 +77,27 @@ class TorchvisionProviderConfig(ProviderConfig):
             parse_preprocessing_ops(self.preprocessing)
         return self
 
+    @model_validator(mode="after")
+    def validate_pipeline_config(self) -> TorchvisionProviderConfig:
+        """Reject a malformed pipeline_config at config-load time, not mid-run.
+
+        Mirrors validate_preprocessing's fail-fast rationale for the newer
+        registry-based transform pipeline (IMPLE_PLAN_PREPROCESSING_PIPELINE_v1.md).
+        preprocessing and pipeline_config are mutually exclusive so a config
+        can never silently mix the flat-op engine and the registry engine.
+        """
+
+        if self.pipeline_config is not None:
+            if self.preprocessing is not None:
+                raise ValueError("preprocessing and pipeline_config are mutually exclusive")
+            if not self.pipeline_config:
+                raise ValueError("pipeline_config must not be empty when provided")
+            from ssat.core.adapter.transform_registry import build_pipeline
+            from ssat.core.adapter.transforms import default_transform_registry
+
+            build_pipeline(self.pipeline_config, default_transform_registry())
+        return self
+
 
 class TorchvisionVideoProviderConfig(ProviderConfig):
     """Configuration accepted by :class:`TorchvisionVideoProvider`."""
@@ -95,6 +117,7 @@ class TorchvisionVideoProviderConfig(ProviderConfig):
     crop_size: int = Field(default=112, gt=0)
     mean: tuple[float, ...] = (0.43216, 0.394666, 0.37645)
     std: tuple[float, ...] = (0.22803, 0.22145, 0.216989)
+    pipeline_config: tuple[dict[str, Any], ...] | None = None
 
     @model_validator(mode="after")
     def validate_weights(self) -> TorchvisionVideoProviderConfig:
@@ -102,6 +125,30 @@ class TorchvisionVideoProviderConfig(ProviderConfig):
             raise ValueError("weights and checkpoint are mutually exclusive")
         if self.checkpoint is not None and self.weights_hash is not None:
             raise ValueError("checkpoint hash is computed and cannot be supplied")
+        return self
+
+    @model_validator(mode="after")
+    def validate_pipeline_config(self) -> TorchvisionVideoProviderConfig:
+        """Reject a malformed pipeline_config at config-load time, not mid-run.
+
+        This is the first preprocessing override this config accepts --
+        resize_size/crop_size/mean/std only ever fed the adapter's one fixed
+        DeclarativePreprocessor. When a pipeline is used with the video
+        adapter it must end in FormatShape(input_format="NTCHW"), since
+        TorchvisionVideoAdapter.predict() hardcodes a permute that assumes
+        that layout; this validator does not check that constraint itself
+        (it has no adapter to consult) -- a pipeline ending in
+        FormatShape("NCHW") still passes validation here and instead fails
+        clearly inside predict() (see the implementation plan's risk table).
+        """
+
+        if self.pipeline_config is not None:
+            if not self.pipeline_config:
+                raise ValueError("pipeline_config must not be empty when provided")
+            from ssat.core.adapter.transform_registry import build_pipeline
+            from ssat.core.adapter.transforms import default_transform_registry
+
+            build_pipeline(self.pipeline_config, default_transform_registry())
         return self
 
 

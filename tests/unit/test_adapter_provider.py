@@ -79,6 +79,15 @@ def test_video_checkpoint_selector_is_mutually_exclusive_with_weights() -> None:
         )
 
 
+def test_pipeline_config_and_preprocessing_are_mutually_exclusive() -> None:
+    with pytest.raises(ValueError, match="mutually exclusive"):
+        TorchvisionProviderConfig(
+            model_name="resnet18",
+            preprocessing=({"op": "to_float"},),
+            pipeline_config=({"type": "ToFloat"},),
+        )
+
+
 def test_unknown_provider_fields_are_rejected() -> None:
     registry = default_adapter_provider_registry()
     with pytest.raises(AdapterProviderError, match="invalid 'torchvision'"):
@@ -238,6 +247,84 @@ def test_malformed_preprocessing_is_rejected_at_parse_time(
                 "provider": "torchvision",
                 "model_name": "squeezenet1_0",
                 "preprocessing": preprocessing,
+            }
+        )
+
+
+@pytest.mark.parametrize(
+    "pipeline_config, message",
+    [
+        ((), "must not be empty"),
+        (({"type": "Nope"},), "unknown transform type"),
+        (({"type": "Resize"},), "Resize"),
+    ],
+)
+def test_malformed_pipeline_config_is_rejected_at_parse_time(
+    pipeline_config: tuple, message: str
+) -> None:
+    """A bad pipeline step list must fail when the config loads, not mid-audit."""
+
+    registry = default_adapter_provider_registry()
+    with pytest.raises(AdapterProviderError, match=message):
+        registry.parse(
+            {
+                "provider": "torchvision",
+                "model_name": "squeezenet1_0",
+                "pipeline_config": pipeline_config,
+            }
+        )
+
+
+def test_torchvision_pipeline_config_parses_and_is_stored_on_the_config() -> None:
+    """A valid pipeline_config is accepted and preprocessing stays unset."""
+
+    registry = default_adapter_provider_registry()
+    config = registry.parse(
+        {
+            "provider": "torchvision",
+            "model_name": "squeezenet1_0",
+            "pipeline_config": [
+                {"type": "Resize", "scale": [-1, 256]},
+                {"type": "CenterCrop", "crop_size": 224},
+                {"type": "ToFloat"},
+                {"type": "FormatShape", "input_format": "NCHW"},
+            ],
+        }
+    )
+    assert isinstance(config, TorchvisionProviderConfig)
+    assert config.pipeline_config is not None
+    assert config.preprocessing is None
+
+
+def test_torchvision_video_pipeline_config_parses_and_is_stored_on_the_config() -> None:
+    """TorchvisionVideoProviderConfig's first-ever preprocessing override field."""
+
+    registry = default_adapter_provider_registry()
+    config = registry.parse(
+        {
+            "provider": "torchvision_video",
+            "model_name": "r3d_18",
+            "pipeline_config": [
+                {"type": "SampleFrames", "clip_len": 8},
+                {"type": "Resize", "scale": [-1, 128]},
+                {"type": "CenterCrop", "crop_size": 112},
+                {"type": "ToFloat"},
+                {"type": "FormatShape", "input_format": "NTCHW"},
+            ],
+        }
+    )
+    assert isinstance(config, TorchvisionVideoProviderConfig)
+    assert config.pipeline_config is not None
+
+
+def test_video_malformed_pipeline_config_is_rejected_at_parse_time() -> None:
+    registry = default_adapter_provider_registry()
+    with pytest.raises(AdapterProviderError, match="must not be empty"):
+        registry.parse(
+            {
+                "provider": "torchvision_video",
+                "model_name": "r3d_18",
+                "pipeline_config": (),
             }
         )
 
