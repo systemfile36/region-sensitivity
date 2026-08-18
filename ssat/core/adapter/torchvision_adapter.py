@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import gc
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any
 
@@ -27,6 +27,8 @@ from ssat.core.adapter.preprocessor import (
     fingerprint_payload,
     validate_mask,
 )
+from ssat.core.adapter.transform_registry import TransformRegistry
+from ssat.core.adapter.transforms import PipelinePreprocessor
 from ssat.core.adapter.types import AdapterSpec, PreprocessingSpec, RawOutput
 
 
@@ -124,6 +126,8 @@ class TorchvisionAdapter(ModelAdapter):
         checkpoint_state_dict_key: str | None = None,
         checkpoint_strict: bool = True,
         preprocessing_ops: Sequence[OpInput] | None = None,
+        pipeline_config: Sequence[Mapping[str, Any]] | None = None,
+        transform_registry: TransformRegistry | None = None,
     ) -> None:
         if not model_name:
             raise ValueError("model_name must not be empty")
@@ -131,6 +135,8 @@ class TorchvisionAdapter(ModelAdapter):
             raise ValueError("init_seed must be between 0 and 2**63 - 1")
         if weights is not None and checkpoint_path is not None:
             raise ValueError("weights and checkpoint_path are mutually exclusive")
+        if preprocessing_ops is not None and pipeline_config is not None:
+            raise ValueError("preprocessing_ops and pipeline_config are mutually exclusive")
         try:
             import torch
             from torchvision import models
@@ -166,13 +172,17 @@ class TorchvisionAdapter(ModelAdapter):
         except Exception as error:
             raise AdapterError(f"failed to move model to device {resolved_device}") from error
         self._device = resolved_device
-        # An explicit op list replaces the weight preset entirely. The preset
-        # is only a sensible default when the source images resemble what the
-        # weights were trained on; for anything else its fixed Resize/
-        # CenterCrop geometry silently reshapes -- and can partly crop away --
-        # the very regions being audited.
+        # An explicit op list or transform pipeline replaces the weight
+        # preset entirely. The preset is only a sensible default when the
+        # source images resemble what the weights were trained on; for
+        # anything else its fixed Resize/CenterCrop geometry silently
+        # reshapes -- and can partly crop away -- the very regions being
+        # audited. pipeline_config takes priority over preprocessing_ops,
+        # but the two are already rejected as mutually exclusive above.
         self._preprocessor: Preprocessor = (
-            DeclarativePreprocessor(preprocessing_ops)
+            PipelinePreprocessor(pipeline_config, registry=transform_registry)
+            if pipeline_config is not None
+            else DeclarativePreprocessor(preprocessing_ops)
             if preprocessing_ops is not None
             else TorchvisionPreprocessor(preprocessing)
         )

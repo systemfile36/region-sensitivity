@@ -32,6 +32,7 @@ from ssat.core.adapter import (
     TorchvisionAdapter,
     TorchvisionVideoAdapter,
 )
+from ssat.core.adapter.torchvision_video_adapter import DEFAULT_MEAN, DEFAULT_STD
 
 
 def _batch(count: int = 2, height: int = 10, width: int = 14) -> np.ndarray:
@@ -410,6 +411,82 @@ def test_torchvision_video_adapter_transforms_per_frame_masks() -> None:
     assert transformed[0].sum() > 0
     assert np.all(transformed[1])
     assert not transformed[2].any()
+
+
+_PIPELINE_CONFIG_IMAGE = (
+    {"type": "Resize", "scale": [-1, 40]},
+    {"type": "CenterCrop", "crop_size": 32},
+    {"type": "ToFloat"},
+    {"type": "FormatShape", "input_format": "NCHW"},
+)
+
+
+def test_torchvision_adapter_accepts_pipeline_config_and_runs_prediction() -> None:
+    """A registry-built pipeline can replace the weight preset end to end."""
+
+    adapter = TorchvisionAdapter(
+        "squeezenet1_0", device="cpu", pipeline_config=_PIPELINE_CONFIG_IMAGE
+    )
+    spec = adapter.describe()
+    assert spec.preprocessing_fingerprint is not None
+    assert spec.mask_transform_available is True
+
+    outputs = adapter.predict(_batch(count=1, height=40, width=40))
+    assert len(outputs) == 1
+    assert outputs[0].logits.shape == (1000,)
+
+    mask = np.zeros((40, 40), dtype=np.bool_)
+    mask[:20, :20] = True
+    transformed = adapter.transform_mask(mask)
+    assert transformed.shape == (32, 32)
+
+
+def test_torchvision_adapter_pipeline_config_and_preprocessing_ops_are_mutually_exclusive() -> (
+    None
+):
+    with pytest.raises(ValueError, match="mutually exclusive"):
+        TorchvisionAdapter(
+            "squeezenet1_0",
+            device="cpu",
+            preprocessing_ops=[{"op": "to_float"}],
+            pipeline_config=_PIPELINE_CONFIG_IMAGE,
+        )
+
+
+def test_torchvision_video_adapter_accepts_pipeline_config_ending_in_ntchw() -> None:
+    """A pipeline ending in FormatShape('NTCHW') matches predict()'s permute."""
+
+    pipeline_config = (
+        {"type": "Resize", "scale": [-1, 40]},
+        {"type": "CenterCrop", "crop_size": 32},
+        {"type": "ToFloat"},
+        {"type": "Normalize", "mean": DEFAULT_MEAN, "std": DEFAULT_STD},
+        {"type": "FormatShape", "input_format": "NTCHW"},
+    )
+    adapter = TorchvisionVideoAdapter(
+        "r3d_18", device="cpu", pipeline_config=pipeline_config
+    )
+    spec = adapter.describe()
+    assert spec.mask_transform_available is True
+
+    outputs = adapter.predict(_batch(count=1, height=40, width=40).repeat(4, axis=1))
+    assert len(outputs) == 1
+    assert outputs[0].logits.shape == (400,)
+
+
+def test_torchvision_video_adapter_pipeline_config_ending_in_nchw_fails_clearly() -> None:
+    """FormatShape('NCHW') drops the T axis predict()'s permute assumes exists.
+
+    Per the implementation plan's risk table, this is not validated at
+    config-load time (the validator has no adapter to consult) -- it must
+    instead fail clearly inside predict() rather than silently misbehave.
+    """
+
+    adapter = TorchvisionVideoAdapter(
+        "r3d_18", device="cpu", pipeline_config=_PIPELINE_CONFIG_IMAGE
+    )
+    with pytest.raises(AdapterError, match="torchvision video preprocessing failed"):
+        adapter.predict(_batch(count=1, height=40, width=40))
 
 
 def test_untrained_framework_model_initialization_is_reproducible() -> None:

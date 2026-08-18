@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import gc
+from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any
 
@@ -20,6 +21,9 @@ from ssat.core.adapter.preprocessing import (
     Resize,
     ToFloat,
 )
+from ssat.core.adapter.preprocessor import Preprocessor
+from ssat.core.adapter.transform_registry import TransformRegistry
+from ssat.core.adapter.transforms import PipelinePreprocessor
 from ssat.core.adapter.types import AdapterSpec, RawOutput
 
 # Kinetics-400 defaults shared by torchvision's r3d_18/mc3_18/s3d weight presets.
@@ -60,6 +64,8 @@ class TorchvisionVideoAdapter(ModelAdapter):
         checkpoint_path: str | Path | None = None,
         checkpoint_state_dict_key: str | None = None,
         checkpoint_strict: bool = True,
+        pipeline_config: Sequence[Mapping[str, Any]] | None = None,
+        transform_registry: TransformRegistry | None = None,
     ) -> None:
         if not model_name:
             raise ValueError("model_name must not be empty")
@@ -100,14 +106,25 @@ class TorchvisionVideoAdapter(ModelAdapter):
         except Exception as error:
             raise AdapterError(f"failed to move model to device {resolved_device}") from error
         self._device = resolved_device
-        self._preprocessor = DeclarativePreprocessor(
-            [
-                Resize(resize_size),
-                CenterCrop(crop_size),
-                ToFloat(),
-                Normalize(mean, std),
-                ChannelsFirst(),
-            ]
+        # pipeline_config replaces the fixed resize/crop/normalize entirely
+        # (resize_size/crop_size/mean/std are then unused, mirroring how
+        # TorchvisionAdapter's preprocessing_ops overrides its weight
+        # preset). A pipeline must end in FormatShape(input_format="NTCHW")
+        # to match predict()'s hardcoded permute below -- ending in
+        # "NCHW" instead fails clearly there rather than silently, since
+        # the resulting 4D array cannot be permuted as if it were 5D.
+        self._preprocessor: Preprocessor = (
+            PipelinePreprocessor(pipeline_config, registry=transform_registry)
+            if pipeline_config is not None
+            else DeclarativePreprocessor(
+                [
+                    Resize(resize_size),
+                    CenterCrop(crop_size),
+                    ToFloat(),
+                    Normalize(mean, std),
+                    ChannelsFirst(),
+                ]
+            )
         )
         self._output_decoder = output_decoder or LogitsOutputDecoder()
         if not isinstance(self._output_decoder, OutputDecoder):

@@ -217,6 +217,7 @@ class TorchvisionProvider(AdapterProvider):
                 True if config.checkpoint is None else config.checkpoint.strict
             ),
             preprocessing_ops=config.preprocessing,
+            pipeline_config=config.pipeline_config,
         )
 
 
@@ -253,6 +254,7 @@ class TorchvisionVideoProvider(AdapterProvider):
             checkpoint_strict=(
                 True if config.checkpoint is None else config.checkpoint.strict
             ),
+            pipeline_config=config.pipeline_config,
         )
 
 
