@@ -19,3 +19,15 @@ jobs:
       - run: pytest -q
       - run: ssat --help
       - run: docker compose -f compose.deploy.yaml config --quiet
+
+  clean-install:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - run: pip install --index-url https://download.pytorch.org/whl/cpu torch==2.8.0 torchvision==0.23.0
+      - run: pip install .
+      - run: ssat --help

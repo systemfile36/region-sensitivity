@@ -10,7 +10,7 @@ ROOT = Path(__file__).parents[2]
 
 def test_package_and_deployment_metadata_are_parseable() -> None:
     project = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
-    assert project["project"]["version"] == "1.0.0"
+    assert project["project"]["version"] == "0.1.0"
     assert project["project"]["scripts"]["ssat"] == "ssat.cli:main"
 
     compose = yaml.safe_load((ROOT / "compose.deploy.yaml").read_text(encoding="utf-8"))

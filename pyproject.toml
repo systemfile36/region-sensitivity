@@ -4,10 +4,44 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ssat"
-version = "1.0.0"
+version = "0.1.0"
 description = "Spatial Sensitivity Audit Toolkit"
 readme = "README.md"
 requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [{ name = "systemfile36", email = "systemfile36@gmail.com" }]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+dependencies = [
+    "torch>=2.8.0",
+    "torchvision>=0.23.0",
+    "numpy",
+    "pandas",
+    "pyarrow",
+    "pydantic>=2,<3",
+    "typer",
+    "pyyaml",
+    "timm",
+    "jinja2",
+    "opencv-python-headless",
+    "pillow",
+    "decord",
+    "tqdm",
+    "matplotlib",
+]
+
+[project.optional-dependencies]
+dev = ["pytest"]
+
+[project.urls]
+Repository = "https://github.com/systemfile36/region-sensitivity"
+Issues = "https://github.com/systemfile36/region-sensitivity/issues"
 
 [project.scripts]
 ssat = "ssat.cli:main"

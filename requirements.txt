@@ -1,3 +1,8 @@
+# Kept for the Docker CPU-pinned-wheel install path (see Dockerfile/CI,
+# which install torch/torchvision from the PyTorch CPU wheel index before
+# this file). For `pip install ssat`/`pip install .`, pyproject.toml's
+# [project.dependencies] is the canonical dependency list.
+
 # PyTorch
 torch>=2.8.0
 torchvision>=0.23.0
