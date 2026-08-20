@@ -36,6 +36,7 @@ __all__ = [
     "AdapterProviderError",
     "AdapterProviderRegistry",
     "AdapterSpec",
+    "BaseTransform",
     "CallableAdapter",
     "CallablePreprocessor",
     "CheckpointConfig",
@@ -43,18 +44,23 @@ __all__ = [
     "ChannelsFirst",
     "DeclarativeAdapter",
     "DeclarativePreprocessor",
+    "FormatShape",
     "IdentityPreprocessor",
     "LogitsOutputDecoder",
     "ModelAdapter",
     "Normalize",
     "OutputDecoder",
+    "Pipeline",
+    "PipelinePreprocessor",
     "PreprocessingSpec",
     "Preprocessor",
     "ProviderConfig",
     "RawOutput",
     "Resize",
+    "SampleFrames",
     "SqueezeTime",
     "SupportsDescribe",
+    "TenCrop",
     "TimmAdapter",
     "TimmProviderConfig",
     "TimmPreprocessor",
@@ -64,7 +70,11 @@ __all__ = [
     "TorchvisionPreprocessor",
     "TorchvisionVideoAdapter",
     "TorchvisionVideoProviderConfig",
+    "TransformError",
+    "TransformRegistry",
+    "build_pipeline",
     "default_adapter_provider_registry",
+    "default_transform_registry",
 ]
 
 
@@ -91,6 +101,27 @@ def __getattr__(name: str) -> Any:
         from ssat.core.adapter import preprocessing
 
         return getattr(preprocessing, name)
+
+    if name in {
+        "TransformError",
+        "BaseTransform",
+        "TransformRegistry",
+        "Pipeline",
+        "build_pipeline",
+    }:
+        from ssat.core.adapter import transform_registry
+
+        return getattr(transform_registry, name)
+    if name in {
+        "SampleFrames",
+        "TenCrop",
+        "FormatShape",
+        "default_transform_registry",
+        "PipelinePreprocessor",
+    }:
+        from ssat.core.adapter import transforms
+
+        return getattr(transforms, name)
 
     if name == "TorchvisionAdapter":
         from ssat.core.adapter.torchvision_adapter import TorchvisionAdapter

@@ -291,6 +291,104 @@ adapter:
 torchvision의 `weights`, timm의 `pretrained: true`와 checkpoint는 상호 배타적입니다.
 checkpoint는 신뢰할 수 있는 파일만 사용하며 SHA-256이 자동 기록됩니다.
 
+### 선언적 전처리 파이프라인(pipeline_config)
+
+`torchvision`/`torchvision_video` provider는 `weights` preset이나 (기존) 평평한
+`preprocessing` op 목록 대신, MMAction2/MMCV 스타일의 `{type: ..., ...}` 스텝
+목록으로 전처리를 선언하는 `pipeline_config`도 받을 수 있습니다. `preprocessing`과
+`pipeline_config`는 상호 배타적입니다(config 로드 시점에 검증). 아래 두 예시는
+[`test_model_adapter.py`](../tests/unit/test_model_adapter.py)에서 어댑터 생성부터
+`predict()`/`transform_mask()`까지 실제로 검증된 값과 동일합니다(문서와 코드가
+갈라지지 않도록 값을 일부러 그대로 옮겼습니다 — 실제 감사에서는 `Resize.scale`/
+`CenterCrop.crop_size`를 모델에 맞는 값으로 키워서 쓰면 됩니다).
+
+```yaml
+adapter:
+  provider: torchvision
+  model_name: squeezenet1_0
+  device: cpu
+  pipeline_config:
+    - type: Resize
+      scale: [-1, 40]     # [w, h], -1인 축은 짧은 변 기준 리사이즈
+    - type: CenterCrop
+      crop_size: 32
+    - type: ToFloat
+    - type: FormatShape
+      input_format: NCHW   # 이미지 어댑터는 NCHW만 지원(T=1 squeeze)
+```
+
+```yaml
+adapter:
+  provider: torchvision_video
+  model_name: r3d_18
+  device: cpu
+  pipeline_config:
+    - type: Resize
+      scale: [-1, 40]
+    - type: CenterCrop
+      crop_size: 32
+    - type: ToFloat
+    - type: Normalize
+      mean: [0.43216, 0.394666, 0.37645]
+      std: [0.22803, 0.22145, 0.216989]
+    - type: FormatShape
+      input_format: NTCHW   # NCHW는 안 됨 -- predict()가 (B,T,C,H,W)를 기대함
+```
+
+`torchvision_video`의 `pipeline_config`는 마지막 스텝이 반드시
+`FormatShape(input_format: NTCHW)`여야 합니다 — `predict()`가 내부적으로
+`(B,T,C,H,W)`를 가정해 고정된 `permute`를 적용하기 때문입니다. `NCHW`로 끝내면
+config 로드 시점이 아니라 `predict()` 호출 시점에 명확한 에러로 실패합니다(이
+비대칭은 의도적입니다 — 자세한 배경은 구현 계획서의 리스크 표를 참고하세요).
+
+v1이 제공하는 내장 스텝은 다음 7종입니다(모두 결정론적이며, 무작위 증강용
+RandomCrop/RandomFlip 같은 스텝은 제공하지 않습니다 — 감사 재현성과 충돌하기
+때문입니다):
+
+| `type` | 의미 |
+| --- | --- |
+| `SampleFrames` | `clip_len`만큼 시간축을 중앙 기준으로 재슬라이스(디코드 후 슬라이스이며, 디코드 시점 프레임 샘플링과는 별개) |
+| `Resize` | `scale: [w, h]`(mmaction 관례), 한 축을 `-1`로 두면 짧은 변 기준 리사이즈 |
+| `CenterCrop` | 정사각 `crop_size`만큼 중앙 크롭, 입력이 더 작으면 0-padding |
+| `TenCrop` | 4개 모서리+중앙 크롭과 각각의 좌우 반전, 총 10개 뷰로 배치를 10배 확장 — 마스크 기하 변환은 지원하지 않음(`mask_transform_available: false`) |
+| `ToFloat` | `scale`(기본 `1/255`)을 곱해 float32로 변환 |
+| `Normalize` | 채널별 `(x - mean) / std` |
+| `FormatShape` | 최종 레이아웃 변환. `NCHW`(이미지, `T=1` 필요) 또는 `NTCHW`(비디오)만 지원 |
+
+### 커스텀 transform 등록
+
+`pipeline_config`의 스텝 타입은 기본적으로 위 7종만 등록되어 있습니다. 새 스텝이
+필요하면(예: 커스텀 photometric 변형) `ssat.core.adapter`의
+`BaseTransform`/`TransformRegistry`/`default_transform_registry()`에 직접 등록해
+`TorchvisionAdapter(pipeline_config=..., transform_registry=...)`로 주입할 수
+있습니다 — 위 "커스텀 source provider 등록"과 동일한 패턴입니다.
+
+```python
+from ssat.core.adapter import BaseTransform, TorchvisionAdapter, default_transform_registry
+
+
+class MySharpen(BaseTransform):
+    type_name = "MySharpen"
+    mask_supported = False  # 광도 변형이라 마스크 지오메트리엔 영향 없음 -- 명시적으로 선언
+
+    def apply_batch(self, batch):
+        ...  # 커스텀 numpy 연산
+
+
+registry = default_transform_registry()
+registry.register(MySharpen)
+
+adapter = TorchvisionAdapter(
+    "resnet50",
+    pipeline_config=[{"type": "Resize", "scale": [-1, 256]}, {"type": "MySharpen"}],
+    transform_registry=registry,
+)
+```
+
+이 확장 지점도 **Python API 전용**입니다 — CLI(`ssat run`/`ssat estimate`)는 항상
+`default_transform_registry()`만 사용하며 커스텀 transform을 등록할 방법이
+없습니다(source/adapter provider 확장과 동일한 비대칭입니다).
+
 ## 감사 공간
 
 - `regions`: `grid`, `explicit`, `skeleton_parts` region family. grid는

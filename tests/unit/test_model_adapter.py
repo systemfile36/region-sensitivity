@@ -561,6 +561,46 @@ def test_adapter_contract_imports_remain_framework_lazy() -> None:
     assert result.returncode == 0, result.stderr
 
 
+def test_transform_pipeline_names_are_lazily_exported_from_the_adapter_package() -> None:
+    """§3.5: the registry-pipeline names resolve through ssat.core.adapter's lazy __getattr__."""
+
+    import ssat.core.adapter as pkg
+
+    names = (
+        "TransformError",
+        "BaseTransform",
+        "TransformRegistry",
+        "Pipeline",
+        "build_pipeline",
+        "default_transform_registry",
+        "PipelinePreprocessor",
+        "SampleFrames",
+        "TenCrop",
+        "FormatShape",
+    )
+    for name in names:
+        assert name in pkg.__all__
+        assert getattr(pkg, name) is not None
+
+
+def test_transform_pipeline_names_do_not_shadow_the_declarative_engine() -> None:
+    """Resize/CenterCrop/ToFloat/Normalize keep resolving to preprocessing.py.
+
+    transforms.py defines its own same-named classes with different (mmaction
+    -style) constructor signatures; they are deliberately not re-exported at
+    the package level to avoid silently changing what existing callers of
+    ``from ssat.core.adapter import Resize`` (etc.) get back.
+    """
+
+    from ssat.core.adapter import CenterCrop, Normalize, Resize, ToFloat
+    from ssat.core.adapter import preprocessing as decl
+
+    assert Resize is decl.Resize
+    assert CenterCrop is decl.CenterCrop
+    assert ToFloat is decl.ToFloat
+    assert Normalize is decl.Normalize
+
+
 def test_callable_adapter_exposes_optional_oom_cleanup_callback() -> None:
     calls: list[str] = []
     adapter = CallableAdapter(
