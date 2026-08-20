@@ -1,0 +1,74 @@
+{
+  "schema_version": "captum-reference-measurement-v1",
+  "executed_on": "2026-08-20",
+  "experiment": {
+    "audit_samples_per_dataset": 200,
+    "raw_rows_per_run": 291200,
+    "grid": "4x4",
+    "operators": 5,
+    "seed_salts": 3,
+    "controls_per_region": 2,
+    "bootstrap_resamples": 1000
+  },
+  "environment": {
+    "device": "NVIDIA GeForce RTX 4090",
+    "torch": "2.8.0+cu129",
+    "torchvision": "0.23.0+cu129",
+    "captum": "0.9.0",
+    "cuda_runtime": "12.9"
+  },
+  "resume_and_cache": {
+    "intentional_stop_rows": 10000,
+    "resumed_final_rows": 291200,
+    "completed_cache_rerun_new_rows": 0,
+    "completed_cache_rerun_forward_evaluations": 0
+  },
+  "reproducibility": {
+    "run_a_raw_canonical_hash": "c476044bd0beb3147afaa3a4ca1d9fb09fe498819539a8ece10ee2f8d7c27477",
+    "run_b_raw_canonical_hash": "c476044bd0beb3147afaa3a4ca1d9fb09fe498819539a8ece10ee2f8d7c27477",
+    "raw_hashes_match": true,
+    "run_a_analysis_canonical_hash": "16c2e06a4d1a2925b50d0e91d180d94dba8a2f5b149fe5b749993ce5e28f501d",
+    "run_b_analysis_canonical_hash": "16c2e06a4d1a2925b50d0e91d180d94dba8a2f5b149fe5b749993ce5e28f501d",
+    "analysis_hashes_match": true
+  },
+  "q1_q5": {
+    "q1": {"pass": true, "patch_region_rank": 1},
+    "q2": {"pass": true, "multiplier": 173.01767484562694, "threshold": 3.0},
+    "q3": {"pass": true, "patch_region_rank_in_normal_model": 16},
+    "q4": {
+      "pass": true,
+      "reproduced_in": ["blur", "constant_fill", "gaussian_noise", "mean_fill", "patch_shuffle"],
+      "minimum_required": 2
+    },
+    "q5": {"pass": true, "margin_points": 95.75, "threshold_points": 10.0},
+    "auxiliary_b_patch_region_rank": 2
+  },
+  "area_sanity": {
+    "pass": true,
+    "source_area_pixels": 64,
+    "model_area_pixels": 3136
+  },
+  "quantitative_comparison": {
+    "captum_custom_workflow_python_sloc": 1461,
+    "ssat_existing_experiment_glue_python_sloc": 704,
+    "ssat_audit_config_builder_python_sloc": 67,
+    "captum_semantic_steps": 8,
+    "ssat_semantic_steps": 3,
+    "captum_explicit_workflow_decisions": 8,
+    "ssat_explicit_workflow_decisions": 1
+  },
+  "ssat_parity": {
+    "all_q_pass_fail_match": true,
+    "q1_rank_match": true,
+    "q3_rank_match": true,
+    "q4_reproduced_fill_match": true,
+    "q2_multiplier_absolute_difference": 2.6335394172464817,
+    "q5_margin_points_absolute_difference": 0.0,
+    "constant_fill_rankings_identical": true,
+    "constant_fill_max_absolute_degradation_difference": 0.002374305725097614,
+    "stochastic_spearman": {
+      "gaussian_noise": 0.8470588235294119,
+      "patch_shuffle": 0.8705882352941177
+    }
+  }
+}

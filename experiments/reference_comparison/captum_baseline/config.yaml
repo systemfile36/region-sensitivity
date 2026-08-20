@@ -1,0 +1,62 @@
+schema_version: captum-reference-v1
+global_seed: 20250812
+bootstrap_seed: 20260820
+bootstrap_resamples: 1000
+confidence_level: 0.95
+batch_size: 16
+perturbations_per_eval: 16
+num_workers: 4
+device: cuda
+
+data:
+  manifests:
+    A_audit: experiments/synthetic_shortcut/data/manifests/A_audit.json
+    B_audit: experiments/synthetic_shortcut/data/manifests/B_audit.json
+    A_test: experiments/synthetic_shortcut/data/manifests/A_test.json
+    C_test: experiments/synthetic_shortcut/data/manifests/C_test.json
+  dataset_stats: experiments/synthetic_shortcut/data/dataset_stats.json
+  checkpoints:
+    shortcut: experiments/synthetic_shortcut/checkpoints_crop_free/m_shortcut.pt
+    normal: experiments/synthetic_shortcut/checkpoints_crop_free/m_normal.pt
+
+model:
+  architecture: squeezenet1_0
+  num_classes: 10
+  checkpoint_state_dict_key: model
+
+preprocessing:
+  input_size: [32, 32]
+  output_size: [224, 224]
+  mean: [0.485, 0.456, 0.406]
+  std: [0.229, 0.224, 0.225]
+
+regions:
+  rows: 4
+  cols: 4
+  patch_row: 0
+  patch_col: 0
+  controls_per_region: 2
+
+perturbations:
+  constant_fill: {value: 0.0}
+  mean_fill: {}
+  blur: {sigma: 4.0}
+  gaussian_noise: {sigma: 50.0}
+  patch_shuffle: {patch_size: 4}
+seed_salts: [0, 1, 2]
+
+audit_runs:
+  - {model: shortcut, dataset: A, manifest: A_audit, operators: all, controls: true}
+  - {model: normal, dataset: A, manifest: A_audit, operators: all, controls: true}
+  - {model: shortcut, dataset: B, manifest: B_audit, operators: [constant_fill], controls: false}
+
+accuracy_runs:
+  - {model: shortcut, datasets: [A_test, C_test]}
+  - {model: normal, datasets: [A_test, C_test]}
+
+thresholds:
+  q2_multiplier: 3.0
+  q4_min_fill_strategies: 2
+  q5_min_margin_points: 10.0
+  ratio_zero_threshold: 1.0e-6
+
