@@ -1,0 +1,36 @@
+{
+  "computed_at": "2026-08-20T06:52:09.203197+00:00",
+  "exclusion_summary": {
+    "clean_status_counts": {
+      "load_failed": 0,
+      "ok": 200,
+      "predict_failed": 0,
+      "prepare_failed": 0,
+      "skipped_oom": 0
+    },
+    "items_excluded_perturbed_failed": 0,
+    "perturbed_status_counts": {
+      "load_failed": 0,
+      "ok": 3200,
+      "predict_failed": 0,
+      "prepare_failed": 0,
+      "skipped_oom": 0
+    },
+    "samples_excluded_clean_failed": 0,
+    "total_clean_samples": 200,
+    "total_perturbed_items": 3200
+  },
+  "metric_config": {
+    "primary_metric": "margin_drop",
+    "topk": null
+  },
+  "metrics_schema_version": "1.1.0",
+  "registered_metrics": [
+    {
+      "higher_is_better": true,
+      "kind": "continuous",
+      "name": "margin_drop"
+    }
+  ],
+  "source_run_manifest_hash": "ae90b027750c2964d831bccc8e876d140f0ad6e2d128f69c28eb69c51bb80a09"
+}
