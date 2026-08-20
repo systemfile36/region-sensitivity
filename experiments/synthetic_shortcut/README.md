@@ -1,14 +1,14 @@
 # experiments/synthetic_shortcut
 
 Implements the L3 synthetic-shortcut experiment
-(`docs/STAGE9_SYNTHETIC_SHORTCUT_DESIGN_v1.md`): a squeezenet1_0 classifier
-trained on CIFAR-10 with a synthetic patch shortcut baked into one class
-(`M_shortcut`) is audited region-by-region and compared against a clean
-control model (`M_normal`) to check whether region-sensitivity auditing
-actually finds the shortcut. Current results are reported in
-`docs/L3_Synthetic-Shortcut Experiment Report.md` (crop-free preprocessing)
-and `docs/RELIABILITY_THRESHOLD_CALIBRATION_v1.md` (reliability-threshold
-recalibration).
+(`docs/internal/STAGE9_SYNTHETIC_SHORTCUT_DESIGN_v1.md`): a squeezenet1_0
+classifier trained on CIFAR-10 with a synthetic patch shortcut baked into
+one class (`M_shortcut`) is audited region-by-region and compared against a
+clean control model (`M_normal`) to check whether region-sensitivity
+auditing actually finds the shortcut. Current results are reported in
+`docs/internal/L3_Synthetic-Shortcut Experiment Report.md` (crop-free
+preprocessing) and `docs/internal/RELIABILITY_THRESHOLD_CALIBRATION_v1.md`
+(reliability-threshold recalibration).
 
 **All commands below run inside the `region-sensitivity-workspace` Docker
 Compose container** (`docker compose exec region-sensitivity-workspace
@@ -39,8 +39,8 @@ bash -lc '...'`), never on the host.
 - **`--preprocessing` defaults to `preset`** (the original CenterCrop
   pipeline) on `train.py`, `run_audit.py`, and `evaluate_accuracy.py`.
   Omitting `--preprocessing crop_free` silently reproduces the superseded,
-  cropped evidence (`docs/deprecated_L3_Synthetic-Shortcut Experiment
-  Report.md`), not the current report.
+  cropped evidence (`docs/internal/deprecated_L3_Synthetic-Shortcut
+  Experiment Report.md`), not the current report.
 - **`evaluate_accuracy.py --results-dir` defaults to `results/`**, same as
   every other script -- but to reproduce the current (crop-free) report you
   must pass `--results-dir results_crop_free` explicitly, or its accuracy
@@ -48,7 +48,7 @@ bash -lc '...'`), never on the host.
 
 ## Quick Start
 
-### A. Reproduce `docs/L3_Synthetic-Shortcut Experiment Report.md`
+### A. Reproduce `docs/internal/L3_Synthetic-Shortcut Experiment Report.md`
 
 ```bash
 cd experiments/synthetic_shortcut
@@ -68,7 +68,7 @@ python3 analyze_sign_group_premise.py --cropped-results-dir results --crop-free-
 
 Or run `bash reproduce_l3_report.sh`, which chains the same steps.
 
-### B. Reproduce `docs/RELIABILITY_THRESHOLD_CALIBRATION_v1.md`
+### B. Reproduce `docs/internal/RELIABILITY_THRESHOLD_CALIBRATION_v1.md`
 
 Requires sequence A's `checkpoints_crop_free/` to already exist.
 
@@ -96,7 +96,7 @@ This runs `ssat analyze` (producing `results_crop_free/analysis/<run_id>/`,
 which does not exist yet after sequence B alone) and then `ssat report`
 (producing `results_crop_free/report/<run_id>/report.html`). Open the
 resulting `report.html` directly in a browser -- no server needed. See
-`docs/IMPLE_PLAN_REPORTING_v1.md` §5 단계8 for the checklist this run is
+`docs/internal/IMPLE_PLAN_REPORTING_v1.md` §5 단계8 for the checklist this run is
 meant to satisfy (patch-region gallery dominance, patch region graded
 `HIGH`, non-patch regions mostly `UNRELIABLE` with a mixed
 `reliability_distribution`, fill-strategy sign disagreement surfaced in the
