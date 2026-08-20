@@ -1,105 +1,191 @@
-# Spatial Sensitivity Audit Toolkit (SSAT)
+# SSAT: Spatial Sensitivity Audit Toolkit
 
-SSAT는 이미지·비디오 분류 모델의 예측이 공간 영역별 교란에 얼마나 민감한지
-감사하고, 재현 가능한 raw logits dump를 생성하는 도구입니다. CLI, Python 코드,
-향후 WebUI가 같은 `AuditApplication` 계층을 사용합니다.
+[![CI](https://github.com/systemfile36/region-sensitivity/actions/workflows/ci.yml/badge.svg)](https://github.com/systemfile36/region-sensitivity/actions/workflows/ci.yml)
+[![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
-## 빠른 시작
+SSAT is a reproducible audit toolkit for measuring how image- and video-classification models respond to spatial perturbations. It applies controlled deletion-style perturbations to configured regions, stores clean and perturbed logits in a resumable Parquet dump, computes vulnerability metrics, evaluates control and stability evidence, and generates an inspectable HTML report.
 
-Dev Container 또는 Compose 워크스페이스를 빌드한 뒤 다음을 실행합니다.
+The command-line interface and Python API share the same `AuditApplication` service, including configuration validation, bounded preflight estimation, output locking, stale-input checks, cancellation, and resume behavior.
+
+## Key capabilities
+
+- Image and uniformly sampled video inputs through JSON manifests.
+- Built-in ImageNet-style file-list and Kinetics-style CSV source providers.
+- Torchvision image, Torchvision video, and timm model adapters, with optional local checkpoints.
+- Grid, explicit-mask, and frame-dependent skeleton body-part regions.
+- Constant fill, dataset-mean fill, blur, Gaussian noise, and patch-shuffle perturbations.
+- Deterministic stochastic variants and random area-matched controls.
+- Durable raw logits and status records, including recoverable per-item failures.
+- Built-in item, sample, region, spatial, and class-level metrics.
+- Control/stability analysis, reliability grading, HTML reports, and risk-label export.
+
+SSAT is currently alpha software. The ImageNet and Kinetics providers have been tested with format-compatible synthetic fixtures, not full production-scale dataset distributions.
+
+## Quick start
+
+Python 3.11 or later is required. The repository's supported development environment is Docker Compose:
 
 ```bash
-pip install --no-deps -e .
+docker compose up -d --build region-sensitivity-workspace
+docker compose exec region-sensitivity-workspace pip install --no-deps -e .
+```
+
+Run the committed CPU-only synthetic example. It uses randomly initialized Torchvision weights and requires no model download:
+
+```bash
 ssat estimate configs/examples/quickstart.yaml
 ssat run configs/examples/quickstart.yaml --output /tmp/ssat-quickstart
 ssat inspect /tmp/ssat-quickstart
+ssat metrics /tmp/ssat-quickstart
+ssat analyze /tmp/ssat-quickstart
+ssat report /tmp/ssat-quickstart
 ```
 
-quickstart는 committed synthetic fixture와 CPU torchvision 모델의 무작위 초기화
-가중치를 사용하므로 네트워크 다운로드가 없습니다. 비디오 입력(`source.kind:
-video_manifest`)과 action recognition 모델(`adapter.provider: torchvision_video`)도
-같은 방식으로 동작하며 `configs/examples/video_quickstart.yaml`을 참고하세요.
+Open `/tmp/ssat-quickstart/report/report.html` after the final command. The quickstart manifest intentionally contains two missing image paths to exercise failure recording. A complete run therefore writes 20 clean rows and 80 perturbed rows, of which 18 and 72 respectively have status `ok`.
 
-Python에서도 같은 실행 정책을 사용할 수 있습니다.
+The randomly initialized model is useful for exercising the software only; its metrics are not scientifically meaningful. Use pretrained weights or a trusted local checkpoint and a representative dataset for an actual audit.
+
+The minimal quickstart has one fill strategy, one seed, and no control regions. `ssat analyze` consequently records those comparison families as unavailable/insufficient; use repeated seeds, multiple fill strategies, jittered regions, or `controls` when the corresponding stability evidence is part of the study design.
+
+## Typical workflow
+
+```text
+YAML configuration
+      |
+      v
+estimate -> run -> raw Parquet dump -> metrics -> analysis -> HTML/CSV/JSON report
+                    ^
+                    +------------ inspect / resume
+```
+
+1. Describe the source, model adapter, regions, perturbations, controls, and runtime policy in YAML.
+2. Use `ssat estimate` to profile a bounded subset and estimate work, storage, and sanity-check results.
+3. Use `ssat run` to create or resume the raw dump. Confirmation is requested only when configured limits or sanity criteria require it.
+4. Compute metrics and, when the audit design supports comparisons, control/stability analysis.
+5. Generate the report and optionally export downstream risk labels.
+
+By default, the workflow creates this durable layout:
+
+```text
+DUMP/
+  run_manifest.json
+  clean/*.parquet
+  perturbed/*.parquet
+  index/*.parquet
+  metrics/{metrics_manifest.json,*.parquet}
+  analysis/{analysis_manifest.json,*.parquet,coverage_report.json}
+  report/{report.html,report_question_driven.html,report_manifest.json,data/,assets/}
+```
+
+The raw dump remains authoritative. Metrics, analyses, reports, and labels are derived artifacts that can be regenerated into alternate directories.
+
+The full CLI surface is:
+
+```text
+ssat run CONFIG --output DUMP [--yes] [--minimum-accuracy FLOAT]
+ssat estimate CONFIG [--dump DUMP] [--minimum-accuracy FLOAT] [--json]
+ssat inspect DUMP [--json]
+ssat rebuild-index DUMP
+ssat metrics DUMP [--metrics-dir DIR] [--primary-metric NAME] [--json]
+ssat analyze DUMP [--metrics-dir DIR] [--analysis-dir DIR] [--primary-metric NAME] [--json]
+ssat report DUMP [--metrics-dir DIR] [--analysis-dir DIR] [--report-dir DIR] [--json]
+ssat export-labels REPORT_DIR [--output-dir DIR] [--include-non-clean-correct] [--csv] [--json]
+```
+
+Use `ssat COMMAND --help` for the authoritative option list.
+
+## Minimal configuration
+
+```yaml
+schema_version: 1.0.0
+source:
+  kind: image_manifest
+  manifest: data/manifest.json
+adapter:
+  provider: torchvision
+  model_name: resnet50
+  weights: DEFAULT
+  device: auto
+regions:
+  - region_id: grid_4x4
+    kind: grid
+    params: {rows: 4, cols: 4}
+perturbations:
+  - op: constant_fill
+    params: {value: [0, 0, 0]}
+runtime:
+  global_seed: 0
+  target_batch_size: 32
+```
+
+Relative paths are resolved from the configuration file's directory. See the [configuration reference](docs/CONFIG_REFERENCE.md) for all built-in providers and audit settings, and `configs/examples/` for runnable examples.
+
+## Dataset preparation
+
+Manifest sources expect files to be prepared in advance. For NTU RGB+D, the repository includes a reference preprocessing script that converts RGB clips and `.skeleton` files into `video_manifest.json`, `skeleton_bbox.json`, and an executable configuration:
+
+```bash
+python scripts/dataset_prep/ntu_rgb_d.py \
+  --rgb-root /path/to/nturgb+d_rgb \
+  --skeleton-root /path/to/nturgb+d_skeletons \
+  --split xsub --num-frames 16 \
+  --out /path/to/output_dir
+
+ssat estimate /path/to/output_dir/config.yaml
+```
+
+The script is a reference implementation, not a stable public API. Dataset-specific parsing remains outside the core package; the reusable skeleton bounding-box builder is in `ssat.core.region.skeleton_bbox_builder`.
+
+## Python API
 
 ```python
 from pathlib import Path
+
 from ssat.application import AuditApplication, RunRequest
 
 application = AuditApplication()
 with application.prepare_run(
     RunRequest("configs/examples/quickstart.yaml", Path("/tmp/ssat-run"))
 ) as prepared:
-    # 실제 UI에서는 confirmation_required일 때 사용자 승인을 받습니다.
     result = application.execute_run(
         prepared,
         confirmation_granted=True,
     )
+
 print(result.to_dict())
 ```
 
-자세한 내용은 [설치 문서](docs/INSTALLATION.md),
-[설정 레퍼런스](docs/CONFIG_REFERENCE.md),
-[애플리케이션/WebUI 연동](docs/APPLICATION_API.md)을 참고하세요.
+See [Application API](docs/APPLICATION_API.md) for UI integration, progress events, cancellation, custom providers, and post-processing request objects.
 
-## 내장 지원 데이터셋 (source provider)
+## Reproducibility and limitations
 
-아래 데이터셋은 오프라인 전처리 스크립트 없이 `source.kind`만 지정하면
-바로 감사할 수 있도록 SSAT 기본 레지스트리에 provider가 내장돼 있습니다.
+SSAT records the resolved configuration, source-manifest hash, adapter identity, checkpoint hash when applicable, schema version, code version, timestamps, status counts, and resume events. Work-item IDs and stochastic perturbations are derived deterministically from the resolved audit specification and seeds. A resumed run is accepted only when its resolved configuration, adapter, and code version match.
 
-- **ImageNet** (`source.kind: imagenet`): 파일 리스트(`<relative_path>
-  <label>`)와 이미지 루트 디렉터리.
-- **Kinetics-400** (`source.kind: kinetics400`): DeepMind Kinetics 주석
-  CSV(`label,youtube_id,time_start,time_end,split`)와 클립 디렉터리.
+These controls do not make every third-party model or GPU kernel deterministic. Set `deterministic: true`, keep `runtime.allow_nondeterministic: false`, pin the software environment, and inspect warnings and per-item statuses. A spatial perturbation audit measures model sensitivity under the configured interventions; it does not by itself establish causal feature use, model fairness, robustness to arbitrary distribution shifts, or deployment safety.
 
-두 provider의 정확한 입력 포맷은 [설정 레퍼런스](docs/CONFIG_REFERENCE.md)의
-"내장 데이터셋 source provider" 절을 참고하세요.
+## Documentation
 
-> **실제 데이터로 검증되지 않았습니다.** 두 provider 모두 문서화된 포맷을
-> 흉내 낸 소규모 합성 fixture로만 테스트되었으며, 실제 대규모 ImageNet/
-> Kinetics 다운로드에 대해서는 아직 검증된 적이 없습니다. 적용 전 자신의
-> 배포본이 문서화된 포맷과 정확히 일치하는지 직접 확인하세요.
+- [Installation and deployment](docs/INSTALLATION.md)
+- [Configuration reference](docs/CONFIG_REFERENCE.md)
+- [Application API](docs/APPLICATION_API.md)
+- [Logging policy](docs/LOGGING_POLICY.md)
+- [Contributing](CONTRIBUTING.md)
 
-## 지원 데이터셋 레시피
+The previous Korean documentation is retained under `docs/internal/`.
 
-`ssat estimate`/`ssat run`은 `source.kind: image_manifest`/`video_manifest`
-매니페스트와 (skeleton 부위 추적을 쓴다면) `skeleton_source.bbox_data` JSON이
-이미 만들어져 있다는 전제로 동작합니다. 원본 데이터셋 파일(비디오, `.skeleton`
-파일 등)에서 이 형식을 만드는 전처리는 데이터셋마다 근본적으로 달라 SSAT
-패키지 자체가 대신 해주지 않지만, 이 저장소가 다뤄본 대표 데이터셋에 대해서는
-`scripts/dataset_prep/` 아래 예시 스크립트를 제공합니다.
+## Testing
 
-- **NTU-RGB+D**: [`scripts/dataset_prep/ntu_rgb_d.py`](scripts/dataset_prep/ntu_rgb_d.py)
-
-  ```bash
-  python scripts/dataset_prep/ntu_rgb_d.py \
-    --rgb-root /path/to/nturgb+d_rgb \
-    --skeleton-root /path/to/nturgb+d_skeletons \
-    --split xsub --num-frames 16 \
-    --out /path/to/output_dir
-
-  ssat estimate /path/to/output_dir/config.yaml
-  ```
-
-  `.skeleton` 파일과 실제 RGB 프레임 해상도로부터 `video_manifest.json`,
-  `skeleton_bbox.json`, 바로 실행 가능한 `config.yaml`을 생성합니다. skeleton
-  파일이 없거나 파싱에 실패한 샘플은 건너뛰고 이유를 stderr에 남깁니다.
-
-> **이 스크립트는 참고 구현이며 SSAT의 안정된 API가 아닙니다.** 다른
-> 데이터셋을 감사하려면 이 파일을 복사해 원본 포맷 파싱 부분만 새로 작성하되,
-> 관절 좌표를 `skeleton_bbox.json`으로 바꾸는 부분(`ssat.core.region.
-> skeleton_bbox_builder`)은 관절 세트에 무관하게 설계돼 있어 그대로 재사용할
-> 수 있습니다.
-
-## 주요 명령
-
-```text
-ssat run CONFIG --output DUMP [--yes] [--minimum-accuracy FLOAT]
-ssat estimate CONFIG [--dump DUMP] [--minimum-accuracy FLOAT] [--json]
-ssat rebuild-index DUMP
-ssat inspect DUMP [--json]
+```bash
+docker compose exec region-sensitivity-workspace pytest -q
 ```
 
-`run`은 항상 bounded preflight를 수행합니다. 한도나 sanity 기준을 넘을 때만 확인하며
-`--yes`는 확인 질문만 건너뜁니다. 기존 유효 dump를 출력으로 지정하면 자동으로
-재개합니다.
+CI also performs a clean package installation and runs the test suite with CPU-only PyTorch wheels.
+
+## Citation
+
+Citation metadata is provided in [CITATION.cff](CITATION.cff). If you use SSAT in research, cite the archived release or paper associated with the version you used.
+
+## License
+
+SSAT is released under the [MIT License](LICENSE).

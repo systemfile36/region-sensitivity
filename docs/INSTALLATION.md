@@ -1,6 +1,10 @@
-# 설치와 배포
+# Installation and Deployment
 
-## 개발 워크스페이스
+SSAT requires Python 3.11 or later. PyTorch and Torchvision are the largest and most environment-sensitive dependencies, so choose CPU/CUDA wheels appropriate for the host before installing SSAT when you need explicit accelerator control.
+
+## Docker Compose development workspace
+
+The supported repository development environment uses the CUDA-enabled image defined in `.devcontainer/Dockerfile` and bind-mounts the repository at `/workspace`.
 
 ```bash
 docker compose up -d --build region-sensitivity-workspace
@@ -9,25 +13,52 @@ docker compose exec region-sensitivity-workspace pytest -q
 docker compose exec region-sensitivity-workspace ssat --help
 ```
 
-Dev Container도 같은 Dockerfile과 `/workspace` bind mount를 사용합니다.
+The image build already installs the packaged copy of SSAT and all requirements. The editable install makes the bind-mounted working tree authoritative after source changes.
 
-## 로컬 Python 3.11+
+`compose.yaml` requests all available GPUs and 32 GiB of shared memory. On a CPU-only machine, remove or override the service's `gpus: all` setting. The committed quickstart configuration explicitly uses `device: cpu`.
 
-시스템/CUDA 환경에 맞는 PyTorch가 설치될 수 있는지 먼저 확인합니다.
+The VS Code Dev Container uses the same Dockerfile, GPU request, shared-memory allocation, and `/workspace` mount.
+
+## Local Python installation
+
+Create and activate a virtual environment, then install a PyTorch/Torchvision pair suitable for your platform. The CI-tested CPU pair is shown below:
 
 ```bash
-bash scripts/install_deps.sh
-pip install -r requirements.txt
-pip install --no-deps -e .
+python3.11 -m venv .venv
+source .venv/bin/activate
+python -m pip install --upgrade pip
+python -m pip install \
+  --index-url https://download.pytorch.org/whl/cpu \
+  torch==2.8.0 torchvision==0.23.0
+python -m pip install -e .
 ssat --version
 ```
 
-의존성의 기준은 `requirements.txt`이며 `pyproject.toml`은 패키지와 console script만
-정의합니다.
+For CUDA or another platform, follow the PyTorch installation selector and then run `python -m pip install -e .`. `pyproject.toml` is the canonical package dependency declaration. `requirements.txt` mirrors it for Docker and CI, where PyTorch is installed first from the selected wheel index.
 
-## 배포 Compose
+On a minimal Debian/Ubuntu host, the container build also installs common native runtime packages for OpenCV and Matplotlib:
 
-기본 배포 설정은 config와 data를 읽기 전용으로, dump를 named volume으로 연결합니다.
+```bash
+sudo bash scripts/install_deps.sh
+```
+
+The script runs `apt-get`, so it requires root privileges and is not intended for non-Debian systems.
+
+## Verify the installation
+
+From the repository root:
+
+```bash
+ssat --help
+ssat estimate configs/examples/quickstart.yaml
+pytest -q
+```
+
+The synthetic quickstart does not download model weights. It uses committed fixture media and `weights: null`.
+
+## Deployment image
+
+`Dockerfile` creates an image whose entry point is `ssat`. `compose.deploy.yaml` mounts configuration and data read-only and stores dumps in a writable named volume or host directory.
 
 ```bash
 docker compose -f compose.deploy.yaml build ssat
@@ -37,10 +68,40 @@ docker compose -f compose.deploy.yaml run --rm ssat \
   inspect /dumps/quickstart
 ```
 
-실제 데이터 위치는 `SSAT_DATA_DIR`, 설정 디렉터리는 `SSAT_CONFIG_DIR`로 바꿀 수
-있습니다. 기본 Compose는 GPU를 요청합니다. CPU 전용 호스트에서는 GPU 설정을 제거한
-override 파일을 사용하고 adapter의 `device`를 `cpu`로 지정하세요.
+The default mount sources are:
 
-pretrained selector는 framework cache 또는 네트워크를 사용할 수 있습니다. 완전한
-오프라인 실행에는 `weights: null`, `pretrained: false` 또는 로컬 checkpoint를
-사용하세요.
+| Container path | Host source | Access |
+| --- | --- | --- |
+| `/config` | `${SSAT_CONFIG_DIR:-./configs}` | read-only |
+| `/data` | `${SSAT_DATA_DIR:-./tests/fixtures/synthetic_classification}` | read-only |
+| `/dumps` | `${SSAT_DUMP_DIR:-./dump}` | read-write |
+
+Set the environment variables before invoking Compose to use real data and a chosen dump directory:
+
+```bash
+SSAT_CONFIG_DIR=/srv/ssat/configs \
+SSAT_DATA_DIR=/srv/ssat/data \
+SSAT_DUMP_DIR=/srv/ssat/dumps \
+docker compose -f compose.deploy.yaml run --rm ssat \
+  estimate /config/audit.yaml
+```
+
+The deployment Compose file also requests all GPUs and 32 GiB shared memory. Use a Compose override that removes the GPU reservation on a CPU-only host, and set the adapter's `device` to `cpu`.
+
+## Offline operation
+
+Framework-provided pretrained selectors can read caches or access the network. For an offline audit, use one of the following and ensure all media/configuration paths are mounted:
+
+- Torchvision `weights: null` for seeded random initialization.
+- timm `pretrained: false` for seeded random initialization.
+- A trusted local `checkpoint.path` included in the configuration mount.
+
+Randomly initialized weights validate the software path but do not produce scientifically meaningful sensitivity results.
+
+## Troubleshooting
+
+- If `ssat` is not found, verify that the active environment is the one where the package was installed, or use `python -m ssat`.
+- If a pretrained selector fails offline, pre-populate the framework cache or switch to a local checkpoint.
+- If CUDA initialization fails, use compatible PyTorch wheels and drivers or set `device: cpu`.
+- If Compose reports that no GPU device driver is available, remove/override `gpus: all`; changing only the YAML adapter device is not sufficient for container creation.
+- If OpenCV fails to import on a minimal Linux host, install the native packages used by `scripts/install_deps.sh`.
