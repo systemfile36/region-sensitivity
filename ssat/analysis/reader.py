@@ -1,8 +1,7 @@
 """A0 AnalysisReader: open one dump and its metrics store together.
 
 This is the only module in ``ssat.analysis`` allowed to import
-``ssat.metrics.dump_reader``/``ssat.metrics.store`` (design
-IMPLE_PLAN_CONTROL_STABILITY_v1.md §3.1, §5 단계1) — every other
+``ssat.metrics.dump_reader``/``ssat.metrics.store`` — every other
 ``ssat.analysis`` module must consume ``AnalysisReader``'s output instead of
 reopening the dump or metrics store directly. This split exists because none
 of the metrics engine's persisted parquet tables retain the condition axis
@@ -83,8 +82,8 @@ class AnalysisReader:
         self._handle = DumpHandle(Path(dump_dir))
 
         # Raises MetricsCorruptionError if this dump was re-run since the
-        # metrics store was computed (design §N4). Propagates unwrapped —
-        # see module docstring "Error wrapping".
+        # metrics store was computed. Propagates unwrapped — see module
+        # docstring "Error wrapping".
         verify_source_dump(self._manifest, self._handle.manifest_path)
 
         self._context = self._handle.items()[_CONTEXT_COLUMNS].reset_index(drop=True)
@@ -111,8 +110,8 @@ class AnalysisReader:
         """Return the per-item condition-context frame, joinable on ``item_id``.
 
         Built from ``DumpHandle.items()``, not ``.joined()`` — clean-side
-        status/logits are not needed by any A0 consumer (design §1 항목3).
-        Returns a copy so callers cannot mutate the reader's cached frame.
+        status/logits are not needed by any A0 consumer. Returns a copy so
+        callers cannot mutate the reader's cached frame.
         """
 
         return self._context.copy()
@@ -152,9 +151,8 @@ class AnalysisReader:
             fill_strategy_stability=bool(non_control["perturb_op"].nunique() >= 2),
             seed_stability=_has_repeated_condition_group(context),
             # Always False: the core has no jitter axis to detect (see
-            # module docstring / IMPLE_PLAN_CONTROL_STABILITY_v1.md §1
-            # 항목2). Stays interface-only until the core gains jitter
-            # support; pinned by a regression test.
+            # module docstring). Stays interface-only until the core gains
+            # jitter support; pinned by a regression test.
             jitter_stability=False,
         )
 
@@ -166,10 +164,9 @@ def _has_repeated_condition_group(context: pd.DataFrame) -> bool:
     f"{region_id}::{region_instance_id}"``, ``perturb_params_hash =
     sha256(perturb_params_json)``) rather than reinventing it. Deliberately
     not exposed as a column on ``item_context()`` — its column list is
-    pinned by design §5 단계1; ``analysis.indexer`` will compute the same
-    values again for its own AnchorTable/ConditionKey construction, matching
-    the intentional ``region_key``-format duplication already documented on
-    ``AnchorKey``.
+    fixed; ``analysis.indexer`` will compute the same values again for its
+    own AnchorTable/ConditionKey construction, matching the intentional
+    ``region_key``-format duplication already documented on ``AnchorKey``.
     """
 
     counts: Counter[tuple[AnchorKey, ConditionKey]] = Counter()

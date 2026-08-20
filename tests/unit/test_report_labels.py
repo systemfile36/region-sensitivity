@@ -1,4 +1,4 @@
-"""Unit tests for ssat.report.labels (design plan IMPLE_PLAN_SEMANTIC_VULNERABILITY_v1.md §3.5).
+"""Unit tests for ssat.report.labels.
 
 Reuses ``test_report_exporter``'s ``_report_model``/``_sample_card`` builders
 (the same cross-test-module reuse ``test_metrics_store.py`` already
@@ -68,7 +68,7 @@ def _assembled(
     )
 
 
-# --- clean_correct filtering (plan §3.5 item 2) -------------------------------
+# --- clean_correct filtering ---------------------------------------------------
 
 
 def test_export_risk_labels_excludes_clean_incorrect_by_default(tmp_path: Path) -> None:
@@ -97,7 +97,7 @@ def test_export_risk_labels_includes_clean_incorrect_when_opted_out(tmp_path: Pa
     assert result.manifest.n_labels == 2
 
 
-# --- binary vs continuous risk_label (plan §3.5 item 3) ------------------------
+# --- binary vs continuous risk_label --------------------------------------------
 
 
 def test_export_risk_labels_binary_includes_risk_label_and_meta_note_is_none(
@@ -179,7 +179,7 @@ def test_labels_manifest_positive_negative_counts_match_hand_calculation(tmp_pat
     assert manifest_payload["n_negative"] == 1
 
 
-# --- JSONL is a valid stream of standalone objects (plan §3.5 테스트) ----------
+# --- JSONL is a valid stream of standalone objects -----------------------------
 
 
 def test_labels_jsonl_every_line_is_independently_parseable_json(tmp_path: Path) -> None:
@@ -221,7 +221,7 @@ def test_export_risk_labels_is_byte_identical_across_repeated_calls(tmp_path: Pa
     )
 
 
-# --- labels.csv (--csv, plan §3.5 item 5) --------------------------------------
+# --- labels.csv (--csv) ---------------------------------------------------------
 
 
 def test_write_csv_flag_writes_labels_csv_with_matching_rows(tmp_path: Path) -> None:
@@ -252,7 +252,7 @@ def test_write_csv_false_by_default(tmp_path: Path) -> None:
     assert result.csv_path is None
 
 
-# --- load_assembled_report_for_labels (plan §5 "R0를 다시 돌리지 않음") --------
+# --- load_assembled_report_for_labels (reuses R0's output instead of recomputing it) --------
 
 
 def test_load_assembled_report_for_labels_round_trips_from_exporter_output(
@@ -341,11 +341,11 @@ def test_load_assembled_report_for_labels_rejects_report_model_that_predates_thi
         load_assembled_report_for_labels(report_dir)
 
 
-# --- import boundary (mirrors test_report_exporter's, plan "패키지 위치") ------
+# --- import boundary (mirrors test_report_exporter's package-location rule) ----
 
 
 def test_report_labels_module_has_no_assembler_metrics_or_analysis_imports() -> None:
-    """Statically enforce §3.3-style boundary: report.labels → report.types, report.errors, ssat.utils."""
+    """Statically enforce the boundary: report.labels → report.types, report.errors, ssat.utils."""
 
     source_path = Path(__file__).resolve().parents[2] / "ssat" / "report" / "labels.py"
     tree = ast.parse(source_path.read_text(encoding="utf-8"))

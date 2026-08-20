@@ -3,8 +3,7 @@
 Mirrors tests/integration/test_video_source_e2e.py's pattern: a plain-dict
 config (as CLI/YAML would produce) is run through the unmodified
 AuditApplication, proving the ``skeleton_source``/``skeleton_parts`` wiring
-introduced for docs/VIDEO_SKELETON_EXTENSION_ANALYSIS_v1.md stage 4 works
-without any test-only injection. Rasterization/perturbation math itself is
+works without any test-only injection. Rasterization/perturbation math itself is
 already covered pixel-exactly by tests/unit/test_skeleton_integration.py;
 this test's job is the config -> Application -> dump path.
 """

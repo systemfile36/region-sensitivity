@@ -209,9 +209,8 @@ def test_runtime_region_modules_do_not_import_the_offline_builder(
 ) -> None:
     """skeleton_bbox_builder is an offline generation tool, not part of the audit path.
 
-    Statically enforces IMPLE_PLAN_DATASET_INGESTION_v1.md §3.4: no runtime
-    component may import it, so this check parses source instead of
-    importing the module.
+    Statically enforces that no runtime component may import it, so this
+    check parses source instead of importing the module.
     """
 
     source_path = Path(__file__).resolve().parents[2] / "ssat" / "core" / "region" / runtime_module

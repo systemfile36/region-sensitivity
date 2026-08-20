@@ -325,10 +325,9 @@ def test_semantic_group_passes_through_resolution_for_procedural_and_explicit_re
 
 
 def test_semantic_group_does_not_affect_region_spec_or_region_key() -> None:
-    """``semantic_group`` is descriptive metadata only (design §3.1 of
-    IMPLE_PLAN_SEMANTIC_VULNERABILITY_v1.md): two families that differ only
-    in ``semantic_group`` must expand into byte-identical ``RegionSpec``
-    sequences, so item IDs and dump hashes are unaffected.
+    """``semantic_group`` is descriptive metadata only: two families that
+    differ only in ``semantic_group`` must expand into byte-identical
+    ``RegionSpec`` sequences, so item IDs and dump hashes are unaffected.
     """
 
     from ssat.core.plan.expansion_base import RegionExpansionContext

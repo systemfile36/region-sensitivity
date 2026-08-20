@@ -1,16 +1,15 @@
 #!/usr/bin/env python3
 """Build the A/B/C image sets and manifests for the L3 synthetic-shortcut experiment.
 
-Implements docs/STAGE9_SYNTHETIC_SHORTCUT_DESIGN_v1.md sections 1/3/4: downloads
-CIFAR-10 (design section 1), class-balance-samples a train and a test pool with
-a fixed seed, then renders three physically distinct PNG sets per pool:
+Downloads CIFAR-10, class-balance-samples a train and a test pool with a
+fixed seed, then renders three physically distinct PNG sets per pool:
 
     A (contaminated): every image gets its ground-truth class's solid-color
-        patch painted into the fixed top-left grid cell (design section 3).
+        patch painted into the fixed top-left grid cell.
     B (irrelevant, test pool only): the same class-color patches, but each
         placed at a *uniformly random* grid cell per image, so the patch no
-        longer correlates with any single region (design section 4). B is
-        only used as an auxiliary audit control, never for training.
+        longer correlates with any single region. B is only used as an
+        auxiliary audit control, never for training.
     C (clean): the original CIFAR-10 pixels, unmodified.
 
 A/B/C for one pool are rendered from the *same* underlying photographs (only
@@ -206,7 +205,7 @@ def main() -> int:
         indices=train_indices,
         targets=train_targets,
         images_dir=images_dir,
-        rng=None,  # B is a test-only, audit-only control (design section 4).
+        rng=None,  # B is a test-only, audit-only control.
     )
     write_manifest(manifests_dir / "A_train.json", a_train)
     write_manifest(manifests_dir / "C_train.json", c_train)

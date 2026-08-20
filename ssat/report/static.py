@@ -1,30 +1,29 @@
-"""R4 static assets: CSS/JS bundled as Python string constants (design §R4, §3.1).
+"""Static assets: CSS/JS bundled as Python string constants.
 
 Two constants, ``STYLE_CSS``/``ENHANCE_JS``, written verbatim to
 ``<output_dir>/assets/{css/style.css,js/enhance.js}`` by
 ``ssat.report.html_renderer``. They live here — rather than as real
 ``.css``/``.js`` files under ``ssat/report/`` — because the repository has
-never had a non-``.py`` source file (IMPLE_PLAN_REPORTING_v1.md §3.1: `find
-ssat -type f ! -name "*.py"` is empty besides ``__pycache__``), and adding
-one would require new packaging config (``package-data``/``MANIFEST.in``)
-this stage's plan deliberately avoids. The *rendered report folder* is, of
-course, real ``.css``/``.js`` files — this module only holds their source.
+never had a non-``.py`` source file, and adding one would require new
+packaging config (``package-data``/``MANIFEST.in``) that this keeps
+avoiding. The *rendered report folder* is, of course, real ``.css``/``.js``
+files — this module only holds their source.
 
-**Zero dependencies (design §3.3 "report.static → (없음)").** Neither
-constant references anything outside itself: no ``@import url(...)``, no
-``<script src="http...">``-equivalent, no web fonts — every rule uses the
-OS's own font stack, keeping the rendered report fully offline (design §0,
-§R4 "폰트·아이콘·CSS 전부 로컬 번들. 외부 요청 0건").
+**Zero dependencies.** Neither constant references anything outside
+itself: no ``@import url(...)``, no ``<script src="http...">``-equivalent,
+no web fonts — every rule uses the OS's own font stack, keeping the
+rendered report fully offline (fonts, icons, and CSS are all bundled
+locally, with zero external requests).
 
 **Badge colors are not hardcoded here.** ``ssat.report.types.GRADE_COLORS``
 is the single source of truth for reliability-grade colors (that module's
-own docstring), shared between R2's chart bars and R4's HTML badges so the
-two never drift apart. Rather than duplicating those hex values into this
-dependency-free module, every badge gets its color from an inline
-``style="background-color: ..."`` attribute that ``html_renderer.py``
-computes per-badge from ``GRADE_COLORS`` at render time (see that module's
-``_grade_color`` Jinja global) — this stylesheet only defines the badge's
-*shape* (padding, radius, font), not its color.
+own docstring), shared between the chart renderer's bars and the rendered
+HTML's badges so the two never drift apart. Rather than duplicating those
+hex values into this dependency-free module, every badge gets its color
+from an inline ``style="background-color: ..."`` attribute that
+``html_renderer.py`` computes per-badge from ``GRADE_COLORS`` at render
+time (see that module's ``_grade_color`` Jinja global) — this stylesheet
+only defines the badge's *shape* (padding, radius, font), not its color.
 """
 
 from __future__ import annotations
@@ -429,7 +428,7 @@ details code { word-break: break-all; }
   thead th { position: static; }
   /* Force <details> content visible on paper even when collapsed on
      screen — a well-known CSS-only override of the native <details>
-     collapse behavior; no JS involved (design §7 "JS 없이 접이식"). */
+     collapse behavior; no JS involved. */
   details:not([open]) > *:not(summary) { display: block !important; }
   details > summary { list-style: none; }
   details > summary::-webkit-details-marker { display: none; }
@@ -441,9 +440,10 @@ ENHANCE_JS = """
 (function () {
   "use strict";
 
-  // Progressive enhancement only (design §R4 "JS 없이도 모든 콘텐츠가 보여야
-  // 한다"): the region table already renders in a sensible server-decided
-  // order without this script; this only adds click-to-sort on top of it.
+  // Progressive enhancement only: the region table already renders in a
+  // sensible server-decided order without this script and remains fully
+  // usable with JavaScript disabled; this only adds click-to-sort on top
+  // of it.
   var table = document.getElementById("region-table");
   if (!table) {
     return;

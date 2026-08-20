@@ -42,8 +42,7 @@ class RegionConfig(FrozenModel):
             ``skeleton_parts`` families that all track the "lower body").
             ``None`` means the reporting layer falls back to ``region_id``
             itself as the group. Purely descriptive metadata: it never
-            reaches ``RegionSpec`` or the deterministic item-ID hash (see
-            ``docs/IMPLE_PLAN_SEMANTIC_VULNERABILITY_v1.md`` §3.1).
+            reaches ``RegionSpec`` or the deterministic item-ID hash.
     """
 
     region_id: RegionId

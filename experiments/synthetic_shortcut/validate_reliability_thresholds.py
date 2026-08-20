@@ -4,18 +4,17 @@
 Replaced by validate_reliability_thresholds_full.py, which reports on
 run_threshold_validation_full.py's crop-free, all-five-fill-strategy run
 instead of this script's single-op (constant_fill), cropped-preset one.
-docs/RELIABILITY_THRESHOLD_CALIBRATION_v1.md, the current reliability-
-threshold report, cites only the ``_full`` script's output. Kept only so the
-prior (provisional) numbers it produced remain reproducible for historical
-comparison -- see experiments/synthetic_shortcut/README.md's script
-inventory.
+The current reliability-threshold report cites only the ``_full`` script's
+output. Kept only so the prior (provisional) numbers it produced remain
+reproducible for historical comparison -- see
+experiments/synthetic_shortcut/README.md's script inventory.
 
 Check whether ssat.analysis's z_vs_control_threshold / seed_cv_threshold
 defaults (2.0 / 0.2, ssat/analysis/reliability.py) behave sensibly against
 real control-region and multi-seed data -- something the five original
-shortcut_A_* runs could not exercise at all (IMPLE_PLAN_CONTROL_STABILITY_v1.md
-§5 단계9 follow-up). Reads the run run_threshold_validation.py produces
-(shortcut_A_constant_fill_thresholds: 2 controls/target-region, 3 seeds).
+shortcut_A_* runs could not exercise at all. Reads the run
+run_threshold_validation.py produces (shortcut_A_constant_fill_thresholds:
+2 controls/target-region, 3 seeds).
 
 Important caveat this script's own output calls out explicitly: this run
 uses only one perturb_op (constant_fill), so every anchor's

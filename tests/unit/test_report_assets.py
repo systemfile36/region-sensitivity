@@ -1,10 +1,10 @@
-"""Unit tests for ssat.report.assets's R3 AssetLinker (design §R3).
+"""Unit tests for ssat.report.assets's asset linker.
 
 Builds one real dump+metrics pair through the synthetic pipeline (mirroring
 tests/unit/test_metrics_viz_heatmap.py's own precedent for exercising
 ``ssat.metrics.viz.heatmap`` against real, committed fixture images) and one
-real ``AssembledReport`` through ``ReportDataAssembler`` — the actual R0
-output :func:`link_assets`/:func:`apply_asset_manifest` are meant to consume,
+real ``AssembledReport`` through ``ReportDataAssembler`` — the actual output
+:func:`link_assets`/:func:`apply_asset_manifest` are meant to consume,
 rather than a hand-built stand-in (``ReportModel`` has too many mandatory
 nested sections to hand-build meaningfully here).
 """
@@ -267,7 +267,7 @@ def test_apply_asset_manifest_is_a_noop_for_an_unavailable_manifest(tmp_path: Pa
     assert linked.full_sample_rankings == assembled.full_sample_rankings
 
 
-# --- thumbnail resizing (design §5 단계5 step3, confirmed 256px with the user) ----
+# --- thumbnail resizing (256px longest edge, confirmed with the user) ----------
 
 
 def test_save_thumbnail_png_resizes_to_256px_longest_edge_preserving_aspect(tmp_path: Path) -> None:
@@ -287,7 +287,7 @@ def test_save_thumbnail_png_resizes_to_256px_longest_edge_preserving_aspect(tmp_
 
 
 def test_report_assets_module_has_no_forbidden_package_imports() -> None:
-    """Statically enforce §3.3's dependency direction for report.assets.
+    """Statically enforce the dependency direction for report.assets.
 
     ``ssat.metrics`` itself is *not* blanket-forbidden here (unlike
     ``report.charts``'s equivalent test) -- ``ssat.metrics.dump_reader`` and

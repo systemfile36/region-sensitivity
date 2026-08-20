@@ -1,32 +1,31 @@
-"""R1-adjacent module: export a per-sample risk-label file for downstream training (design plan §3.5).
+"""A companion to the report exporter: export a per-sample risk-label file for downstream training.
 
-Unlike ``ssat.report.exporter`` (R1), whose output is for humans to read,
-this module's output is for a *training pipeline* to consume: the same
-"라벨(타깃) 파일" the source research produced with a script like
-``build_skeleton_metadata.py`` (IMPLE_PLAN_SEMANTIC_VULNERABILITY_v1.md §1
-격차#5). It computes no new statistics — every value it writes is read
-verbatim off ``AssembledReport``'s already-computed data (plan §3.5's own
-framing: "새 통계를 계산하지 않는다"), the same non-inferential posture R1
-has. It is documented as an R1-adjacent module rather than a new R-number
-for that reason (plan "패키지 위치").
+Unlike ``ssat.report.exporter``, whose output is for humans to read, this
+module's output is for a *training pipeline* to consume -- the same kind
+of label file a prior research workflow produced with a script like
+``build_skeleton_metadata.py``. It computes no new statistics -- every
+value it writes is read verbatim off ``AssembledReport``'s already-computed
+data, the same non-inferential posture the exporter has. It is documented
+as a companion module rather than a new top-level report stage for that
+reason.
 
-**Two entry points, two callers (confirmed with the user this stage).**
-Plan §3.5 specifies ``export_risk_labels(assembled, output_dir, ...)``
-taking R0's in-memory ``AssembledReport``, while plan §5 specifies
-``AuditApplication.export_labels(request)`` reading only an already-written
-``report_dir`` *without re-running R0* ("이미 계산된 것을 export"). Those two
-requirements only both hold if everything :func:`export_risk_labels` needs
-is also reachable from disk -- but R0's ``sample_semantic_degradation``
-(``(sample_id, semantic_group) -> degradation``) is a non-serialized
-intermediate with no ``ReportModel`` field of its own (``ssat.report.
-assembler.AssembledReport`` docstring), so a raw ``report_model.json``
-alone cannot satisfy it. The gap is closed by ``ssat.report.exporter``
-folding that mapping into ``sample_rankings.csv``'s new
-``semantic_degradation_json`` column (per-sample, one JSON object per row)
--- so this module's second entry point, :func:`load_assembled_report_for_labels`,
-rebuilds an :class:`AssembledReportLike` purely from ``report_dir``'s
-already-written ``data/report_model.json`` + ``data/sample_rankings.csv``,
-with no dump/metrics/analysis store ever reopened. Both entry points are
+**Two entry points, two callers.** :func:`export_risk_labels` takes the
+assembler's in-memory ``AssembledReport``, while
+``AuditApplication.export_labels(request)`` needs to read only an
+already-written ``report_dir`` *without re-running the assembler*. Those
+two requirements only both hold if everything :func:`export_risk_labels`
+needs is also reachable from disk -- but the assembler's
+``sample_semantic_degradation`` (``(sample_id, semantic_group) ->
+degradation``) is a non-serialized intermediate with no ``ReportModel``
+field of its own (``ssat.report.assembler.AssembledReport`` docstring), so
+a raw ``report_model.json`` alone cannot satisfy it. The gap is closed by
+``ssat.report.exporter`` folding that mapping into
+``sample_rankings.csv``'s ``semantic_degradation_json`` column (per-sample,
+one JSON object per row) -- so this module's second entry point,
+:func:`load_assembled_report_for_labels`, rebuilds an
+:class:`AssembledReportLike` purely from ``report_dir``'s already-written
+``data/report_model.json`` + ``data/sample_rankings.csv``, with no
+dump/metrics/analysis store ever reopened. Both entry points are
 duck-typed against the same :class:`AssembledReportLike`, so
 :func:`export_risk_labels` itself never needs to know which one produced
 its input.
@@ -34,16 +33,16 @@ its input.
 **risk_label's value.** For a binary primary metric, ``ItemMetrics.value``
 is already 0/1 at the item grain, and ``SpatialProfile.degradation`` (the
 source of ``sample_semantic_degradation``) is a plain arithmetic mean of
-that within one ``(sample, semantic_group)`` pair -- unlike ``ClassSemanticRow
-.flip_rate`` (always ``None``, ``ssat.report.assembler`` module docstring),
-there is no missing-axis problem here because this row is *already* scoped
-to one sample, not aggregated across many. ``risk_label = degradation > 0``
-therefore means "at least one concrete region in this semantic_group
-flipped this sample's correct prediction" -- the same flip semantics the
-source research used, reused rather than re-derived. For a continuous
-primary metric this threshold would misrepresent a continuous score as a
-binary label, so the key is omitted entirely rather than guessed (plan
-§3.5 item 3, design §6.2 "결측을... 조용히 채우지 않는다").
+that within one ``(sample, semantic_group)`` pair -- unlike
+``ClassSemanticRow.flip_rate`` (always ``None``, see ``ssat.report
+.assembler`` module docstring), there is no missing-axis problem here
+because this row is *already* scoped to one sample, not aggregated across
+many. ``risk_label = degradation > 0`` therefore means "at least one
+concrete region in this semantic_group flipped this sample's correct
+prediction" -- the same flip semantics a prior research workflow used,
+reused rather than re-derived. For a continuous primary metric this
+threshold would misrepresent a continuous score as a binary label, so the
+key is omitted entirely rather than guessed.
 """
 
 from __future__ import annotations
@@ -63,7 +62,7 @@ from ssat.utils.io import load_json, sha256_file, write_json_atomic
 
 
 class _SampleRowLike(Protocol):
-    """Minimal per-sample shape :func:`export_risk_labels` reads (plan §3.5 items 1-2)."""
+    """Minimal per-sample shape :func:`export_risk_labels` reads."""
 
     sample_id: str
     gt_label: int | None
@@ -90,7 +89,7 @@ class AssembledReportLike(Protocol):
 
 @dataclasses.dataclass(frozen=True, slots=True)
 class LabelsManifest:
-    """``labels_manifest.json`` content (plan §3.5 item 4).
+    """``labels_manifest.json`` content.
 
     Attributes:
         generated_at: ISO-8601 UTC timestamp this export ran at.
@@ -168,20 +167,20 @@ def export_risk_labels(
     write_csv: bool = False,
     source_report_manifest_hash: str | None = None,
 ) -> LabelsResult:
-    """Write ``labels.jsonl`` (+ optional ``labels.csv``) + ``labels_manifest.json`` (plan §3.5).
+    """Write ``labels.jsonl`` (+ optional ``labels.csv``) + ``labels_manifest.json``.
 
     Args:
-        assembled: R0's output, or :func:`load_assembled_report_for_labels`'s
-            disk reconstruction of it -- see :class:`AssembledReportLike`.
+        assembled: The assembler's output, or
+            :func:`load_assembled_report_for_labels`'s disk reconstruction
+            of it -- see :class:`AssembledReportLike`.
         output_dir: Directory the files are written into; created
             (including parents) if it does not already exist.
         only_clean_correct: When ``True`` (the default), only samples with
             ``clean_correct is True`` are emitted -- reproducing the source
-            research's "teacher가 clean에서 맞춘 샘플만 유지" definition (plan
-            §3.5 item 2), so only corruption-*induced* failures ever become
-            positive labels.
-        write_csv: Also write ``labels.csv`` alongside the JSONL body
-            (plan §3.5 item 5, ``--csv``).
+            research's convention of keeping only samples the teacher model
+            correctly classified on clean input, so only corruption-
+            *induced* failures ever become positive labels.
+        write_csv: Also write ``labels.csv`` alongside the JSONL body.
         source_report_manifest_hash: sha256 of the source ``report_manifest
             .json``, when the caller has filesystem access to it (the
             Application layer always does); ``None`` otherwise.
@@ -247,7 +246,7 @@ def export_risk_labels(
     )
 
 
-# --- disk reconstruction (plan §5 "R0를 다시 돌리지 않음") --------------------
+# --- disk reconstruction (reads from disk without re-running the assembler) ----
 
 
 @dataclasses.dataclass(frozen=True, slots=True)
@@ -271,14 +270,14 @@ class _DiskAssembledReport:
 def load_assembled_report_for_labels(
     report_dir: Path,
 ) -> tuple[AssembledReportLike, str | None]:
-    """Rebuild enough of R0's output from ``report_dir`` to call :func:`export_risk_labels`.
+    """Rebuild enough of the assembler's output from ``report_dir`` to call :func:`export_risk_labels`.
 
     Reads ``report_dir/data/report_model.json`` and ``report_dir/data/
     sample_rankings.csv`` (both written by ``ssat.report.exporter.export``)
     plus ``report_dir/report_manifest.json`` (written by ``ssat.report.
     html_renderer.render_report``, always present alongside them --
     ``AuditApplication.generate_report`` runs both in the same pipeline) --
-    never the source dump, MetricsStore, or AnalysisStore (plan §5).
+    never the source dump, MetricsStore, or AnalysisStore.
 
     Args:
         report_dir: The output directory a prior ``AuditApplication.
@@ -292,11 +291,11 @@ def load_assembled_report_for_labels(
 
     Raises:
         ReportDataError: If ``report_model.json``/``sample_rankings.csv`` is
-            missing, or ``report_model.json`` predates this plan's semantic
-            fields (a genuinely old-format file -- ``ReportModel.from_dict``
-            requires every field since none carry a default, so any missing
-            top-level key surfaces here, not just the semantic ones plan §9's
-            risk table calls out) -- never a silent empty labels file.
+            missing, or ``report_model.json`` predates the semantic-
+            vulnerability fields (a genuinely old-format file --
+            ``ReportModel.from_dict`` requires every field since none carry
+            a default, so any missing top-level key surfaces here, not just
+            the semantic ones) -- never a silent empty labels file.
     """
 
     report_dir = Path(report_dir)
@@ -318,7 +317,7 @@ def load_assembled_report_for_labels(
     except (KeyError, TypeError, ValueError) as error:
         raise ReportDataError(
             "this report was generated without semantic-vulnerability analysis "
-            "(report_model.json predates IMPLE_PLAN_SEMANTIC_VULNERABILITY_v1.md); "
+            "(report_model.json predates the current schema); "
             "re-run `ssat report` to regenerate it before exporting labels"
         ) from error
 
@@ -383,13 +382,12 @@ def _parse_optional_bool(raw: str) -> bool | None:
 
 def _is_binary_primary_metric(scorecard: Sequence[MetricCard]) -> bool:
     """Reuse the same ``flip_rate``-card check ``ssat.report.assembler.
-    _is_binary_primary_metric`` uses (plan §3.3 item 5), duplicated here
-    rather than imported to keep this module's dependency surface at
-    ``report.types``/``ssat.utils`` only -- the same boundary ``ssat.report.
-    exporter`` already keeps (plan "패키지 위치", statically enforced by
-    ``tests/unit/test_report_exporter.py::test_report_exporter_module_has_
-    no_assembler_metrics_or_analysis_imports``; this module has the same
-    test).
+    _is_binary_primary_metric`` uses, duplicated here rather than imported
+    to keep this module's dependency surface at ``report.types``/``ssat
+    .utils`` only -- the same boundary ``ssat.report.exporter`` already
+    keeps, statically enforced by ``tests/unit/test_report_exporter.py::
+    test_report_exporter_module_has_no_assembler_metrics_or_analysis_
+    imports`` (this module has the same test).
     """
 
     return any(card.key == "flip_rate" and card.value is not None for card in scorecard)
@@ -406,10 +404,10 @@ def _write_labels_jsonl(
 
     The meta line lets a streaming consumer learn ``is_binary_primary_metric``
     (hence whether to expect a ``risk_label`` key on every subsequent line)
-    without peeking at row 2 -- and carries the continuous-run explanation
-    plan §3.5 item 3 requires ("이 run은 continuous metric이라 risk_label 없음,
-    degradation만 있음") as its ``note``. Every line, meta included, is a
-    single self-contained JSON object (plan §3.5 테스트 "스트리밍 파서 호환성").
+    without peeking at row 2 -- and carries an explanation of the
+    continuous-run case as its ``note``. Every line, meta included, is a
+    single self-contained JSON object, so a streaming parser can consume the
+    file line by line without buffering the whole thing.
     """
 
     meta = {

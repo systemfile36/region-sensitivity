@@ -2,16 +2,14 @@
 
 Compares each target AnchorKey/ConditionKey's degradation against its
 matched random-area-match controls, answering "is this sensitivity
-region-specific, or just because something was occluded?" (design
-CONTROL_STABILITY_DESIGN_v1.md §A2, IMPLE_PLAN_CONTROL_STABILITY_v1.md §5
-단계3).
+region-specific, or just because something was occluded?"
 
 This module deliberately re-derives ``AnchorKey``/``ConditionKey`` from raw
 item rows rather than importing ``analysis.indexer``/``analysis.reader`` --
-the same pattern IMPLE_PLAN §5 단계4 (A3(c)) already prescribes ("A1의
-AnchorTable + item 컨텍스트에서 ... 직접 재집계한다"), extending the
-already-accepted ``region_key`` formula duplication (§9 리스크 표) to
-``ConditionKey`` as well. ``compare_to_controls`` therefore depends only on
+the same pattern A3(c) already follows (recomputing directly from A1's
+AnchorTable plus item context rather than importing it), extending the
+already-accepted ``region_key`` formula duplication to ``ConditionKey`` as
+well. ``compare_to_controls`` therefore depends only on
 ``analysis.types`` plus ``pandas``/``numpy``/stdlib, consuming a plain
 ``item_values`` frame the caller assembles from
 ``AnalysisReader.item_context()`` + ``AnalysisReader.item_metrics`` -- never
@@ -47,7 +45,7 @@ def compare_to_controls(
     ratio_zero_threshold: float = DEFAULT_RATIO_ZERO_THRESHOLD,
     area_match_tolerance: float = DEFAULT_AREA_MATCH_TOLERANCE,
 ) -> list[ControlComparisonRow]:
-    """Compare each target's degradation to its matched controls (design §A2).
+    """Compare each target's degradation to its matched controls.
 
     Args:
         item_values: Item-grain frame combining
@@ -63,8 +61,8 @@ def compare_to_controls(
         metric_names: Metric names to compute rows for; defaults to every
             distinct ``metric_name`` present in ``item_values``.
         ratio_zero_threshold: ``ratio`` is ``None`` when
-            ``abs(control_mean)`` falls below this (design §A2 "분모가 0에
-            가까울 때 폭발").
+            ``abs(control_mean)`` falls below this (avoids the ratio
+            exploding as the denominator approaches zero).
         area_match_tolerance: Fractional tolerance used to judge
             ``area_matched`` from each matched pair's ``area_match_ratio``
             (same default as A1's ``area_match_tolerance``).
@@ -78,7 +76,7 @@ def compare_to_controls(
         with no matched controls -- or matched controls that all lack a
         usable value for that metric -- gets
         ``control_available=FlagValue.UNAVAILABLE`` and every numeric field
-        ``None`` (design §A2 "control 부재 시").
+        ``None`` (i.e., when no usable control is available).
     """
 
     anchor_means, is_control_by_anchor = _anchor_level_means(item_values)
@@ -141,8 +139,8 @@ def _compare_one(
     contribute -- if none of the matched controls have a value,
     ``control_available`` is ``UNAVAILABLE`` even though A1 did find
     matches, because "unavailable" tracks usable values, not structural
-    matching (design principle "unavailable을 false로 취급하지 않는다"
-    applied to this axis too).
+    matching (the same "never treat unavailable as false" principle applied
+    to this axis too).
     """
 
     control_values = [
@@ -183,7 +181,7 @@ def _compare_one(
         else None
     )
 
-    # "Reveal inconsistency, don't smooth it over" (design §0): area_matched
+    # "Reveal inconsistency, don't smooth it over": area_matched
     # is TRUE only if every matched pair's area_match_ratio is known and
     # within tolerance; any single mismatch or undefined ratio flags the
     # whole row FALSE rather than silently passing.
@@ -218,9 +216,9 @@ def _anchor_level_means(
 
     Mirrors ``ssat.metrics.aggregate``'s macro-average policy (module
     docstring): raw values are pooled per key and averaged once, so seed
-    repeats sharing one ``ConditionKey`` (design §1 항목4 -- seed is
-    deliberately excluded from ``ConditionKey``) collapse to a single
-    anchor-level value before any control/target comparison happens.
+    repeats sharing one ``ConditionKey`` (seed is deliberately excluded
+    from ``ConditionKey``) collapse to a single anchor-level value before
+    any control/target comparison happens.
     """
 
     raw_values: dict[tuple[AnchorKey, ConditionKey, str], list[float]] = defaultdict(list)

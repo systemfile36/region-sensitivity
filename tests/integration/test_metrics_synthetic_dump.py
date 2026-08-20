@@ -1,10 +1,9 @@
 """L2: dump -> ItemMetrics -> aggregation, over dumps built without running the core.
 
 Uses tests/fixtures/synthetic_dump_builder.py (DumpWriter called directly —
-no PlanBuilder/runtime/adapter) to reproduce the 5 scenarios required by
-design IMPLE_PLAN_METRIC_DESIGN_v1.md §3.3 / §5 단계 5. Passing this file
-lets any later failure be attributed to the metrics engine rather than the
-core execution path.
+no PlanBuilder/runtime/adapter) to reproduce the 5 defensive-path scenarios
+for the metrics engine. Passing this file lets any later failure be
+attributed to the metrics engine rather than the core execution path.
 """
 
 from __future__ import annotations

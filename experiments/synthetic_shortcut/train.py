@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
 """Train M_shortcut (on A) or M_normal (on C) for the L3 synthetic-shortcut experiment.
 
-Implements docs/STAGE9_SYNTHETIC_SHORTCUT_DESIGN_v1.md section 2: a
-from-scratch (no pretrained weights) torchvision squeezenet1_0, trained with
-a standard CIFAR-style recipe (SGD + cosine annealing).
+Trains a from-scratch (no pretrained weights) torchvision squeezenet1_0,
+with a standard CIFAR-style recipe (SGD + cosine annealing).
 
 Two things here are non-negotiable given how the tool being validated works,
 not just "typical" choices:
@@ -26,14 +25,12 @@ not just "typical" choices:
    'crop_free' drives common.build_crop_free_transform(), which wraps the
    same ssat.core.adapter.preprocessing.DeclarativePreprocessor the adapter
    uses when a config's ``preprocessing`` field IS set (added specifically
-   so this pairing is possible -- see
-   docs/STAGE9_SYNTHETIC_SHORTCUT_DESIGN_v1.md section 2's addendum). If
-   training used different preprocessing than the audit run it feeds, the
-   audited model would see two different input distributions -- one at
-   train time, one at audit time -- as a confound. Sharing the exact
-   object/class between train.py and the adapter removes that confound by
-   construction rather than by two independent implementations agreeing
-   numerically.
+   so this pairing is possible). If training used different preprocessing
+   than the audit run it feeds, the audited model would see two different
+   input distributions -- one at train time, one at audit time -- as a
+   confound. Sharing the exact object/class between train.py and the
+   adapter removes that confound by construction rather than by two
+   independent implementations agreeing numerically.
 
 A third point, discovered only after a full 40-epoch run (the earlier
 smoke test's 2-3 epochs were too short to expose it): squeezenet1_0's
@@ -79,7 +76,7 @@ from torch.utils.data import DataLoader, Dataset
 
 DEFAULT_EPOCHS = 40
 DEFAULT_BATCH_SIZE = 128
-# Lowered from design section 2's original 0.1: at 0.1, squeezenet1_0 (no
+# Lowered from an original default of 0.1: at 0.1, squeezenet1_0 (no
 # batch norm) reliably collapses into a dead-ReLU constant-output state --
 # confirmed to recur even with LR warmup, so the peak value itself, not
 # just how it's reached, was the problem. See the module docstring.
@@ -184,7 +181,7 @@ def _train_one_epoch(
         # more prone to an early loss spike/NaN at lr=0.1 than a
         # BatchNorm-equipped architecture would be. Clipping the gradient
         # norm is a standard, minimally-invasive stabilizer that lets the
-        # design doc's chosen learning rate stand rather than lowering it.
+        # base learning rate stand rather than lowering it further.
         nn.utils.clip_grad_norm_(model.parameters(), max_norm=5.0)
         optimizer.step()
 
@@ -229,8 +226,8 @@ def main() -> int:
         drop_last=False,
     )
 
-    # weights=None: train entirely from scratch (design section 2), not
-    # fine-tuned from ImageNet weights.
+    # weights=None: train entirely from scratch, not fine-tuned from
+    # ImageNet weights.
     model = squeezenet1_0(weights=None, num_classes=NUM_CLASSES).to(device)
     optimizer = torch.optim.SGD(
         model.parameters(),
@@ -246,8 +243,8 @@ def main() -> int:
     # --lr over --warmup-epochs epochs; see the module docstring for why
     # this is needed for a batch-norm-free network like squeezenet1_0.
     # After the handoff at epoch warmup_epochs, cosine annealing runs over
-    # the remaining epochs, ending at 0 exactly at the final epoch, same as
-    # design section 2 originally specified.
+    # the remaining epochs, ending at 0 exactly at the final epoch, as
+    # originally specified.
     warmup_epochs = min(args.warmup_epochs, args.epochs)
     warmup_scheduler = torch.optim.lr_scheduler.LinearLR(
         optimizer, start_factor=0.01, total_iters=warmup_epochs

@@ -1,29 +1,28 @@
-"""R2 ChartRenderer: server-side SVG charts for a ReportModel (design §R2).
+"""Chart renderer: server-side SVG charts for a ReportModel.
 
 Three charts, each a pure function from already-assembled ``report.types``
-data to an SVG string — no new statistics, only visualization of numbers R0
-already computed (design §0 "계산하지 않고 조립한다"): the vulnerability
-score histogram (full population, not just top-K — this is *the* section
-that differentiates this tool from a single-scalar benchmark table, design
-§4.1), the region degradation bar chart (colored by :data:`ssat.report.
-types.GRADE_COLORS` so a bar's color always agrees with the same region's
-badge in R4's HTML, design §4.3), and the optional fill-strategy rank
-correlation heatmap.
+data to an SVG string — no new statistics, only visualization of numbers
+the assembler already computed: the vulnerability score histogram (full
+population, not just top-K — this is *the* section that differentiates
+this tool from a single-scalar benchmark table), the region degradation
+bar chart (colored by :data:`ssat.report.types.GRADE_COLORS` so a bar's
+color always agrees with the same region's badge in the rendered HTML),
+and the optional fill-strategy rank correlation heatmap.
 
 **No pyplot, ever.** Every function builds a bare ``matplotlib.figure.
 Figure()`` directly and never touches ``matplotlib.pyplot`` — the same
 choice ``ssat/metrics/viz/heatmap.py`` already made (its module docstring/
-``_save_view_png``), which sidesteps IMPLE_PLAN_REPORTING_v1.md §1 격차#6's
-named risk (a leaked, never-``plt.close()``d global figure) entirely rather
-than merely mitigating it: a ``Figure()`` never registers with pyplot's
-global figure registry, so there is nothing to leak or close.
+``_save_view_png``), which sidesteps the risk of a leaked,
+never-``plt.close()``d global figure entirely rather than merely
+mitigating it: a ``Figure()`` never registers with pyplot's global figure
+registry, so there is nothing to leak or close.
 
-**Reproducibility (design §R2 "같은 입력이면 같은 SVG가 나와야 한다").**
-matplotlib's default SVG output is *not* reproducible out of the box —
-confirmed empirically before writing this module — for two independent
-reasons, both neutralized via ``matplotlib.rc_context`` (scoped to each
-render call, so this module never mutates global rcParams for any other
-matplotlib caller in the same process):
+**Reproducibility.** The same input must always produce the same SVG
+bytes. matplotlib's default SVG output is *not* reproducible out of the
+box — confirmed empirically before writing this module — for two
+independent reasons, both neutralized via ``matplotlib.rc_context``
+(scoped to each render call, so this module never mutates global
+rcParams for any other matplotlib caller in the same process):
 
 - ``rcParams["svg.hashsalt"]`` defaults to ``None``, under which clip-path/
   gradient element ids are derived from ``id(obj)`` (a memory address) and
@@ -31,11 +30,10 @@ matplotlib caller in the same process):
   makes those ids a deterministic hash instead.
 - ``rcParams["svg.fonttype"]`` defaults to embedding text as ``<text>``
   elements that depend on system/embedded fonts being available to whatever
-  later renders the SVG — a runtime dependency this project's "완전
-  오프라인" principle (design §0) does not want. Setting it to ``"path"``
-  converts every glyph into a vector ``<path>`` at render time instead (the
-  plan's own wording, IMPLE_PLAN_REPORTING_v1.md §5 단계4: "폰트 임베드
-  없이 벡터 패스만 사용").
+  later renders the SVG — a runtime dependency the project's fully-offline
+  principle does not want. Setting it to ``"path"`` converts every glyph
+  into a vector ``<path>`` at render time instead, so no font embedding is
+  needed.
 
 Separately, ``fig.savefig(..., metadata=...)`` is passed ``{"Date": None,
 "Creator": None, "Format": None, "Type": None}`` to suppress matplotlib's
@@ -44,17 +42,17 @@ wall-clock timestamp (breaking reproducibility on its own, independent of
 the hashsalt issue above) and a literal ``https://matplotlib.org/`` credit
 line.
 
-**What "no external references" means here (confirmed with the user for
-this stage).** Even after every suppression above, a spec-valid SVG 1.1
-document still contains exactly three ``http://`` occurrences: the DOCTYPE's
-DTD URI and the ``xmlns``/``xmlns:xlink`` namespace declarations mandated by
-the SVG/XML specs themselves — no renderer ever fetches these over the
-network, they are inert namespace identifiers, and no post-processing
-attempts to strip them (doing so would produce a non-standard document for
-no functional gain). "No external references" is enforced at the level
-design §6.3 C2 actually cares about: no attribute value that points at an
-external resource (``href``/``src`` starting with ``http(s)://``, no
-``<script>``/``<image>`` tags) — see ``tests/unit/test_report_charts.py``.
+**What "no external references" means here.** Even after every
+suppression above, a spec-valid SVG 1.1 document still contains exactly
+three ``http://`` occurrences: the DOCTYPE's DTD URI and the
+``xmlns``/``xmlns:xlink`` namespace declarations mandated by the SVG/XML
+specs themselves — no renderer ever fetches these over the network, they
+are inert namespace identifiers, and no post-processing attempts to strip
+them (doing so would produce a non-standard document for no functional
+gain). "No external references" is enforced at the level that actually
+matters: no attribute value that points at an external resource
+(``href``/``src`` starting with ``http(s)://``, no ``<script>``/``<image>``
+tags) — see ``tests/unit/test_report_charts.py``.
 """
 
 from __future__ import annotations
@@ -83,13 +81,14 @@ _SVG_METADATA = {"Date": None, "Creator": None, "Format": None, "Type": None}
 _HISTOGRAM_COLOR = "#455a64"
 _NO_GRADE_COLOR = "#9e9e9e"  # distinct from GRADE_COLORS[LOW] — "no analysis run", not "LOW"
 
-# English, unlike the Korean user-facing notes elsewhere in this layer
-# (e.g. assembler.py's MetricCard.note strings): with svg.fonttype="path"
-# (module docstring), matplotlib bakes this text into vector glyph outlines
-# at render time using whatever font it has loaded locally (DejaVu Sans,
-# confirmed empirically to have no Hangul coverage) — unlike R4's HTML
-# notes, which a browser renders with its own font stack, so Korean text
-# there costs nothing. Korean here would silently render as blank glyphs.
+# English, unlike some user-facing notes elsewhere in this layer (e.g.
+# assembler.py's MetricCard.note strings, which may contain non-Latin
+# text): with svg.fonttype="path" (module docstring), matplotlib bakes
+# this text into vector glyph outlines at render time using whatever font
+# it has loaded locally (DejaVu Sans, confirmed empirically to have no
+# Hangul coverage) — unlike the rendered HTML's notes, which a browser
+# renders with its own font stack, so non-Latin text there costs nothing.
+# Non-Latin text here would silently render as blank glyphs.
 _NO_DATA_LABEL = "No data"
 
 
@@ -97,8 +96,7 @@ class RankCorrelationRowLike(Protocol):
     """Structural shape this module reads off one fill-strategy rank correlation row.
 
     Matches ``ssat.analysis.types.RankCorrelationRow`` field-for-field
-    without importing it, keeping this module on its §3.3 dependency list
-    ("report.charts → report.types") — the same duck-typing trade
+    without importing it — the same duck-typing trade
     ``report.adapters.SampleMetricLike``/``report.exporter.
     AssembledReportLike`` already made for the same reason.
 
@@ -117,9 +115,9 @@ class RankCorrelationRowLike(Protocol):
 def render_vulnerability_histogram(
     full_sample_rankings: Sequence[SampleCard], *, bins: int = 20, seed: int = 0
 ) -> str:
-    """Render the full vulnerability_score distribution as an SVG histogram (design §R2, §4.2 step3).
+    """Render the full vulnerability_score distribution as an SVG histogram.
 
-    Takes ``full_sample_rankings`` (every sample, §1 격차#5) rather than
+    Takes ``full_sample_rankings`` (every sample) rather than
     ``ReportModel.sample_rankings`` (top-K/bottom-K only) — a histogram of
     only the extremes cannot represent a distribution.
 
@@ -128,8 +126,8 @@ def render_vulnerability_histogram(
             assembler.AssembledReport`, in any order.
         bins: Histogram bin count.
         seed: Reserved for future jittered/randomized visualizations; this
-            histogram's binning has no random component today (design §5
-            단계4 "단순 binning이므로 seed는 향후... 예비 인자").
+            histogram's binning has no random component today, so ``seed``
+            is currently unused.
 
     Returns:
         A standalone, reproducible SVG document as ``str``.
@@ -157,11 +155,11 @@ def render_vulnerability_histogram(
 
 
 def render_region_bar(region_summary_rows: Sequence[RegionRow]) -> str:
-    """Render each region's mean degradation as a grade-colored bar chart (design §R2, §4.2 step5).
+    """Render each region's mean degradation as a grade-colored bar chart.
 
     Bar color matches :data:`ssat.report.types.GRADE_COLORS` — the exact
-    palette R4's HTML badges use — so a region's bar and its table row badge
-    never disagree (design §4.3). A row whose ``mean_degradation`` is
+    palette the rendered HTML's badges use — so a region's bar and its
+    table row badge never disagree. A row whose ``mean_degradation`` is
     ``None`` (no valid items for that region) is omitted from the plotted
     bars entirely rather than drawn at height 0, which would misrepresent
     "no data" as "zero degradation" (the same unavailable-≠-false principle
@@ -201,13 +199,13 @@ def render_region_bar(region_summary_rows: Sequence[RegionRow]) -> str:
 def render_fill_strategy_correlation(
     rank_correlation_rows: Sequence[RankCorrelationRowLike],
 ) -> str | None:
-    """Render an op×op Spearman rank-correlation heatmap, when available (design §R2).
+    """Render an op×op Spearman rank-correlation heatmap, when available.
 
     Only offered when the adapter's ``applicable_charts()`` includes
-    ``"fill_strategy_correlation_heatmap"`` (design §5 단계1) — the empty
-    input this function then sees when fill-strategy stability was not
-    computed is handled here too, by returning ``None`` before any
-    matplotlib object is created.
+    ``"fill_strategy_correlation_heatmap"`` — the empty input this
+    function then sees when fill-strategy stability was not computed is
+    handled here too, by returning ``None`` before any matplotlib object
+    is created.
 
     Args:
         rank_correlation_rows: ``rank_correlation.parquet`` rows, unfiltered

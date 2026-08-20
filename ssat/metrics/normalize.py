@@ -1,9 +1,8 @@
 """N1 OutputNormalizer: derive probability/logit/rank/margin values.
 
 ``normalize_output`` applies identically to clean and perturbed output
-vectors (design METRIC_ENGINE_DESIGN_v1.md §N1) so that later metric code
-never touches raw logits directly, avoiding duplicated derivations and
-inconsistencies across metrics.
+vectors so that later metric code never touches raw logits directly,
+avoiding duplicated derivations and inconsistencies across metrics.
 """
 
 from __future__ import annotations
@@ -27,7 +26,7 @@ class NormalizedOutput:
         logit: Original logit vector, or ``None`` when the adapter reports
             probability outputs — logit reconstruction from probabilities is
             unreliable, so logit-derived fields are withheld rather than
-            approximated (design §N1 "설계 의도").
+            approximated.
         top1_index: Index of the highest-probability class.
         top1_prob: Probability of the ``top1_index`` class.
         gt_prob: Probability assigned to the ground-truth class.
@@ -65,9 +64,8 @@ def normalize_output(
     softmax of ``values`` and ``logit``/``gt_logit``/``margin`` come from
     ``values`` directly. Otherwise (unreachable with the v1 core, which
     fixes ``AdapterSpec.output_kind`` to ``Literal["logits"]``; guarded
-    here defensively in case a future core adds ``"probs"``, per
-    IMPLE_PLAN_METRIC_DESIGN_v1.md §5 단계 2), ``values`` is already a
-    probability distribution: ``prob`` passes it through unchanged, while
+    here defensively in case a future core adds ``"probs"``), ``values`` is
+    already a probability distribution: ``prob`` passes it through unchanged, while
     ``logit``/``gt_logit``/``margin`` are withheld as ``None`` instead of
     being reconstructed by an unstable log transform.
 

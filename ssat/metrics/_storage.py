@@ -1,11 +1,10 @@
 """Low-level durable storage helpers for the metrics engine.
 
 Re-implements the same atomic-write/fsync pattern as
-``ssat.core.dump._storage`` (design IMPLE_PLAN_METRIC_DESIGN_v1.md §5 단계 6:
-"core.dump.manifest의 atomic write·fsync 패턴 ... 재사용"), rather than
-importing that module directly — ``ssat.metrics.dump_reader`` is the only
-place in the metrics engine allowed to import ``ssat.core.dump`` (see that
-module's docstring), so this package keeps its own copy of the pattern.
+``ssat.core.dump._storage``, rather than importing that module directly —
+``ssat.metrics.dump_reader`` is the only place in the metrics engine allowed
+to import ``ssat.core.dump`` (see that module's docstring), so this package
+keeps its own copy of the pattern.
 """
 
 from __future__ import annotations

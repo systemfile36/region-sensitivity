@@ -3,9 +3,8 @@
 Mirrors ``ssat.core.dump.schema``'s shape (one ``pa.Schema`` constant per
 dataset, a shared version tag in Arrow metadata, and a ``schema_for`` lookup)
 but is independent of it — ``METRICS_SCHEMA_VERSION`` tracks metric
-*definition* changes, not the raw dump's own ``SCHEMA_VERSION`` (design
-METRIC_ENGINE_DESIGN_v1.md §N4: "지표 정의가 바뀌면 metrics_schema_version이
-올라간다").
+*definition* changes, not the raw dump's own ``SCHEMA_VERSION``: it is bumped
+whenever a metric's definition changes.
 """
 
 from __future__ import annotations
@@ -88,7 +87,8 @@ CLASS_METRICS_SCHEMA = pa.schema(
 )
 
 # One row per (sample_id, region_key, metric_name). region_geometry_ref is
-# flattened into its four scalar fields (design §N5 "DebugViz의 직접 입력").
+# flattened into its four scalar fields so DebugViz can consume this schema
+# directly as its input.
 SPATIAL_PROFILE_SCHEMA = pa.schema(
     [
         pa.field("sample_id", pa.string(), nullable=False),

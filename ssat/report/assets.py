@@ -1,89 +1,80 @@
-"""R3 AssetLinker: re-render top-K/bottom-K heatmap + thumbnail PNGs (design §R3).
+"""Asset linker: re-render top-K/bottom-K heatmap + thumbnail PNGs for the report gallery.
 
-**"이미 생성된 자산의 재배치만 하고 신규 렌더링은 하지 않는다" — but no such
-asset exists yet.** Design §R3's own text sets that constraint, but
-IMPLE_PLAN_REPORTING_v1.md §1 격차#6 confirms ``ssat metrics``/``ssat
-analyze`` never persist a DebugViz heatmap PNG anywhere; there is nothing to
-"relocate". The plan resolves this by treating the constraint as "no new
-*visualization logic*, no new *statistics*" rather than "no matplotlib call
-here at all" (§5 단계5 문구): this module calls
+**No pre-existing asset to relocate.** A heatmap gallery could in principle
+just relocate already-rendered images, but ``ssat metrics``/``ssat
+analyze`` never persist a DebugViz heatmap PNG anywhere, so there is
+nothing to "relocate" here. Instead this module calls
 ``ssat.metrics.viz.heatmap.select_spatial_profile_rows``/
 ``resolve_heatmap_view``/``render_heatmap_panel`` — functions the metrics
 engine already wrote, tested, and made public — limited to exactly the
-``sample_id``\\s R0 already chose (top-K ∪ bottom-K), never a set this module
-decides for itself.
+``sample_id``\\s the assembler already chose (top-K ∪ bottom-K), never a
+set this module decides for itself. No new visualization logic or new
+statistics are introduced; only the already-tested rendering path is
+invoked here.
 
 **Why this module reaches past ``ssat.metrics.viz.heatmap`` into
-``ssat.metrics.store``/``ssat.metrics.viz._shared``/``ssat.metrics.errors``
-(confirmed with the user for this stage).** IMPLE_PLAN_REPORTING_v1.md §3.3's
-table lists only ``report.types``/``ssat.metrics.dump_reader``/
-``ssat.metrics.viz.heatmap``/``ssat.utils`` for this module, but that is not
-achievable in full: ``resolve_heatmap_view`` needs an already-open
-``ImageFolderSource`` (built by ``ssat.metrics.viz._shared.
-open_image_source`` — a helper that module's own docstring reserves for
-``mask_check.py``/``heatmap.py``/``ranking.py``, the three DebugViz *view*
-modules), and ``select_spatial_profile_rows`` needs the raw ``SpatialProfile``
-rows (only reachable via ``ssat.metrics.store.load_metrics`` — the exact call
-``ReportDataAssembler`` already makes as R0, but ``AssembledReport`` never
-carries these rows onward: ``TopRegionEntry`` drops each row's
-``RegionGeometryRef``, since a JSON-serializable ``ReportModel`` has no
-reason to carry mask-reconstruction geometry, design §3). Both of these two
-extra imports, plus ``ssat.metrics.errors.DebugVizError`` (needed to catch
-per-sample failures, design §5 단계5 step4), are treated here as the same
-"minimal necessary extension of one already-granted exception" the plan's own
-§3.3 prose describes for ``ssat.metrics.viz.heatmap`` itself, rather than
-routing the fix through ``ssat/metrics/viz/heatmap.py`` (a file this stage's
-plan never lists as a target, and whose already-tested public surface would
-have to grow a new per-sample-resilient entry point solely for this caller).
+``ssat.metrics.store``/``ssat.metrics.viz._shared``/``ssat.metrics.errors``.**
+``resolve_heatmap_view`` needs an already-open ``ImageFolderSource`` (built
+by ``ssat.metrics.viz._shared.open_image_source`` — a helper that module's
+own docstring reserves for ``mask_check.py``/``heatmap.py``/``ranking.py``,
+the three DebugViz *view* modules), and ``select_spatial_profile_rows``
+needs the raw ``SpatialProfile`` rows (only reachable via
+``ssat.metrics.store.load_metrics`` — the exact call the report assembler
+already makes, but ``AssembledReport`` never carries these rows onward:
+``TopRegionEntry`` drops each row's ``RegionGeometryRef``, since a
+JSON-serializable ``ReportModel`` has no reason to carry
+mask-reconstruction geometry). Both of these two extra imports, plus
+``ssat.metrics.errors.DebugVizError`` (needed to catch per-sample
+failures), are treated as a minimal necessary extension of the same
+already-granted exception ``ssat.metrics.viz.heatmap`` itself represents,
+rather than routing the fix through ``ssat/metrics/viz/heatmap.py``, whose
+already-tested public surface would have to grow a new
+per-sample-resilient entry point solely for this caller.
 
-**Per-sample resilience (design §5 단계5 step4).** ``select_spatial_profile_
-rows``/``resolve_heatmap_view`` are called once per ``sample_id`` — not once
-for the whole top-K/bottom-K set — specifically because
+**Per-sample resilience.** ``select_spatial_profile_rows``/
+``resolve_heatmap_view`` are called once per ``sample_id`` — not once for
+the whole top-K/bottom-K set — specifically because
 ``select_spatial_profile_rows`` raises ``DebugVizError`` for its *entire*
 call the moment even one requested ``sample_id`` has no eligible row, and
 ``resolve_heatmap_view`` can raise the same for one geometrically
-unreproducible region (e.g. ``random_area_match``, design §1 격차#4's
-adjacent risk). One failing sample must not blank out every other sample's
-assets, so each ``sample_id`` gets its own try/except.
+unreproducible region (e.g. ``random_area_match``). One failing sample must
+not blank out every other sample's assets, so each ``sample_id`` gets its
+own try/except.
 
 **Two separate images, two separate reuse paths.** ``heatmap_asset_ref``
 reuses ``render_heatmap_panel`` exactly as its own docstring already invites
 ("Public so ``ranking.py`` can reuse it for its own composite views") — a
 2-panel original|heatmap-overlay figure, unmodified. ``thumbnail_asset_ref``
-is a plain Pillow resize of the same ``HeatmapView.original`` array (design
-§5 단계5 step3, "새 픽셀 계산이 아니라 리사이즈뿐") — no matplotlib, no
-overlay, just a small preview for the gallery grid. Both read the identical
-source array, so neither can show a different sample than the other.
+is a plain Pillow resize of the same ``HeatmapView.original`` array — no
+matplotlib, no overlay, just a small preview for the gallery grid, cheap
+because it is a resize of already-rendered pixels rather than a new
+computation. Both read the identical source array, so neither can show a
+different sample than the other.
 
-**Asset refs are report-root-relative POSIX paths, never absolute** (design
-§6.3 C2 "폴더 이동 후 상대경로 보존") — ``output_dir`` is the report root
-(``<run_dir>/report/``, matching R4's documented output layout), and every
-ref this module returns is relative to it (e.g.
-``"assets/img/heatmaps/sample_s0.png"``), so copying the whole ``report/``
-folder elsewhere never breaks an ``<img src=...>`` reference.
+**Asset refs are report-root-relative POSIX paths, never absolute**, so
+that a copied or moved ``report/`` folder keeps working. ``output_dir`` is
+the report root (``<run_dir>/report/``), and every ref this module returns
+is relative to it (e.g. ``"assets/img/heatmaps/sample_s0.png"``), so
+copying the whole ``report/`` folder elsewhere never breaks an
+``<img src=...>`` reference.
 
-**``metrics_dir`` (deviation from the plan's literal signature, confirmed
-necessary rather than asked — see module-level note above on why raw
-``SpatialProfile`` rows cannot come from ``assembled`` at all).**
-IMPLE_PLAN_REPORTING_v1.md §5 단계5 writes ``link_assets(assembled, dump_dir,
-output_dir, *, primary_metric)`` with no ``metrics_dir`` parameter, but
-without one this function has no path to load ``SpatialProfile`` rows from
-at all. This is treated as a plan omission to fix, not a genuine design
-fork: there is no alternative source for that data, so
-:func:`link_assets` takes ``metrics_dir`` positionally alongside
-``dump_dir``, mirroring ``ReportDataAssembler.__init__``'s own
+**Why ``link_assets`` takes ``metrics_dir``.** Without a ``metrics_dir``
+parameter this function would have no path to load ``SpatialProfile`` rows
+from at all, and there is no alternative source for that data (see the
+note above on why raw ``SpatialProfile`` rows cannot come from
+``assembled``), so :func:`link_assets` takes ``metrics_dir`` positionally
+alongside ``dump_dir``, mirroring ``ReportDataAssembler.__init__``'s own
 ``(dump_dir, metrics_dir, ...)`` ordering.
 
-**Manifest application (confirmed with the user for this stage).**
-:class:`AssetManifest` alone cannot update ``ReportModel``/``SampleCard`` —
-every type in ``report.types`` is frozen (module docstring there). Rather
-than leaving that merge for Stage 6/7 to improvise, this module also owns
+**Manifest application.** :class:`AssetManifest` alone cannot update
+``ReportModel``/``SampleCard`` — every type in ``report.types`` is frozen
+(module docstring there). This module therefore also owns
 :func:`apply_asset_manifest`, which rebuilds every top-K/bottom-K
 ``SampleCard`` (in both ``ReportModel.sample_rankings`` and
-``full_sample_rankings`` — R0 constructs both from the *same* card objects
-for any sample_id present in both, design ``assembler.py``
-``_build_sample_rankings``, so both must be rebuilt consistently) via
-``dataclasses.replace``.
+``full_sample_rankings`` — the assembler constructs both from the *same*
+card objects for any sample_id present in both, see
+``assembler.py``'s ``_build_sample_rankings``, so both must be rebuilt
+consistently) via ``dataclasses.replace``.
 """
 
 from __future__ import annotations
@@ -116,17 +107,16 @@ _HEATMAP_SUBDIR = Path("assets") / "img" / "heatmaps"
 _THUMBNAIL_SUBDIR = Path("assets") / "img" / "thumbnails"
 
 # Longest edge of a saved thumbnail, in pixels; aspect ratio preserved,
-# never upscaled (``PIL.Image.thumbnail``'s own contract). Confirmed with
-# the user for this stage — the plan gives no concrete dimension.
+# never upscaled (``PIL.Image.thumbnail``'s own contract).
 _THUMBNAIL_MAX_EDGE = 256
 
 
 class AssembledReportLike(Protocol):
-    """Structural shape this module reads off / rebuilds from R0's output.
+    """Structural shape this module reads off / rebuilds from the assembler's output.
 
     Matches ``ssat.report.assembler.AssembledReport`` field-for-field
-    without importing it, keeping this module on its §3.3 dependency list —
-    the same duck-typing trade ``report.exporter.AssembledReportLike``/
+    without importing it — the same duck-typing trade
+    ``report.exporter.AssembledReportLike``/
     ``report.charts.RankCorrelationRowLike`` already made for the same
     reason.
 
@@ -138,12 +128,12 @@ class AssembledReportLike(Protocol):
         sample_semantic_degradation: Every ``(sample_id, semantic_group)``
             pair with a determinable mean degradation
             (``ssat.report.assembler.AssembledReport``'s field of the same
-            name, IMPLE_PLAN_SEMANTIC_VULNERABILITY_v1.md §3.3 단계 2) —
-            :func:`apply_asset_manifest` never touches it (no asset ref
-            lives on it), but must still carry it through unchanged so
-            downstream R1 (``ssat.report.exporter``) still has it after
-            this module's ``AssetLinkedReport`` replaces ``AssembledReport``
-            in ``AuditApplication.generate_report``'s pipeline.
+            name) — :func:`apply_asset_manifest` never touches it (no asset
+            ref lives on it), but must still carry it through unchanged so
+            the downstream exporter (``ssat.report.exporter``) still has it
+            after this module's ``AssetLinkedReport`` replaces
+            ``AssembledReport`` in ``AuditApplication.generate_report``'s
+            pipeline.
     """
 
     model: ReportModel
@@ -153,12 +143,12 @@ class AssembledReportLike(Protocol):
 
 @dataclasses.dataclass(frozen=True, slots=True)
 class AssetManifest:
-    """Per-sample asset references :func:`link_assets` produced (design §R3).
+    """Per-sample asset references :func:`link_assets` produced.
 
     Attributes:
         assets_available: ``False`` only when the source dump has no
-            ``source_provenance`` at all (design §5 단계5 step1) — the whole
-            gallery section is unavailable, not just individual samples.
+            ``source_provenance`` at all — the whole gallery section is
+            unavailable, not just individual samples.
             ``True`` even when some *individual* samples still failed to
             render (see below); those are simply absent from the two
             mappings, the same "no key = unavailable" contract a lookup
@@ -177,15 +167,15 @@ class AssetManifest:
 
 @dataclasses.dataclass(frozen=True, slots=True)
 class AssetLinkedReport:
-    """An :class:`AssembledReportLike` with asset refs filled in (design §5 단계5).
+    """An :class:`AssembledReportLike` with asset refs filled in.
 
     :func:`apply_asset_manifest`'s return type. Not
-    ``ssat.report.assembler.AssembledReport`` itself (§3.3 dependency
-    direction — this module cannot import ``report.assembler``), but
-    structurally identical, so R1's ``export`` and the future R4
-    ``html_renderer`` can consume it exactly as they already consume
-    ``AssembledReport`` (both type their own parameter as an
-    ``AssembledReportLike`` Protocol, not the concrete class).
+    ``ssat.report.assembler.AssembledReport`` itself (this module cannot
+    import ``report.assembler``), but structurally identical, so the
+    exporter's ``export`` and the HTML renderer can consume it exactly as
+    they already consume ``AssembledReport`` (both type their own
+    parameter as an ``AssembledReportLike`` Protocol, not the concrete
+    class).
 
     Attributes:
         model: ``ReportModel`` with every top-K/bottom-K ``SampleCard``'s
@@ -208,17 +198,17 @@ def link_assets(
     *,
     primary_metric: str,
 ) -> AssetManifest:
-    """Render heatmap + thumbnail PNGs for every gallery sample (design §5 단계5).
+    """Render heatmap + thumbnail PNGs for every gallery sample.
 
     Args:
-        assembled: R0's output; only ``model.sample_rankings`` (top-K ∪
-            bottom-K sample_ids) is read.
+        assembled: The assembler's output; only ``model.sample_rankings``
+            (top-K ∪ bottom-K sample_ids) is read.
         dump_dir: Root of the source dump, opened only through
             ``ssat.metrics.dump_reader.DumpHandle``/``ssat.metrics.viz.
             heatmap``'s image-source helper (module docstring).
         metrics_dir: MetricsStore directory the same dump/``assembled`` pair
             was aggregated into (module docstring on why this parameter
-            exists despite the plan's literal signature).
+            exists).
         output_dir: Report root PNGs are written under (``<output_dir>/
             assets/img/{heatmaps,thumbnails}/``); created if missing.
         primary_metric: Registered metric name ``assembled`` was built from
@@ -278,10 +268,10 @@ def link_assets(
 
 
 def apply_asset_manifest(assembled: AssembledReportLike, manifest: AssetManifest) -> AssetLinkedReport:
-    """Fill in every gallery ``SampleCard``'s asset refs from ``manifest`` (design §5 단계5).
+    """Fill in every gallery ``SampleCard``'s asset refs from ``manifest``.
 
     Args:
-        assembled: The same R0 output ``manifest`` was built from
+        assembled: The same assembler output ``manifest`` was built from
             (``link_assets``'s ``assembled`` argument).
         manifest: :func:`link_assets`'s return value.
 
@@ -351,7 +341,7 @@ def _save_heatmap_png(view: HeatmapView, path: Path) -> None:
 
 
 def _save_thumbnail_png(original: NDArray[np.uint8], path: Path) -> None:
-    """Save a small, aspect-ratio-preserved resize of ``original`` (design §5 단계5 step3)."""
+    """Save a small, aspect-ratio-preserved resize of ``original``."""
 
     image = Image.fromarray(original)
     image.thumbnail((_THUMBNAIL_MAX_EDGE, _THUMBNAIL_MAX_EDGE), Image.Resampling.LANCZOS)

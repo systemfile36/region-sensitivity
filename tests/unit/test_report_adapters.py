@@ -1,4 +1,4 @@
-"""Unit tests for ssat.report.adapters (R5 TaskPresentationAdapter, IMPLE_PLAN_REPORTING_v1.md §5 단계 1)."""
+"""Unit tests for ssat.report.adapters (R5 TaskPresentationAdapter)."""
 
 from __future__ import annotations
 
@@ -50,7 +50,7 @@ def _card(cards: list[MetricCard], key: str) -> MetricCard:
 
 
 def test_report_adapters_module_has_no_analysis_or_metrics_or_core_imports() -> None:
-    """Statically enforce §3.3: report.adapters → report.types only."""
+    """Statically enforce report.adapters → report.types only."""
 
     source_path = Path(__file__).resolve().parents[2] / "ssat" / "report" / "adapters.py"
     tree = ast.parse(source_path.read_text(encoding="utf-8"))

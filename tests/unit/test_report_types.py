@@ -240,7 +240,7 @@ def test_report_package_exports_every_public_symbol() -> None:
 
 
 def test_report_types_module_has_no_analysis_or_metrics_or_core_imports() -> None:
-    """Statically enforce the §3.3 dependency rule: report.types → (없음).
+    """Statically enforce the dependency rule: report.types → (none).
 
     Parses the module source with ``ast`` instead of importing it, so this
     check does not depend on whether the forbidden modules happen to already
@@ -447,7 +447,7 @@ def test_region_row_rejects_empty_region_id() -> None:
 
 
 def test_region_row_region_id_is_independent_of_region_key() -> None:
-    """region_id is a plain field here — R0 (단계 2) owns deriving it from region_key."""
+    """region_id is a plain field here — R0 owns deriving it from region_key."""
 
     row = _region_row(region_key="skeleton_parts/left_arm/sample-1", region_id="left_arm")
     assert row.region_id == "left_arm"
@@ -652,11 +652,11 @@ def test_semantic_concentration_allows_zero_groups() -> None:
 
 
 def test_semantic_concentration_rejects_dominant_group_at_or_below_one_group() -> None:
-    """§1 격차#6's graceful degradation is enforced at the type level here.
+    """Graceful degradation for a trivial semantic grouping is enforced at the type level here.
 
     Unlike ``SpatialConcentration`` (which merely allows a missing dominant
     region), a single-group (or zero-group) run must never carry a
-    self-evidently-trivial "dominant" value — plan §3.2.
+    self-evidently-trivial "dominant" value.
     """
 
     with pytest.raises(ValueError, match="n_semantic_groups <= 1"):
@@ -770,7 +770,7 @@ def test_report_model_rejects_wrong_semantic_concentration_type() -> None:
 
 
 def test_report_model_allows_empty_semantic_sections_when_ungrouped() -> None:
-    """The n_semantic_groups<=1 grid-run path: computed, but self-evidently empty (§1 격차#6)."""
+    """The n_semantic_groups<=1 grid-run path: computed, but self-evidently empty."""
 
     model = _report_model(
         semantic_summary=(),

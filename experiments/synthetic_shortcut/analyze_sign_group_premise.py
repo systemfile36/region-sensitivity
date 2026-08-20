@@ -1,10 +1,9 @@
 #!/usr/bin/env python3
-"""Phase 4 (crop-free re-run follow-up): check whether the fill-strategy sign
-group split -- docs/CONTROL_STABILITY_DESIGN_v1.md section 0's driving
-observation ({constant_fill, gaussian_noise} positive vs. {mean_fill, blur,
-patch_shuffle} negative rank correlation against constant_fill) -- survives
-removing the CenterCrop-induced model-space area confound, or was
-substantially an artifact of it.
+"""Crop-free re-run follow-up: check whether the fill-strategy sign group
+split -- the driving observation that {constant_fill, gaussian_noise} rank
+positively and {mean_fill, blur, patch_shuffle} rank negatively against
+constant_fill -- survives removing the CenterCrop-induced model-space area
+confound, or was substantially an artifact of it.
 
 Loads BOTH the original (cropped) results/ and the new crop-free
 results_crop_free/ shortcut_A_* runs and, for each:
@@ -190,10 +189,9 @@ def main() -> int:
     report_lines = [
         "# Sign-Group Premise Re-examination -- cropped vs. crop-free",
         "",
-        "Compares docs/CONTROL_STABILITY_DESIGN_v1.md section 0's fill-strategy "
-        "sign-group split between the original (CenterCrop-confounded) run and "
-        "the crop-free re-run, to determine whether the split was substantially "
-        "a model-space area artifact.",
+        "Compares the fill-strategy sign-group split between the original "
+        "(CenterCrop-confounded) run and the crop-free re-run, to determine "
+        "whether the split was substantially a model-space area artifact.",
         "",
         "## Check 1 -- effective_area_px distribution (15 non-patch regions)",
         "",

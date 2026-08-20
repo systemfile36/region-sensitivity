@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# Reproduce docs/L3_Synthetic-Shortcut Experiment Report.md end to end
-# (crop-free preprocessing). Run inside the region-sensitivity-workspace
-# container. See README.md for the equivalent step-by-step commands.
+# Reproduce the synthetic-shortcut Q1-Q5 experiment end to end (crop-free
+# preprocessing). Run inside the region-sensitivity-workspace container.
+# See README.md for the equivalent step-by-step commands.
 set -euo pipefail
 cd "$(dirname "$0")"
 

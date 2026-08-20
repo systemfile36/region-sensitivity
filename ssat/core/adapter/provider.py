@@ -82,9 +82,9 @@ class TorchvisionProviderConfig(ProviderConfig):
         """Reject a malformed pipeline_config at config-load time, not mid-run.
 
         Mirrors validate_preprocessing's fail-fast rationale for the newer
-        registry-based transform pipeline (IMPLE_PLAN_PREPROCESSING_PIPELINE_v1.md).
-        preprocessing and pipeline_config are mutually exclusive so a config
-        can never silently mix the flat-op engine and the registry engine.
+        registry-based transform pipeline. preprocessing and pipeline_config
+        are mutually exclusive so a config can never silently mix the
+        flat-op engine and the registry engine.
         """
 
         if self.pipeline_config is not None:

@@ -2,15 +2,14 @@
 
 Produces one ``ReliabilityRow`` per (AnchorKey, metric_name) — seven
 independently-interpretable ``FlagValue`` flags, an overall
-``ReliabilityGrade``, and a human-readable reason per flag (design
-CONTROL_STABILITY_DESIGN_v1.md §A6 "등급만 주고 끝내지 않는다").
+``ReliabilityGrade``, and a human-readable reason per flag, following the
+principle of not just handing back a grade and stopping there.
 
 Like ``analysis.strategy_profile`` consuming A3's typed output,
 ``compute_reliability`` takes A2/A3(a)/A3(c)/A5's row lists directly as
-parameters rather than importing their code or raw ``item_values``
-(IMPLE_PLAN_CONTROL_STABILITY_v1.md §5 단계7 "A2~A5의 산출물을 모아"; §3.3
-declares only ``analysis.reliability → analysis.types``). ``jitter_stable``
-needs no input at all: it is always ``FlagValue.UNAVAILABLE``, mirroring
+parameters rather than importing their code or raw ``item_values`` (this
+module depends only on ``analysis.types``). ``jitter_stable`` needs no
+input at all: it is always ``FlagValue.UNAVAILABLE``, mirroring
 ``analysis.stability.compute_jitter_stability``'s own hardcoded stub (the
 core has no jitter axis to report on).
 
@@ -22,7 +21,7 @@ package: a flag becomes ``TRUE`` only when the *best* available evidence
 clears the threshold (``exceeds_control``) or *every* evaluated condition
 agrees (``seed_stable``, ``area_matched``) — never a silent average.
 ``IntervalRow`` (A5) is keyed only by (region_key, metric), coarser than
-AnchorKey (design decision recorded when A5 was implemented — that grain
+AnchorKey (a design decision recorded when A5 was implemented — that grain
 matches ``ssat.metrics.aggregate.RegionMetrics`` exactly); every anchor
 sharing a region_key shares that region's CI verdict.
 """
@@ -149,13 +148,14 @@ def _grade(
     multi_strategy: FlagValue,
     ci_excludes_zero: FlagValue,
 ) -> ReliabilityGrade:
-    """Assign the overall grade (design §A6 table).
+    """Assign the overall grade.
 
-    ``sign_consistent is FALSE`` alone forces UNRELIABLE (design "값이 작은
-    것이 아니라 방향이 갈리는 것") — not merely "not TRUE": an anchor whose
-    sign consistency is UNAVAILABLE (no fill-strategy data at all) is
-    withheld from HIGH/MODERATE below but is not accused of an actual sign
-    flip, so it falls through to LOW rather than UNRELIABLE.
+    ``sign_consistent is FALSE`` alone forces UNRELIABLE — the concern is
+    not that the effect is small but that its direction disagrees across
+    conditions — not merely "not TRUE": an anchor whose sign consistency is
+    UNAVAILABLE (no fill-strategy data at all) is withheld from
+    HIGH/MODERATE below but is not accused of an actual sign flip, so it
+    falls through to LOW rather than UNRELIABLE.
     """
 
     if sign_consistent is FlagValue.FALSE:

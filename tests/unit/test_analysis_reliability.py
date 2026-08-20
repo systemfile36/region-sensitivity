@@ -108,7 +108,7 @@ def _interval_row(
     )
 
 
-# --- B2 scenarios (design §4.3 / plan §5 단계7) -----------------------------
+# --- B2 scenarios -------------------------------------------------------------
 
 
 def test_all_conditions_agree_and_strong_evidence_yields_high_grade() -> None:

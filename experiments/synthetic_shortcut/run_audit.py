@@ -3,13 +3,13 @@
 L3 synthetic-shortcut experiment needs, then compute and store margin_drop
 metrics for each.
 
-Implements docs/STAGE9_SYNTHETIC_SHORTCUT_DESIGN_v1.md sections 4-6. Exactly
-seven combinations are needed (see RUN_SPECS below) -- not all 2 models x 2
-datasets x 5 fill strategies -- because each question only needs a specific
-slice:
+Exactly seven combinations are needed (see RUN_SPECS below) -- not all 2
+models x 2 datasets x 5 fill strategies -- because each question only needs
+a specific slice:
 
-    Q1/Q2/section 3.5: M_shortcut audited on A, across all 5 fill strategies
-        (one audit per strategy -- see the note on grouping below).
+    Q1/Q2/fill-strategy sensitivity: M_shortcut audited on A, across all 5
+        fill strategies (one audit per strategy -- see the note on grouping
+        below).
     Q3: M_normal audited on A, constant_fill only (the reference strategy).
     B control: M_shortcut audited on B, constant_fill only.
 
@@ -141,8 +141,8 @@ def _build_audit_config(
 
     ``preprocessing="crop_free"`` declares common.CROP_FREE_PREPROCESSING_OPS
     on the adapter config, removing the CenterCrop-induced model-space area
-    confound documented in docs/CONTROL_STABILITY_DESIGN_v1.md section 0's
-    addendum. The default "preset" leaves the field unset entirely (not set
+    confound (see common.py's CROP_FREE_PREPROCESSING_OPS comment). The
+    default "preset" leaves the field unset entirely (not set
     to some equivalent preset-describing ops list), so the already-reported
     7-run evidence's config shape is reproduced exactly, byte for byte.
     """
@@ -194,7 +194,7 @@ def _compute_and_save_metrics(dump_root: Path, metrics_dir: Path) -> None:
     resolved_config = handle.manifest.resolved_config
 
     registry = MetricRegistry()
-    registry.register(MarginDrop())  # design section 5: margin_drop is the only metric L3 needs.
+    registry.register(MarginDrop())  # margin_drop is the only metric L3 needs.
 
     item_metrics = registry.compute_item_metrics(joined, adapter_spec=resolved_config.adapter_spec)
     result = aggregate_item_metrics(

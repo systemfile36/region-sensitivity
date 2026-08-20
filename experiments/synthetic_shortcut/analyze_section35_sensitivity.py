@@ -2,10 +2,10 @@
 """Follow-up analysis for the section 3.5 fill-strategy sensitivity result.
 
 evaluate.py's already-completed run reported blur's Spearman correlation
-against constant_fill as -0.518 (docs/STAGE9_SYNTHETIC_SHORTCUT_DESIGN_v1.md
-section 6). A negative correlation -- not just a low one -- raised the
-question of whether blur is measuring something systematically different
-from the other fill strategies, rather than just being noisier. This script
+against constant_fill as -0.518. A negative correlation -- not just a low
+one -- raised the question of whether blur is measuring something
+systematically different from the other fill strategies, rather than just
+being noisier. This script
 answers that with three checks, all against the already-stored metrics under
 results/metrics/shortcut_A_*/ (no new training or auditing required):
 
@@ -87,7 +87,7 @@ def _region_row_col(region_key: str) -> tuple[int, int]:
 
 
 def _manhattan_distance_from_patch(region_key: str) -> int:
-    """Grid distance from a region to the patch cell (0,0 by design section 3)."""
+    """Grid distance from a region to the patch cell (fixed at (0,0))."""
 
     row, col = _region_row_col(region_key)
     return abs(row - PATCH_ROW) + abs(col - PATCH_COL)
@@ -276,9 +276,9 @@ def _check_blur_specificity(
         lines.append(f"| {fill} | {corr_str} |")
     lines.append("")
 
-    # The two regions orthogonally adjacent to the patch cell (design section
-    # 3 places the patch at (0,0), so its only in-bounds orthogonal
-    # neighbors are (0,1) and (1,0)) side by side across every fill --
+    # The two regions orthogonally adjacent to the patch cell (the patch
+    # sits at (0,0), so its only in-bounds orthogonal neighbors are (0,1)
+    # and (1,0)) side by side across every fill --
     # directly re-checking, with the real numbers, the near-coincidence
     # between mean_fill and blur noticed by inspecting region_metrics_*.csv
     # by hand before writing this script.

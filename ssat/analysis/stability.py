@@ -1,38 +1,36 @@
 """A3 StabilityAnalyzer.
 
 Answers "does the result hold up across conditions?" by comparing the same
-AnchorKey across three axes that are deliberately kept separate (design
-CONTROL_STABILITY_DESIGN_v1.md §A3: "섞으면 원인을 알 수 없다" -- mixing them
-makes the cause unrecoverable):
+AnchorKey across three axes that are deliberately kept separate -- mixing
+them makes the cause unrecoverable:
 
 - **seed** (:func:`compute_seed_stability`): pure stochastic variation, same
   op/params, only the seed differs.
 - **jitter** (:func:`compute_jitter_stability`): mask-boundary sensitivity.
-  The core has no jitter axis at all (IMPLE_PLAN_CONTROL_STABILITY_v1.md §1
-  항목2), so this is an interface stub that always returns
-  ``FlagValue.UNAVAILABLE`` -- there is no ``JitterStabilityRow`` type in
-  ``analysis.types`` to populate, only ``ReliabilityRow.jitter_stable``,
-  which is documented there as always UNAVAILABLE in v1.
+  The core has no jitter axis at all, so this is an interface stub that
+  always returns ``FlagValue.UNAVAILABLE`` -- there is no
+  ``JitterStabilityRow`` type in ``analysis.types`` to populate, only
+  ``ReliabilityRow.jitter_stable``, which is documented there as always
+  UNAVAILABLE in v1.
 - **fill strategy** (:func:`compute_strategy_stability`): cross-operator
   agreement, both per-anchor (sign/value preserved, never averaged away --
-  design §A3(c): averaging hides sign flips) and as a dataset-level
-  region-rank correlation between operator pairs.
+  averaging hides sign flips) and as a dataset-level region-rank
+  correlation between operator pairs.
 
 Like ``analysis.control``, this module re-derives ``AnchorKey``/
 ``ConditionKey`` from raw item rows rather than importing
-``analysis.indexer``/``analysis.control`` (IMPLE_PLAN §3.3
-"analysis.stability → analysis.types" only) and consumes the same
-``item_values`` frame shape ``analysis.control.compare_to_controls`` does:
-``AnalysisReader.item_context()``'s identity columns joined with one row per
-(item, metric_name) (``metric_name``, ``degradation``, ``available``).
+``analysis.indexer``/``analysis.control`` (this module depends only on
+``analysis.types``) and consumes the same ``item_values`` frame shape
+``analysis.control.compare_to_controls`` does: ``AnalysisReader.item_context()``'s
+identity columns joined with one row per (item, metric_name)
+(``metric_name``, ``degradation``, ``available``).
 
-``RankCorrelationRow`` (design §A7 parquet) has no ``metric_name`` field --
-unlike every other row type here, it is scoped to a single primary metric,
-matching ``ssat.metrics.aggregate.DEFAULT_PRIMARY_METRIC`` and the fact that
-L3's Check2 only ever analyzed ``margin_drop``. ``DEFAULT_PRIMARY_METRIC`` is
+``RankCorrelationRow`` has no ``metric_name`` field -- unlike every other
+row type here, it is scoped to a single primary metric, matching
+``ssat.metrics.aggregate.DEFAULT_PRIMARY_METRIC`` and the fact that L3's
+Check2 only ever analyzed ``margin_drop``. ``DEFAULT_PRIMARY_METRIC`` is
 redefined locally rather than imported, extending the same duplication this
-module already accepts for ``region_key``/``ConditionKey`` formulas
-(IMPLE_PLAN §9 리스크 표).
+module already accepts for ``region_key``/``ConditionKey`` formulas.
 """
 
 from __future__ import annotations
@@ -139,12 +137,12 @@ def compute_seed_stability(
 def compute_jitter_stability(item_values: pd.DataFrame) -> FlagValue:
     """Jitter stability interface stub -- unreachable until the core supports jitter.
 
-    Always returns ``FlagValue.UNAVAILABLE`` (IMPLE_PLAN_CONTROL_STABILITY_v1.md
-    §1 항목2, §5 단계4(b)): no ``RegionKind`` or config concept for mask-boundary
-    jitter exists anywhere in ``ssat.core`` today, so there is nothing this
-    function could compute. It accepts ``item_values`` purely so its call
-    signature matches the other two axes -- if the core ever grows jitter
-    support, this stub is the only place that needs to change.
+    Always returns ``FlagValue.UNAVAILABLE``: no ``RegionKind`` or config
+    concept for mask-boundary jitter exists anywhere in ``ssat.core`` today,
+    so there is nothing this function could compute. It accepts
+    ``item_values`` purely so its call signature matches the other two axes
+    -- if the core ever grows jitter support, this stub is the only place
+    that needs to change.
     """
 
     del item_values
@@ -159,7 +157,7 @@ def compute_strategy_stability(
     top_k_exclude: int = DEFAULT_TOP_K_EXCLUDE,
     scope: str = DEFAULT_SCOPE,
 ) -> tuple[list[StrategyStabilityRow], list[RankCorrelationRow]]:
-    """Compare degradation across fill-strategy operators (design §A3(c)).
+    """Compare degradation across fill-strategy operators.
 
     Two outputs over two different populations, per design decision: the
     per-anchor view preserves each operator's sign/value instead of
@@ -175,11 +173,12 @@ def compute_strategy_stability(
             ``metric_name`` field (module docstring), so only one metric can
             be represented per call.
         top_k_exclude: Number of top-ranked (by ``op_a``'s value) shared
-            regions excluded when computing ``spearman_excl_top1`` (design
-            §A3(c) "모든 op에서 1위인 강한 신호가 상관을 인위적으로 끌어올린다").
+            regions excluded when computing ``spearman_excl_top1`` (a signal
+            that ranks first across every op would otherwise artificially
+            inflate the correlation).
         scope: Free-form population label stored on every
-            ``RankCorrelationRow`` (design §A3(c) "scope는 상관 계산 범위를
-            기록한다").
+            ``RankCorrelationRow``, recording what population the
+            correlation was computed over.
 
     Returns:
         ``(strategy_rows, rank_correlation_rows)``. ``strategy_rows`` cover
@@ -249,12 +248,12 @@ def _rank_correlation_rows(
 ) -> list[RankCorrelationRow]:
     """Build one RankCorrelationRow per (op_a, op_b) pair for ``primary_metric``.
 
-    Stage 2 of the macro-average: pools op-level anchor values sharing a
+    The second stage of the macro-average: pools op-level anchor values sharing a
     ``region_key`` (across ``sample_id``/``invert_mask``) into one value per
     (region_key, perturb_op) -- mirrors ``ssat.metrics.aggregate``'s
     spatial_profile -> region_metrics reduction, stratified by
     ``perturb_op`` (``region_metrics.parquet`` itself cannot be reused here
-    since it has already collapsed that axis -- IMPLE_PLAN §1 항목3).
+    since it has already collapsed that axis).
     """
 
     op_means, is_control_by_anchor = _op_level_anchor_means(item_values)
@@ -307,9 +306,9 @@ def _one_rank_correlation(
     )
 
     # Exclude the top_k_exclude regions ranked highest by op_a's value
-    # (ties broken alphabetically by region_key for determinism) -- design
-    # §A3(c): a single dominant signal shared by every operator mechanically
-    # pulls the full correlation toward +1.
+    # (ties broken alphabetically by region_key for determinism): a single
+    # dominant signal shared by every operator mechanically pulls the full
+    # correlation toward +1.
     dominant = sorted(shared_keys, key=lambda key: (-values_a[key], key))[:top_k_exclude]
     remaining_keys = [key for key in shared_keys if key not in set(dominant)]
     spearman_excl_top1 = _spearman_correlation(
@@ -331,10 +330,10 @@ def _spearman_correlation(reference: dict[str, float], other: dict[str, float]) 
     """Spearman rank correlation between two region_key -> value mappings.
 
     Reimplemented rather than imported -- this module depends only on
-    ``analysis.types`` (IMPLE_PLAN §3.3) -- mirroring
+    ``analysis.types`` -- mirroring
     ``experiments/synthetic_shortcut/analyze_section35_sensitivity.py``'s
     private helper of the same name: Pearson correlation of the two series'
-    ranks, avoiding a scipy dependency (IMPLE_PLAN §2.1).
+    ranks, avoiding a scipy dependency.
     """
 
     shared_keys = sorted(set(reference) & set(other))

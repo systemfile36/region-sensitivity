@@ -562,7 +562,7 @@ def test_adapter_contract_imports_remain_framework_lazy() -> None:
 
 
 def test_transform_pipeline_names_are_lazily_exported_from_the_adapter_package() -> None:
-    """§3.5: the registry-pipeline names resolve through ssat.core.adapter's lazy __getattr__."""
+    """The registry-pipeline names resolve through ssat.core.adapter's lazy __getattr__."""
 
     import ssat.core.adapter as pkg
 

@@ -1,12 +1,11 @@
 """Shared constants and small helpers for the L3 synthetic-shortcut experiment.
 
-Design reference: docs/STAGE9_SYNTHETIC_SHORTCUT_DESIGN_v1.md. Every numeric
-choice here (grid size, patch geometry, class-color palette) implements that
-document's section 3. These are treated as pre-registered experiment
-parameters, not tunables -- changing them after seeing Q1-Q5 results would
-defeat the point of pre-registration (design doc section 5/9), so this
-module intentionally exposes them as module-level constants rather than CLI
-flags that could be nudged run-to-run.
+Every numeric choice here (grid size, patch geometry, class-color palette)
+is treated as a pre-registered experiment parameter, not a tunable --
+changing them after seeing Q1-Q5 results would defeat the point of
+pre-registration, so this module intentionally exposes them as
+module-level constants rather than CLI flags that could be nudged
+run-to-run.
 """
 
 from __future__ import annotations
@@ -48,20 +47,21 @@ __all__ = [
 ]
 
 NUM_CLASSES = 10
-IMAGE_SIZE = 32  # CIFAR-10's native resolution; kept as-is per design section 1.
+IMAGE_SIZE = 32  # CIFAR-10's native resolution; kept as-is.
 
-# A 4x4 grid over a 32x32 image gives 8x8-pixel cells (design section 3):
-# small enough that the patch's area is a clear minority of the image (this
-# avoids the "biggest region always wins" pitfall the design doc explicitly
-# warns about), while still being one full cell rather than a tiny dot -- a
-# dot-sized patch would be too fragile to survive the model adapter's forced
-# Resize+CenterCrop preprocessing (see prepare_data.py's module docstring).
+# A 4x4 grid over a 32x32 image gives 8x8-pixel cells: small enough that the
+# patch's area is a clear minority of the image (this avoids a "biggest
+# region always wins" pitfall, where a region's raw size alone would
+# dominate its measured effect), while still being one full cell rather
+# than a tiny dot -- a dot-sized patch would be too fragile to survive the
+# model adapter's forced Resize+CenterCrop preprocessing (see
+# prepare_data.py's module docstring).
 GRID_ROWS = 4
 GRID_COLS = 4
 CELL_SIZE = IMAGE_SIZE // GRID_ROWS  # 8
 
-# The patch always sits in the top-left cell (row=0, col=0), matching the
-# design doc's example placement. The region_key format below mirrors the
+# The patch always sits in the top-left cell (row=0, col=0). The
+# region_key format below mirrors the
 # f"{region_id}::{region_instance_id}" convention used throughout
 # ssat.metrics (see ssat/metrics/aggregate.py), so evaluate.py can look this
 # exact key up in RegionMetrics rows without re-deriving it.
@@ -73,12 +73,11 @@ PATCH_REGION_KEY = f"{PATCH_REGION_ID}::{PATCH_REGION_INSTANCE_ID}"
 
 # A crop-free alternative to squeezenet1_0's ImageNet preset
 # (Resize(256)->CenterCrop(224)), used to remove the CenterCrop-induced
-# model-space area confound documented in
-# docs/CONTROL_STABILITY_DESIGN_v1.md section 0's addendum: under the
-# preset, nominally-equal-area grid cells land at different effective
-# pixel counts depending on position (corner/edge/center), which turned
-# out to correlate with the fill-strategy sign split the design doc
-# originally took as a substantive finding. Resizing directly to 224x224
+# model-space area confound: under the preset, nominally-equal-area grid
+# cells land at different effective pixel counts depending on position
+# (corner/edge/center), which turned out to correlate with the
+# fill-strategy sign split originally taken as a substantive finding.
+# Resizing directly to 224x224
 # (no crop) makes every cell's effective area identical by construction.
 # mean/std match the preset's values (see SqueezeNet1_0_Weights.DEFAULT
 # .transforms()) so the only thing that changes is the crop step, not the
@@ -95,9 +94,9 @@ CROP_FREE_PREPROCESSING_OPS: tuple[dict, ...] = (
 def _class_color_palette() -> tuple[tuple[int, int, int], ...]:
     """Build one fully-saturated RGB color per class, evenly spaced by hue.
 
-    Spacing hues evenly around the color wheel (design section 3: "클래스별로
-    다른 색") maximizes the perceptual distance between any two classes'
-    colors. This is a closed-form computation with no randomness involved,
+    Spacing hues evenly around the color wheel (a distinct color per class)
+    maximizes the perceptual distance between any two classes' colors.
+    This is a closed-form computation with no randomness involved,
     so the palette is bit-identical across every run without needing to
     persist or replay a seed for it.
     """

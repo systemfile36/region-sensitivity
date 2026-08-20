@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
-"""Final z_vs_control_threshold/seed_cv_threshold recalibration pass, per
-docs/IMPLE_PLAN_CONTROL_STABILITY_v1.md section 8's "단계 7, B3 재분석 후
-재조정" procedure (proposed defaults z=2.0, cv=0.2 --
+"""Final z_vs_control_threshold/seed_cv_threshold recalibration pass, after
+re-analyzing B3 (proposed defaults z=2.0, cv=0.2 --
 ssat/analysis/reliability.py's DEFAULT_Z_VS_CONTROL_THRESHOLD/
 DEFAULT_SEED_CV_THRESHOLD). Reads the run run_threshold_validation_full.py
 produces: crop-free preprocessing, all 5 fill strategies, 2 controls/

@@ -1,8 +1,7 @@
 """R0 ReportDataAssembler: join MetricsStore + AnalysisStore + run_manifest into ReportModel.
 
-This is the reporting layer's bottleneck module (IMPLE_PLAN_REPORTING_v1.md
-§5 단계 2 "이 계획서의 병목") — every join/aggregation policy §1's six gaps
-identified gets fixed here, in code, once:
+This is the reporting layer's bottleneck module — every join/aggregation
+policy gap identified below gets fixed here, in code, once:
 
 - Gap#1: ``reliability.parquet`` is treated as the de-facto source of every
   AnchorKey that exists (``AnchorTable`` itself is never persisted).
@@ -19,19 +18,17 @@ identified gets fixed here, in code, once:
 - Gap#5: :meth:`ReportDataAssembler.assemble` returns an
   :class:`AssembledReport`, not a bare ``ReportModel`` — ``ReportModel``
   only carries the top-K/bottom-K slice, while ``AssembledReport.
-  full_sample_rankings`` carries every sample (§R1 "전량은 항상 CSV로 접근
-  가능").
+  full_sample_rankings`` carries every sample, so the full population
+  remains reachable via CSV.
 - Gap#6: every reduction performed here (means, percentiles, distribution
   counts) is a straightforward, uncontested arithmetic summary of numbers
-  the metrics/analysis engines already computed — never a new statistic
-  (design §0 "계산하지 않고 조립한다").
+  the metrics/analysis engines already computed — never a new statistic.
+  This module assembles; it does not compute.
 
-**Report layout redesign (docs/report_layout_improve/AGENTS_OPINION_1.md).**
-An external review of the rendered report, confirmed with the user,
-concluded that the report had no dataset-level answer to "does this model
-repeatedly depend on one fixed location, or is sensitivity spread across
-many?" — only per-sample/per-region worst-case grades. ``RegionRow.
-top_region_share``/``high_rate`` and the new ``ReportModel.
+**Spatial concentration.** The report had no dataset-level answer to "does
+this model repeatedly depend on one fixed location, or is sensitivity
+spread across many?" — only per-sample/per-region worst-case grades.
+``RegionRow.top_region_share``/``high_rate`` and the new ``ReportModel.
 spatial_concentration`` section (:func:`_dataset_top_region_by_sample`,
 :func:`_build_spatial_concentration`) close that gap the same way Gap#3
 closed the worst-case-rollup gap: an argmax-per-sample reduction of
@@ -43,12 +40,11 @@ model inference, staying inside Gap#6's boundary.
 that never had ``ssat analyze`` executed against it still assembles a
 complete ``ReportModel``, with every analysis-derived field explicitly
 marked unavailable (``None``/empty, plus a ``note`` on the scorecard's
-control-comparison card) rather than silently omitted (design §6.2 C1).
+control-comparison card) rather than silently omitted.
 
-**Two additions from Stage 6, confirmed with the user (IMPLE_PLAN_REPORTING_v1
-.md §5 단계6).** Implementing R4 surfaced that this already-completed stage
-had two gaps of its own, both fixed here rather than routed around, since
-neither has an alternative data source:
+**Two additions closing gaps in already-assembled data.** Implementing R4
+surfaced two fields with no alternative data source, both threaded through
+here rather than routed around:
 
 - ``AssembledReport.rank_correlation_rows`` — R2's
   ``render_fill_strategy_correlation`` needs raw ``rank_correlation.parquet``
@@ -58,24 +54,24 @@ neither has an alternative data source:
   ``"fill_strategy_correlation_heatmap"`` as a real, renderable chart when
   fill-strategy stability was run. They are now threaded through
   ``AssembledReport`` at the same "extra data alongside ``model``, not
-  serialized into it" level as ``full_sample_rankings`` (Gap#5) — R2/Stage 7
-  need the *unfiltered* raw rows, not a ``ReportModel``-carried summary.
-  ``RankCorrelationRow`` has no ``metric_name`` field (it is dataset-wide,
-  §5 단계6 note), so unlike every other analysis collection here these rows
-  are never filtered by ``primary_metric``.
+  serialized into it" level as ``full_sample_rankings`` (Gap#5) — R2 needs
+  the *unfiltered* raw rows, not a ``ReportModel``-carried summary.
+  ``RankCorrelationRow`` has no ``metric_name`` field (it is dataset-wide),
+  so unlike every other analysis collection here these rows are never
+  filtered by ``primary_metric``.
 - ``ProvenanceInfo.run_manifest_hash`` — R4's ``report_manifest.json``
-  requires ``source_manifest_hashes: {run, metrics, analysis}`` (design
-  §R4), but :meth:`_build_provenance` only ever populated the latter two.
-  Computed the same way ``metrics_manifest_hash`` already was, via
-  ``sha256_file`` on ``DumpHandle.manifest_path``.
+  requires ``source_manifest_hashes: {run, metrics, analysis}``, but
+  :meth:`_build_provenance` only ever populated the latter two. Computed
+  the same way ``metrics_manifest_hash`` already was, via ``sha256_file``
+  on ``DumpHandle.manifest_path``.
 
-**Semantic region profiling (IMPLE_PLAN_SEMANTIC_VULNERABILITY_v1.md §3.3,
-단계 2).** ``ReportModel.semantic_summary``/``class_semantic_matrix``/
-``semantic_concentration`` add a ``semantic_group`` axis alongside
-``region_key`` — a user-declared grouping of concrete region families
-(``ResolvedRegionConfig.semantic_group``) into one meaning-bearing unit
-(e.g. ``"left_arm"``/``"right_arm"`` -> ``"upper_limb"``). Every value here
-is again an arithmetic reduction of already-computed numbers (Gap#6):
+**Semantic region profiling.** ``ReportModel.semantic_summary``/
+``class_semantic_matrix``/``semantic_concentration`` add a
+``semantic_group`` axis alongside ``region_key`` — a user-declared
+grouping of concrete region families (``ResolvedRegionConfig.
+semantic_group``) into one meaning-bearing unit (e.g.
+``"left_arm"``/``"right_arm"`` -> ``"upper_limb"``). Every value here is
+again an arithmetic reduction of already-computed numbers (Gap#6):
 ``SpatialProfile.degradation`` averaged within a sample across a group's
 concrete regions, then across samples/semantic_groups exactly the way
 :func:`_dataset_top_region_by_sample`/:func:`_build_spatial_concentration`
@@ -159,7 +155,7 @@ from ssat.utils.io import sha256_file
 _GradeKeyT = TypeVar("_GradeKeyT")
 
 # Worst-first: the grade a group of anchors is reduced to is whichever of
-# these appears first among them (§1 격차#3's worst-case policy).
+# these appears first among them (worst-case policy).
 _GRADE_SEVERITY_ORDER = (
     ReportGrade.UNRELIABLE,
     ReportGrade.LOW,
@@ -170,7 +166,7 @@ _GRADE_SEVERITY_ORDER = (
 
 @dataclass(frozen=True, slots=True)
 class AssembledReport:
-    """R0's full output: the top-K/bottom-K ``ReportModel`` plus every sample (§1 격차#5).
+    """R0's full output: the top-K/bottom-K ``ReportModel`` plus every sample.
 
     Attributes:
         model: The JSON-serializable report R1 exports and R4 renders.
@@ -182,21 +178,19 @@ class AssembledReport:
             Not serialized as part of ``model``.
         rank_correlation_rows: Every ``rank_correlation.parquet`` row from
             the source AnalysisStore, unfiltered; empty when
-            ``analysis_dir=None``. Added in Stage 6 (module docstring) for
-            R2's ``render_fill_strategy_correlation`` — the same "extra data
-            alongside ``model``" level as ``full_sample_rankings``, since
-            these raw op-pair rows have no ``ReportModel`` field of their
-            own (only a rendered SVG's ref does, ``ReportModel.
+            ``analysis_dir=None``. For R2's ``render_fill_strategy_
+            correlation`` — the same "extra data alongside ``model``"
+            level as ``full_sample_rankings``, since these raw op-pair
+            rows have no ``ReportModel`` field of their own (only a
+            rendered SVG's ref does, ``ReportModel.
             fill_strategy_correlation_asset_ref``).
         sample_semantic_degradation: Every ``(sample_id, semantic_group)``
             pair with a determinable mean degradation, from
             :func:`_sample_semantic_group_degradation` — the same "extra
             data alongside ``model``" level as ``full_sample_rankings``.
-            Added in IMPLE_PLAN_SEMANTIC_VULNERABILITY_v1.md §3.3 단계 2 for
-            §3.5's future ``ssat.report.labels`` module, which needs the
-            per-sample values ``ReportModel.semantic_summary``/
-            ``class_semantic_matrix`` only ever expose pre-aggregated
-            (plan §6 단계4 note: "이 인터페이스 변경은 단계 2에 포함").
+            For a future labels module that needs the per-sample values
+            ``ReportModel.semantic_summary``/``class_semantic_matrix``
+            only ever expose pre-aggregated.
     """
 
     model: ReportModel
@@ -214,9 +208,9 @@ class _AnalysisContext:
     ``seed_rows``/``strategy_rows``/``strategy_profile_rows``/
     ``interval_rows``/``coverage_report`` are loaded (``load_analysis``
     returns all nine outputs together) but not threaded any further — R0's
-    v1 scope only surfaces control-comparison, reliability, and (as of
-    Stage 6) rank-correlation data (design §3's ``ReportModel`` schema has
-    no field for the rest yet).
+    v1 scope only surfaces control-comparison, reliability, and
+    rank-correlation data (``ReportModel`` schema has no field for the
+    rest yet).
     """
 
     control_rows: tuple[ControlComparisonRow, ...]
@@ -243,21 +237,19 @@ class ReportDataAssembler:
 
         Args:
             dump_dir: Root of the source dump, opened only through
-                ``ssat.metrics.dump_reader.DumpHandle`` (§3.3 "dump 접근은
-                DumpHandle을 통해서만").
+                ``ssat.metrics.dump_reader.DumpHandle``.
             metrics_dir: MetricsStore directory for this dump.
             analysis_dir: AnalysisStore directory for this dump+metrics
                 pair, or ``None`` when no ``ssat analyze`` run exists —
                 every analysis-derived field is then assembled as
-                explicitly unavailable rather than raising (design §6.2 C1).
+                explicitly unavailable rather than raising.
             adapter: Task-specific card/field/chart translator (R5).
             top_k: Number of most-vulnerable samples to render as
-                ``SampleCard``s (design §R0 default).
+                ``SampleCard``s.
             bottom_k: Number of most-robust samples to render as
                 ``SampleCard``s.
             region_top_k: Number of a sample's most-affected regions to
-                surface in its ``SampleCard.top_regions`` (undetermined by
-                design/plan; confirmed with the user for this stage).
+                surface in its ``SampleCard.top_regions``.
 
         Raises:
             ValueError: If top_k, bottom_k, or region_top_k is negative.
@@ -295,8 +287,8 @@ class ReportDataAssembler:
                 is given but its AnalysisStore no longer matches the source
                 MetricsStore (propagated from ``verify_source_metrics``
                 unwrapped — mapping to a report-layer error is the
-                Application layer's job, design §5 단계 7, mirroring how
-                ``AuditApplication.analyze`` already handles this boundary).
+                Application layer's job, mirroring how ``AuditApplication.
+                analyze`` already handles this boundary).
         """
 
         if not primary_metric:
@@ -329,14 +321,14 @@ class ReportDataAssembler:
         region_keys = {row.region_key for row in region_rows}
         scorecard = tuple(self._build_scorecard(sample_rows, analysis, primary_metric))
 
-        # --- semantic_group axis (IMPLE_PLAN_SEMANTIC_VULNERABILITY_v1.md §3.3) ---
+        # --- semantic_group axis ---
         semantic_group_by_region_id = _semantic_group_by_region_id(run_manifest.resolved_config)
         # Scoped to region_keys (already control-excluded, same population
         # _build_spatial_concentration's entropy normalizer uses) rather than
         # every resolved_config.regions family -- a control-comparison-only
         # family (RANDOM_AREA_MATCH, never in region_metrics.parquet) would
         # otherwise inflate this count and defeat the n_semantic_groups <= 1
-        # gate for an otherwise-ungrouped run (§1 격차#6).
+        # gate for an otherwise-ungrouped run.
         n_semantic_groups = len(
             {
                 semantic_group_by_region_id.get(region_id, region_id)
@@ -465,7 +457,7 @@ class ReportDataAssembler:
     def _control_comparison_card(
         self, analysis: _AnalysisContext | None, primary_metric: str
     ) -> MetricCard:
-        """Build the one control-comparison card R0 itself owns (design §5 단계 2).
+        """Build the one control-comparison card R0 itself owns.
 
         Unlike the adapter's cards (MetricsStore-derived, task-specific),
         this reads AnalysisStore — control comparison is a task-agnostic
@@ -473,7 +465,7 @@ class ReportDataAssembler:
         ``z_vs_control`` across every matched anchor: the same standardized
         quantity A6 thresholds to derive reliability grades, so the number
         on this card and the grades elsewhere in the report share one
-        justification (confirmed with the user for this stage).
+        justification.
         """
 
         if analysis is None:
@@ -518,7 +510,7 @@ class ReportDataAssembler:
         analysis: _AnalysisContext | None,
         primary_metric: str,
     ) -> tuple[SampleCard, ...]:
-        """Sort every sample by vulnerability_score descending (§1 격차#5).
+        """Sort every sample by vulnerability_score descending.
 
         Samples with no computed ``vulnerability_score`` (zero valid
         primary-metric items) cannot be ranked at all; they are kept —
@@ -650,20 +642,19 @@ class ReportDataAssembler:
         primary_metric: str,
         top_region_by_sample: Mapping[str, str],
     ) -> RegionSummary:
-        """Join ``region_metrics.parquet`` (source of which regions exist, §1 격차#2) with grades.
+        """Join ``region_metrics.parquet`` (source of which regions exist) with grades.
 
         Iterating ``region_rows`` (already primary-metric-filtered
         ``region_metrics.parquet``) rather than ``reliability.parquet`` is
         what keeps control-only regions — already excluded from N3
-        aggregation — out of ``region_summary.rows`` (§1 부수 확인).
+        aggregation — out of ``region_summary.rows``.
 
         ``top_region_by_sample`` (from :func:`_dataset_top_region_by_sample`,
         already computed once in :meth:`assemble` and shared with
         :func:`_build_spatial_concentration`) drives each row's
-        ``top_region_share`` — the report-layout-redesign field
-        (docs/report_layout_improve/AGENTS_OPINION_1.md) that lets a region
-        table sort/color by how often a region is *the* answer across the
-        dataset, independent of the worst-case ``reliability_grade``.
+        ``top_region_share``, which lets a region table sort/color by how
+        often a region is *the* answer across the dataset, independent of
+        the worst-case ``reliability_grade``.
         """
 
         grades_by_region = (
@@ -719,14 +710,12 @@ class ReportDataAssembler:
     def _build_reliability_spotlight(
         self, analysis: _AnalysisContext | None
     ) -> ReliabilitySpotlight:
-        """Surface every UNRELIABLE-grade anchor across every metric (design §5 단계 2 step7).
+        """Surface every UNRELIABLE-grade anchor across every metric.
 
         Unlike the per-metric-filtered sections above, this is intentionally
-        *not* filtered to ``primary_metric`` — the plan's own wording
-        ("reliability.parquet에서 reliability_grade == UNRELIABLE인 행 전부")
-        surfaces every unreliable finding, regardless of which metric
-        flagged it, since this section's purpose is "이 결과는 믿지 말라"
-        for the whole run.
+        *not* filtered to ``primary_metric`` — it surfaces every unreliable
+        finding, regardless of which metric flagged it, since this
+        section's purpose is "don't trust this result" for the whole run.
         """
 
         if analysis is None:
@@ -799,10 +788,10 @@ class ReportDataAssembler:
 
 
 def _dataset_name(resolved_config: Any) -> str:
-    """Derive a display dataset name absent from every upstream schema (§1 부수 확인).
+    """Derive a display dataset name absent from every upstream schema.
 
     Typed as ``Any`` rather than ``ssat.core.config.schema.ResolvedConfig``:
-    importing that module would cross the §3.3 dependency rule this file is
+    importing that module would cross the dependency rule this file is
     already careful about elsewhere (``ssat.core.dump``/``ssat.analysis.
     reader`` are named explicitly, but the same "only through the metrics
     engine's façade" spirit applies to the config types ``RunManifest``
@@ -829,7 +818,7 @@ def _failure_rate(exclusion_summary: Mapping[str, object]) -> float | None:
 
 
 def _worst_grade(grades: Sequence[ReportGrade]) -> ReportGrade | None:
-    """Reduce a group of anchors' grades to the single worst one (§1 격차#3).
+    """Reduce a group of anchors' grades to the single worst one.
 
     ``UNRELIABLE > LOW > MODERATE > HIGH`` — the grade design treats as most
     concerning wins, mirroring ``ssat.analysis`` A6's own severity framing.
@@ -870,8 +859,7 @@ def _dataset_top_region_by_sample(spatial_rows: Sequence[SpatialProfile]) -> dic
     (already primary-metric-filtered by :meth:`ReportDataAssembler.assemble`
     before this is called) rather than only ``highlighted_ids`` — the
     dataset-wide population :func:`_build_spatial_concentration` and
-    ``RegionRow.top_region_share`` both need (report layout redesign,
-    docs/report_layout_improve/AGENTS_OPINION_1.md). A sample contributes no
+    ``RegionRow.top_region_share`` both need. A sample contributes no
     entry when every one of its regions has ``degradation is None`` (no
     valid item), matching the "unavailable, not zero" convention every other
     reduction in this module follows. Ties are broken by ``region_key``
@@ -953,7 +941,7 @@ def _build_spatial_concentration(
     )
 
 
-# --- semantic_group axis (IMPLE_PLAN_SEMANTIC_VULNERABILITY_v1.md §3.3) -----
+# --- semantic_group axis ---------------------------------------------------
 
 
 def _region_id_from_region_key(region_key: str) -> str:
@@ -961,7 +949,7 @@ def _region_id_from_region_key(region_key: str) -> str:
 
     Always safe: ``RegionId`` (``ssat.core.config.schema``) forbids ``"::"``,
     so this split never ambiguously cuts through the family name itself
-    (plan §1 격차#4, verified by code inspection rather than assumed).
+    (verified by code inspection rather than assumed).
     """
 
     return region_key.split("::", 1)[0]
@@ -971,14 +959,13 @@ def _semantic_group_by_region_id(resolved_config: Any) -> dict[str, str]:
     """Build the ``region_id -> semantic_group`` map from the run's resolved config.
 
     A family with no declared ``semantic_group`` falls back to its own
-    ``region_id`` (plan §1 격차#2's default policy) — the common case for a
-    plain grid/explicit run, where every family is its own, singleton
-    semantic group.
+    ``region_id`` — the common case for a plain grid/explicit run, where
+    every family is its own, singleton semantic group.
 
     Typed ``resolved_config: Any`` for the same reason :func:`_dataset_name`
-    is (module §3.3 dependency-rule note): this reads
-    ``ResolvedConfig.regions[*].region_id``/``semantic_group`` via plain
-    attribute access rather than importing ``ssat.core.config.schema``.
+    is: this reads ``ResolvedConfig.regions[*].region_id``/
+    ``semantic_group`` via plain attribute access rather than importing
+    ``ssat.core.config.schema``.
     """
 
     return {
@@ -988,14 +975,14 @@ def _semantic_group_by_region_id(resolved_config: Any) -> dict[str, str]:
 
 
 def _is_binary_primary_metric(scorecard: Sequence[MetricCard]) -> bool:
-    """Reuse the adapter's existing binary/continuous determination (plan §3.3 item 5).
+    """Reuse the adapter's existing binary/continuous determination.
 
     ``ClassificationAdapter.summarize_performance`` always emits a
     ``"flip_rate"`` card, but only gives it a real ``value`` when the
-    primary metric is binary (``value=None`` plus a "continuous 지표" note
-    otherwise, ``ssat.report.adapters._flip_rate_card``) — that non-``None``
-    check is the exact determination this function reuses rather than
-    re-deriving "is this metric binary" from scratch.
+    primary metric is binary (``value=None`` plus a "continuous metric"
+    note otherwise, ``ssat.report.adapters._flip_rate_card``) — that
+    non-``None`` check is the exact determination this function reuses
+    rather than re-deriving "is this metric binary" from scratch.
     """
 
     return any(card.key == "flip_rate" and card.value is not None for card in scorecard)
@@ -1009,10 +996,9 @@ def _sample_semantic_group_degradation(
     When a semantic_group folds together several concrete region families
     (e.g. ``"left_arm"``/``"right_arm"`` -> ``"upper_limb"``), a sample
     contributes one degradation value per family; this averages those
-    within the sample (plan §3.3 item 3's "평균" policy — a worst-case/max
-    rollup is reserved for grade badges only, per the report-layout
-    redesign's own principle). Regions with ``degradation is None`` are
-    skipped, matching every other "unavailable, not zero" reduction here.
+    within the sample — a worst-case/max rollup is reserved for grade
+    badges only. Regions with ``degradation is None`` are skipped,
+    matching every other "unavailable, not zero" reduction here.
 
     Returns:
         A mapping from ``(sample_id, semantic_group)`` to the sample's mean
@@ -1063,8 +1049,8 @@ def _build_semantic_concentration(
 
     The semantic-axis counterpart of :func:`_build_spatial_concentration`.
     Unlike that function, the ``n_semantic_groups <= 1`` gate is checked
-    first and unconditionally forces the graceful-degradation marker (plan
-    §1 격차#6, enforced again at the type level by ``SemanticConcentration.
+    first and unconditionally forces the graceful-degradation marker
+    (enforced again at the type level by ``SemanticConcentration.
     __post_init__``) — the common case for a run that never declared
     ``regions[].semantic_group``, where every family collapses to its own
     singleton group.
@@ -1134,15 +1120,14 @@ def _build_semantic_summary(
 
     Mirrors :meth:`ReportDataAssembler._build_region_summary`'s join
     pattern, one axis coarser: ``mean_degradation``/``n_samples`` reduce
-    :func:`_sample_semantic_group_degradation` (plan §3.3 item 5);
-    ``high_rate`` regroups the same per-anchor reliability grades
-    ``RegionRow.high_rate`` already uses, just keyed by semantic_group
-    instead of region_key (Gap#3's worst-case-adjacent, no-new-statistic
-    pattern); ``flip_rate`` averages ``RegionMetrics.flip_rate`` across the
-    group's concrete regions, populated only when ``is_binary_primary_
-    metric`` (plan §3.3 item 5) — never from sample-grain data, since no
-    ``(sample, semantic_group)``-grain flip signal exists (module
-    docstring).
+    :func:`_sample_semantic_group_degradation`; ``high_rate`` regroups the
+    same per-anchor reliability grades ``RegionRow.high_rate`` already
+    uses, just keyed by semantic_group instead of region_key (Gap#3's
+    worst-case-adjacent, no-new-statistic pattern); ``flip_rate`` averages
+    ``RegionMetrics.flip_rate`` across the group's concrete regions,
+    populated only when ``is_binary_primary_metric`` — never from
+    sample-grain data, since no ``(sample, semantic_group)``-grain flip
+    signal exists (module docstring).
 
     Args:
         sample_semantic_degradation: From :func:`_sample_semantic_group_
@@ -1203,13 +1188,13 @@ def _build_class_semantic_matrix(
     sample_semantic_degradation: Mapping[tuple[str, str], float],
     gt_label_by_sample: Mapping[str, int | None],
 ) -> tuple[tuple[ClassSemanticRow, ...], int]:
-    """Build the ``(gt_label, semantic_group)`` cross-tabulation (plan §3.3 item 6).
+    """Build the ``(gt_label, semantic_group)`` cross-tabulation.
 
     Joins :func:`_sample_semantic_group_degradation`'s per-sample values
     with each sample's ``gt_label`` (from ``full_sample_rankings``, already
     computed) and regroups by the coarser ``(gt_label, semantic_group)``
-    key — the primary artifact this plan exists to add: a table answering
-    "for this action class, which body part matters most?"
+    key — a table answering "for this action class, which body part
+    matters most?"
 
     Samples with ``gt_label is None`` are excluded (their body-part
     contribution cannot be attributed to a class) rather than folded into a

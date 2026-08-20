@@ -112,7 +112,7 @@ def _writer(root: Path, config: ResolvedConfig) -> DumpWriter:
 
 
 def _write_baseline_dump(root: Path, config: ResolvedConfig) -> None:
-    """Write one dump covering every §N0 status-table row but the orphan one.
+    """Write one dump covering every item-status combination but the orphan one.
 
     - sample-a: clean ok, both perturbed items ok (normal case)
     - sample-b: clean ok, one perturbed item predict_failed (excluded value)

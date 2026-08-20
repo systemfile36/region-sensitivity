@@ -1,4 +1,4 @@
-"""2순위 연속 변화량(continuous) 지표: gt_prob_drop, gt_logit_drop, margin_drop, loss_increase, gt_rank_worsening."""
+"""Secondary continuous-change (continuous) metrics: gt_prob_drop, gt_logit_drop, margin_drop, loss_increase, gt_rank_worsening."""
 
 from __future__ import annotations
 
@@ -133,8 +133,7 @@ def _cross_entropy(gt_prob: float) -> float:
     Log-sum-exp-stabilized softmax (normalize.py) makes gt_prob underflowing
     to exactly 0.0 an extreme, practically unreachable edge case; the floor
     exists so a future such case yields a large finite loss instead of ``inf``
-    poisoning downstream aggregates (design decision, IMPLE_PLAN_METRIC_DESIGN_v1.md
-    §5 단계 4).
+    poisoning downstream aggregates.
     """
 
     return float(-np.log(max(gt_prob, LOSS_EPSILON)))

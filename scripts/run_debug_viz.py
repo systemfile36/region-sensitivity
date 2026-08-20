@@ -7,8 +7,8 @@ test_metrics_mask_check.py``, ``test_metrics_viz_heatmap.py``,
 ``test_metrics_viz_ranking.py``). This script exists so a developer can run
 DebugViz against a real dump/metrics store inside the
 ``region-sensitivity-workspace`` container and look at the resulting PNGs
-with their own eyes (design METRIC_ENGINE_DESIGN_v1.md §N5 "이것은 사용자를
-위한 리포트가 아니라 개발자가 오류를 발견하기 위한 도구이다").
+with their own eyes -- DebugViz is a developer diagnostic tool for
+tracking down errors, not a user-facing report.
 
 Examples:
     python3 scripts/run_debug_viz.py mask-check \\

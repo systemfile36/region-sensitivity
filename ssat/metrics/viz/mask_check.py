@@ -3,18 +3,15 @@
 Renders, for a handful of samples, a 3-panel PNG (original image / mask
 overlay / actual perturbed image) so a developer can catch coordinate-system
 bugs (flipped axes, wrong region-index mapping, inverted ``invert_mask``,
-unexpected crop) that a numeric table would never surface (design
-METRIC_ENGINE_DESIGN_v1.md §N5 "왜 필요한가").
+unexpected crop) that a numeric table would never surface.
 
 This module needs only the raw dump and ``core.region.RegionResolver`` —
-``SpatialProfile``/``MetricRegistry`` are irrelevant here (design §N5 "V1").
-Reproducing the *actual* perturbed image byte-for-byte additionally requires
+``SpatialProfile``/``MetricRegistry`` are irrelevant here. Reproducing the
+*actual* perturbed image byte-for-byte additionally requires
 ``core.source`` (to load the original image referenced by
 ``ResolvedConfig.source_provenance``) and ``core.perturb`` (to re-apply the
 exact perturbation). These two imports, together with ``core.region``, are
-the explicit dependency-direction exceptions granted to ``metrics.viz``
-(IMPLE_PLAN_METRIC_DESIGN_v1.md §3.3, extended for this stage — see
-docs/IMPLE_PLAN_METRIC_DESIGN_v1.md 단계 7 plan notes).
+the explicit dependency-direction exceptions granted to ``metrics.viz``.
 
 Reproduction is exact because it replays the same RNG consumption order the
 core runtime uses (ssat/core/runtime/processors.py): one ``default_rng``
@@ -25,9 +22,9 @@ seeded from the dump's already-derived ``seed_used`` is consumed first by
 context is needed to replay this sequence deterministically.
 
 Explicit regions are not supported: their ``ref``/``ref_hash`` are consumed
-during config resolution and never written to the raw dump or ``JoinedFrame``
-(design §N0), so there is no way to locate the original mask file from a
-dump alone. Rows with ``region_kind == "explicit"`` raise ``DebugVizError``.
+during config resolution and never written to the raw dump or ``JoinedFrame``,
+so there is no way to locate the original mask file from a dump alone. Rows
+with ``region_kind == "explicit"`` raise ``DebugVizError``.
 """
 
 from __future__ import annotations

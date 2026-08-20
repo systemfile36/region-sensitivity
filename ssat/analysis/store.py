@@ -3,11 +3,10 @@
 Writes ``<analysis_dir>/control_comparison.parquet``, ``seed_stability.parquet``,
 ``strategy_stability.parquet``, ``rank_correlation.parquet``,
 ``strategy_profile.parquet``, ``intervals.parquet``, ``reliability.parquet``,
-``coverage_report.json``, and ``analysis_manifest.json`` (design
-CONTROL_STABILITY_DESIGN_v1.md §A7; file-per-row-type layout confirmed with
-the user over the design doc's higher-level 6-file sketch — see
-``ssat/analysis/schema.py``'s module docstring). Follows the same
-provenance principle N4's ``MetricsManifest`` established: this analysis is
+``coverage_report.json``, and ``analysis_manifest.json`` (file-per-row-type
+layout confirmed with the user over an earlier higher-level 6-file sketch —
+see ``ssat/analysis/schema.py``'s module docstring). Follows the same
+provenance principle that ``MetricsManifest`` established: this analysis is
 only as trustworthy as the metrics it was computed from, tracked here via
 ``source_metrics_manifest_hash`` — a SHA-256 of the source metrics store's
 actual ``metrics_manifest.json`` bytes, not a re-serialization of its parsed
@@ -68,7 +67,7 @@ class AnalysisManifest:
         thresholds: Every threshold actually used to derive flags/grades
             (A2-A6), keyed by name — free-form so callers are not forced
             into a fixed vocabulary before an orchestrator exists (v1 has
-            none yet; IMPLE_PLAN_CONTROL_STABILITY_v1.md §2.2).
+            none yet).
         n_bootstrap: A5's bootstrap resample count for this run.
         random_seed: A5's resampling seed for this run.
         computed_at: When this analysis run was persisted.
@@ -282,8 +281,7 @@ def verify_source_metrics(manifest: AnalysisManifest, metrics_manifest_path: Pat
 
     Raises:
         AnalysisCorruptionError: If the source metrics were recomputed or
-            otherwise changed since this analysis was computed (design §A7
-            "지표가 재계산되면 분석이 무효가 되어야 한다").
+            otherwise changed since this analysis was computed.
     """
 
     actual_hash = sha256_file(metrics_manifest_path)

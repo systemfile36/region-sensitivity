@@ -422,8 +422,8 @@ class AuditApplication:
         previously had to hand-roll themselves by opening a DumpHandle
         directly: it always registers every built-in metric via
         default_metric_registry() (v1 scope intentionally has no per-metric
-        selection flag -- see docs/IMPLE_PLAN_METRIC_DESIGN_v1.md section 8),
-        and stores the result under metrics_dir (default: <dump>/metrics).
+        selection flag), and stores the result under metrics_dir (default:
+        <dump>/metrics).
         """
 
         dump = request.dump.expanduser().resolve(strict=True)
@@ -490,9 +490,7 @@ class AuditApplication:
         (experiments/synthetic_shortcut/analyze_control_stability.py,
         validate_reliability_thresholds_full.py) previously had to hand-roll:
         opening an AnalysisReader, indexing anchors/controls, and running
-        A2-A6 in sequence (docs/IMPLE_PLAN_CONTROL_STABILITY_v1.md section
-        2.2 deferred this until that repeated-call-pattern was observed --
-        it has been). Scoped to one dump+metrics pair, matching
+        A2-A6 in sequence. Scoped to one dump+metrics pair, matching
         AnalysisReader/compute_metrics's own scope; combining several runs
         into one item_values frame stays a script-level concern.
         """
@@ -581,17 +579,15 @@ class AuditApplication:
         "some earlier orchestration step" -- every ``ssat.report`` module
         (R0-R4) is a pure, single-purpose transformer that never opens more
         than one store or renders more than one kind of output; wiring them
-        into one end-to-end pipeline is this method's job
-        (IMPLE_PLAN_REPORTING_v1.md §5 단계7). The pipeline order is R0
-        (assemble) -> R3 (link_assets/apply_asset_manifest, per-sample
-        heatmap/thumbnail PNGs) -> R2 (render the three chart SVGs) -> R1
-        (export the full population as JSON/CSV) -> R4 (render report.html
-        + report_manifest.json) -> R4 again for the auxiliary
-        ``report_question_driven.html`` (``render_secondary_report``,
-        report layout redesign docs/report_layout_improve/
-        AGENTS_OPINION_1.md) -- R4 must run last (twice) because its
-        templates reference every asset ref R2/R3 fill in and every file R1
-        writes, and ``render_secondary_report`` specifically must run after
+        into one end-to-end pipeline is this method's job. The pipeline
+        order is R0 (assemble) -> R3 (link_assets/apply_asset_manifest,
+        per-sample heatmap/thumbnail PNGs) -> R2 (render the three chart
+        SVGs) -> R1 (export the full population as JSON/CSV) -> R4 (render
+        report.html + report_manifest.json) -> R4 again for the auxiliary
+        ``report_question_driven.html`` (``render_secondary_report``) -- R4
+        must run last (twice) because its templates reference every asset
+        ref R2/R3 fill in and every file R1 writes, and
+        ``render_secondary_report`` specifically must run after
         ``render_report`` because it reuses the ``assets/css``/``assets/js``
         the latter writes rather than duplicating them.
 
@@ -600,8 +596,8 @@ class AuditApplication:
         vulnerability histogram and region bar chart are unconditional
         already-computed-data visualizations (``ssat.report.charts`` itself
         draws an explicit "no data" placeholder rather than omitting them
-        when empty, matching design's "결측이 조용히 생략되지 않음"
-        principle), and ``render_fill_strategy_correlation`` already decides
+        when empty, so missing data is never silently omitted), and
+        ``render_fill_strategy_correlation`` already decides
         for itself whether a rank-correlation SVG exists at all (``None``
         when ``rank_correlation_rows`` is empty) -- ``applicable_charts()``
         has no additional decision left to make for either.
@@ -678,11 +674,10 @@ class AuditApplication:
 
             export_report(final, report_dir / "data")
             render_report(model, report_dir, top_k=request.top_k, bottom_k=request.bottom_k)
-            # Always generated alongside the main report, not behind a flag
-            # (report layout redesign, docs/report_layout_improve/
-            # AGENTS_OPINION_1.md): render_secondary_report computes nothing
-            # new, it only reorganizes the same `model` R4 just rendered
-            # into report.html, so there is no meaningful "opt out" case to
+            # Always generated alongside the main report, not behind a flag:
+            # render_secondary_report computes nothing new, it only
+            # reorganizes the same `model` R4 just rendered into
+            # report.html, so there is no meaningful "opt out" case to
             # support -- and it must run after render_report, which is what
             # writes the assets/css, assets/js this auxiliary page's own
             # <link>/<script> tags reference (render_secondary_report's own
@@ -722,11 +717,10 @@ class AuditApplication:
         already-written ``data/report_model.json``/``data/sample_rankings
         .csv``/``report_manifest.json`` (``ssat.report.labels.load_
         assembled_report_for_labels``) and never reopens any of those three
-        stores -- the deliberate "이미 계산된 것을 export, R0를 다시 돌리지
-        않음" design (IMPLE_PLAN_SEMANTIC_VULNERABILITY_v1.md §5), which is
-        also why this is a separate CLI subcommand rather than something
-        ``generate_report`` runs automatically (same section, rationale
-        there).
+        stores -- the deliberate design of exporting what was already
+        computed rather than rerunning R0, which is also why this is a
+        separate CLI subcommand rather than something ``generate_report``
+        runs automatically.
 
         Args:
             request: ``report_dir`` plus the label-export options.

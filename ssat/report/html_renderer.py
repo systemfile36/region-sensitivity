@@ -1,130 +1,121 @@
-"""R4 HTMLRenderer: assemble ``ReportModel`` + already-rendered assets into report.html (design §R4).
+"""HTMLRenderer: assemble ``ReportModel`` + already-rendered assets into report.html.
 
-**Scope boundary (design §3.3 "report.html_renderer → report.types,
-report.static (jinja2)").** This module never imports ``report.charts``,
+**Scope boundary.** This module never imports ``report.charts``,
 ``report.assets``, or ``report.assembler`` — it consumes a ``ReportModel``
-that some earlier orchestration step (Stage 7's ``AuditApplication.
+that an earlier orchestration step (``AuditApplication.
 generate_report()``) has already fully populated: every ``SampleCard``'s
-``heatmap_asset_ref``/``thumbnail_asset_ref`` (R3), the histogram's
+``heatmap_asset_ref``/``thumbnail_asset_ref``, the histogram's
 ``vulnerability_distribution.histogram_asset_ref``, the region bar chart's
 ``region_summary.chart_asset_ref``, and the optional
-``fill_strategy_correlation_asset_ref`` (all R2) are assumed to already be
+``fill_strategy_correlation_asset_ref`` are assumed to already be
 either a valid relative path or ``None`` by the time :func:`render_report`
-runs. This mirrors how every other R-module here is a pure, single-purpose
-transformer — ``ReportDataAssembler`` (R0) is deliberately the *only* module
-that opens more than one upstream store at once
-(IMPLE_PLAN_REPORTING_v1.md §3.1), and gluing R2/R3's rendering into R0's
-model is exactly that kind of multi-module orchestration, which belongs to
-Stage 7, not here.
+runs. This mirrors how every other module in this package is a pure,
+single-purpose transformer — ``ReportDataAssembler`` is deliberately the
+*only* module that opens more than one upstream store at once, and gluing
+chart/asset rendering into its model is exactly that kind of multi-module
+orchestration, which belongs to the application layer, not here.
 
-**Two schema gaps closed in Stage 6 (confirmed with the user).** Before this
-stage, ``ReportModel`` had no field to carry a rendered ``region_bar``
-SVG's ref, and no data path at all for ``fill_strategy_correlation`` (R0
-discarded ``rank_correlation.parquet`` rows outright) — even though
-``ClassificationAdapter.applicable_charts()`` (Stage 1) already listed both
-as real, renderable charts. Both gaps are closed as of this stage:
-``RegionSummary.chart_asset_ref`` and ``ReportModel.
-fill_strategy_correlation_asset_ref`` now exist (``report/types.py``), and
-``ReportDataAssembler``/``AssembledReport`` now thread ``rank_correlation_
-rows`` through as R0's extra, non-serialized data (``report/assembler.py``,
-mirroring how ``full_sample_rankings`` already worked) so Stage 7 has
-something to call ``report.charts.render_fill_strategy_correlation`` with.
-Rendering those two charts and writing their SVG files is still Stage 7's
-job, not this module's — the same boundary as the paragraph above.
+**Two ``ReportModel`` fields exist for charts this module never renders
+itself.** ``RegionSummary.chart_asset_ref`` (for a rendered ``region_bar``
+SVG) and ``ReportModel.fill_strategy_correlation_asset_ref`` (``report/
+types.py``) are both populated only by upstream chart rendering;
+``ReportDataAssembler``/``AssembledReport`` thread the underlying
+``rank_correlation`` rows through as extra, non-serialized data
+(``report/assembler.py``, mirroring how ``full_sample_rankings`` already
+works) so that upstream step has something to call
+``report.charts.render_fill_strategy_correlation`` with. Rendering those
+two charts and writing their SVG files is still not this module's job —
+the same boundary as the paragraph above.
 
-**Templates are Python string constants, not ``.jinja`` files** (design
-§3.1: this repository has never had a non-``.py`` source file under
-``ssat/``, and adding one would need new packaging config this stage avoids).
-``jinja2.Environment(loader=jinja2.DictLoader(...))`` is built from the
-string constants below and never touches the filesystem for template lookup.
+**Templates are Python string constants, not ``.jinja`` files** — this
+repository has never had a non-``.py`` source file under ``ssat/``, and
+adding one would need new packaging config. ``jinja2.Environment(loader=
+jinja2.DictLoader(...))`` is built from the string constants below and
+never touches the filesystem for template lookup.
 
 **Badge colors come from ``ssat.report.types.GRADE_COLORS``**, the same
-palette R2's chart bars already use (that module's own docstring) — a
-Jinja global function (:func:`_grade_color`) looks a grade up per-badge at
-render time, so the color is computed once, in one place, for both views.
+palette ``report.charts``'s bars already use — a Jinja global function
+(:func:`_grade_color`) looks a grade up per-badge at render time, so the
+color is computed once, in one place, for both views.
 
-**Offline, no-JS, C2-compliant by construction.** Every asset reference the
-template emits (``<img src=...>``, ``<link rel="stylesheet" href=...>``,
-``<script src=...>``) is a plain relative path under ``output_dir`` — never
-an absolute filesystem path, never an ``http(s)://`` URL. The Provenance
-section is a bare HTML ``<details>`` element (design §7, confirmed:
-"``<details>`` HTML 요소로 JS 없이 접이식") — expand/collapse is native
-browser behavior, not a script. ``assets/js/enhance.js`` only adds
-click-to-sort on the region table; every section is fully readable with
-``<script>`` removed (design §R4 "JS 없이도 모든 콘텐츠가 보여야 한다").
+**Offline and usable with no JavaScript, by construction.** Every asset
+reference the template emits (``<img src=...>``, ``<link rel="stylesheet"
+href=...>``, ``<script src=...>``) is a plain relative path under
+``output_dir`` — never an absolute filesystem path, never an ``http(s)://``
+URL. The Provenance section is a bare HTML ``<details>`` element, so
+expand/collapse is native browser behavior, not a script.
+``assets/js/enhance.js`` only adds click-to-sort on the region table; every
+section is fully readable with ``<script>`` removed.
 
-**Report layout redesign (docs/report_layout_improve/AGENTS_OPINION_1.md).**
-Real-data validation (C3, IMPLE_PLAN_REPORTING_v1.md §5 단계8) against
-``experiments/synthetic_shortcut/results_crop_free`` surfaced two usability
-problems an external review then confirmed: (1) the region table's worst-case
-``reliability_grade`` badge collapsed a region with e.g. 67 HIGH-graded
-anchors and 1 UNRELIABLE anchor down to a single alarming "UNRELIABLE" chip
-— appropriate for a pass/fail QA gate, not for a report trying to show a
-model's *behavior pattern*; and (2) the report had no dataset-level answer
-to "does this model repeatedly depend on one fixed location, or is
-sensitivity spread across many?" (``ReportModel.spatial_concentration``,
-added in ``ssat.report.assembler``/``types``, answers exactly this). This
-module was restructured to the review's recommended "A + C" combination of
-its two HTML mockups (``docs/report_layout_improve/
-report_layout_A_interpretation_first.html``/``report_layout_C_behavioral_
-fingerprint.html``): an interpretation-first narrative (Executive
-Interpretation → Behavioral Fingerprint → Dataset Spatial Pattern → Region
-Summary → Vulnerable Samples → Stability/Controls → Detailed Tables →
-Provenance) that leads with what the run's numbers mean before the raw
-tables. The region-level worst-case badge is no longer the headline of the
-Region Summary table — it is replaced by :func:`_grade_distribution_
-percentages`/the ``grade_mix_bar`` macro, which render the *composition* of
-grades among a region's anchors (matching mockup A's "HIGH 34% · LOW 12% ·
-UNRELIABLE 54%"); the worst-case grade itself is preserved verbatim in
-``RegionRow.reliability_grade`` (unchanged, still in every CSV/JSON export)
-and surfaces only as a ``title`` attribute on the composition bar, so no
-information is lost, only de-emphasized. Every helper below
+**Report layout: interpretation-first, not a raw pass/fail table.**
+Validation against real data (``experiments/synthetic_shortcut/
+results_crop_free``) surfaced two usability problems: (1) the region
+table's worst-case ``reliability_grade`` badge collapsed a region with
+e.g. 67 HIGH-graded anchors and 1 UNRELIABLE anchor down to a single
+alarming "UNRELIABLE" chip — appropriate for a pass/fail QA gate, not for
+a report trying to show a model's *behavior pattern*; and (2) the report
+had no dataset-level answer to "does this model repeatedly depend on one
+fixed location, or is sensitivity spread across many?"
+(``ReportModel.spatial_concentration``, in ``ssat.report.assembler``/
+``types``, answers exactly this). This module is structured as an
+interpretation-first narrative (Executive Interpretation → Behavioral
+Fingerprint → Dataset Spatial Pattern → Region Summary → Vulnerable
+Samples → Stability/Controls → Detailed Tables → Provenance) that leads
+with what the run's numbers mean before the raw tables. The region-level
+worst-case badge is no longer the headline of the Region Summary table —
+it is replaced by :func:`_grade_distribution_percentages`/the
+``grade_mix_bar`` macro, which render the *composition* of grades among a
+region's anchors (e.g. "HIGH 34% · LOW 12% · UNRELIABLE 54%"); the
+worst-case grade itself is preserved verbatim in
+``RegionRow.reliability_grade`` (unchanged, still in every CSV/JSON
+export) and surfaces only as a ``title`` attribute on the composition bar,
+so no information is lost, only de-emphasized. Every helper below
 (:func:`_grade_distribution_percentages`, :func:`_grid_layout`,
-:func:`_heat_color`) is a pure reshaping/formatting function over values the
-``ReportModel`` already carries — no new verdict is derived, matching this
-module's role as a pure renderer (same precedent the removed pre-redesign
-``_region_reliability_overview`` helper set).
+:func:`_heat_color`) is a pure reshaping/formatting function over values
+the ``ReportModel`` already carries — no new verdict is derived, matching
+this module's role as a pure renderer (the same precedent the removed
+pre-redesign ``_region_reliability_overview`` helper set).
 
-A second, auxiliary template (:func:`render_secondary_report`, "Layout B" /
-"Question Driven" from the same review) is written alongside the main
-report as ``report_question_driven.html`` — always generated together with
+A second, auxiliary template (:func:`render_secondary_report`, the
+"Question Driven" report) is written alongside the main report as
+``report_question_driven.html`` — always generated together with
 ``report.html`` (Application-layer orchestration, ``ssat.application.
-application.AuditApplication.generate_report``), but explicitly a secondary,
-supplementary view: it reuses the exact same ``ReportModel`` data as the
-main report (no new computation), just organized as five plain-language
-questions (baseline → sensitivity magnitude → spatial concentration →
-control & stability → actionable examples) for a first-time reader, and
-cross-links back to the main report's detailed sections rather than
-duplicating them.
+application.AuditApplication.generate_report``), but explicitly a
+secondary, supplementary view: it reuses the exact same ``ReportModel``
+data as the main report (no new computation), just organized as five
+plain-language questions (baseline → sensitivity magnitude → spatial
+concentration → control & stability → actionable examples) for a
+first-time reader, and cross-links back to the main report's detailed
+sections rather than duplicating them.
 
-**"Semantic Region Profile" — the 9th section
-(IMPLE_PLAN_SEMANTIC_VULNERABILITY_v1.md §4, 단계5).** Added after every
-pre-existing section (including the Provenance appendix), so the A+C
-8-section structure and Layout B above are unchanged byte-for-byte in their
-own content — this stage only appends. The section is gated on
-``model.semantic_concentration.n_semantic_groups <= 1``: the common case
-(no ``regions[].semantic_group`` configured, e.g. every existing grid run)
-collapses to a one-line "해당 없음" notice rather than a self-evidently
-trivial single-group table (plan §1 격차#6, mirrored at the type level by
-``SemanticConcentration.__post_init__``). When more than one semantic group
-exists, the section renders the executive-style dominant-group sentence
-(same non-causal caveat wording as ``#executive-interpretation``), then the
-``(gt_label × semantic_group)`` cross-tabulation from ``model.
-class_semantic_matrix`` as a plain HTML table whose cells are colored with
-the same :func:`_heat_color` helper the Dataset Spatial Pattern heat grid
-already uses (:func:`_class_semantic_grid` only reshapes already-computed
-rows into a 2D grid, the same "no new statistic" role :func:`_grid_layout`
-plays for ``region_summary``) — a table rather than a CSS grid because,
-unlike the spatial-pattern heat grid, this one needs real row/column
-headers (``gt_label`` values, ``semantic_group`` names). Each cell shows
+**"Semantic Region Profile" — the 9th section.** Added after every
+pre-existing section (including the Provenance appendix), so the earlier
+8-section structure and the "Question Driven" report above are unchanged
+byte-for-byte in their own content — this section only appends. The
+section is gated on ``model.semantic_concentration.n_semantic_groups <=
+1``: the common case (no ``regions[].semantic_group`` configured, e.g.
+every existing grid run) collapses to a one-line "not applicable" notice
+rather than a self-evidently trivial single-group table (mirrored at the
+type level by ``SemanticConcentration.__post_init__``). When more than one
+semantic group exists, the section renders the executive-style
+dominant-group sentence (same non-causal caveat wording as
+``#executive-interpretation``), then the ``(gt_label × semantic_group)``
+cross-tabulation from ``model.class_semantic_matrix`` as a plain HTML
+table whose cells are colored with the same :func:`_heat_color` helper
+the Dataset Spatial Pattern heat grid already uses
+(:func:`_class_semantic_grid` only reshapes already-computed rows into a
+2D grid, the same "no new statistic" role :func:`_grid_layout` plays for
+``region_summary``) — a table rather than a CSS grid because, unlike the
+spatial-pattern heat grid, this one needs real row/column headers
+(``gt_label`` values, ``semantic_group`` names). Each cell shows
 ``mean_degradation`` and, when the run's primary metric is binary,
 ``flip_rate``; the ``n_samples`` behind every cell is always available via
 its ``title`` attribute so a sparse combination is never mistaken for a
-well-evidenced one (plan §9 risk table). The section ends with a plain-text
-pointer to the separate ``ssat export-labels`` CLI command (plan §5: label
-export is deliberately not run automatically by ``ssat report``, so this
-module never renders a real link to ``labels.jsonl``, only instructions for
-generating it).
+well-evidenced one. The section ends with a plain-text pointer to the
+separate ``ssat export-labels`` CLI command — label export is
+deliberately not run automatically by ``ssat report``, so this module
+never renders a real link to ``labels.jsonl``, only instructions for
+generating it.
 """
 
 from __future__ import annotations
@@ -174,7 +165,7 @@ _HEAT_COLOR_HIGH_RGB = (21, 101, 192)
 
 @dataclass(frozen=True, slots=True)
 class ReportManifestPaths:
-    """Where :func:`render_report` wrote each of its four output files (design §R4).
+    """Where :func:`render_report` wrote each of its four output files.
 
     Attributes:
         report_html: The rendered report page.
@@ -182,9 +173,8 @@ class ReportManifestPaths:
             ``ssat.report.static.STYLE_CSS``.
         enhance_js: ``assets/js/enhance.js``, written verbatim from
             ``ssat.report.static.ENHANCE_JS``.
-        report_manifest_json: ``report_manifest.json`` (design §R4:
-            ``report_schema_version, source_manifest_hashes, top_k,
-            bottom_k, generated_at``).
+        report_manifest_json: ``report_manifest.json`` (``report_schema_version,
+            source_manifest_hashes, top_k, bottom_k, generated_at``).
     """
 
     report_html: Path
@@ -196,18 +186,19 @@ class ReportManifestPaths:
 def render_report(
     model: ReportModel, output_dir: Path, *, top_k: int, bottom_k: int
 ) -> ReportManifestPaths:
-    """Write ``report.html`` + static assets + ``report_manifest.json`` (design §R4).
+    """Write ``report.html`` + static assets + ``report_manifest.json``.
 
     Args:
         model: A ``ReportModel`` whose asset-ref fields are already filled
             in by earlier orchestration (module docstring) — this function
             never renders a chart or an image itself, only templates the
             refs it is given.
-        output_dir: The report root (``<run_dir>/report/``, matching R1/R3's
-            already-established output layout); created if missing. Every
-            path this function writes, and every ``href``/``src`` the
-            rendered HTML emits, is relative to this directory.
-        top_k: The top-K sample count R0 was configured with, for
+        output_dir: The report root (``<run_dir>/report/``, matching this
+            package's already-established output layout); created if
+            missing. Every path this function writes, and every
+            ``href``/``src`` the rendered HTML emits, is relative to this
+            directory.
+        top_k: The top-K sample count the report was configured with, for
             ``report_manifest.json`` and the gallery section headings —
             not recoverable from ``model`` alone when fewer samples were
             scored than ``top_k`` (``ReportDataAssembler._build_sample_
@@ -289,7 +280,7 @@ def render_secondary_report(
 
 
 def _report_manifest_payload(model: ReportModel, *, top_k: int, bottom_k: int) -> dict[str, object]:
-    """Build ``report_manifest.json``'s content (design §R4)."""
+    """Build ``report_manifest.json``'s content."""
 
     return {
         "report_schema_version": model.meta.schema_versions.report,
@@ -310,10 +301,11 @@ def _report_manifest_payload(model: ReportModel, *, top_k: int, bottom_k: int) -
 def _build_environment() -> jinja2.Environment:
     """Build the module's Jinja environment from in-memory template constants.
 
-    ``autoescape=True`` (design §5 단계6: "사용자 제공 문자열이 섞여 들어가므로
-    XSS/마크업 깨짐 방지, 오프라인 리포트라도 원칙적으로 켠다") — every value
-    interpolated with ``{{ }}`` is HTML-escaped unless explicitly marked safe
-    (nothing in these templates does that).
+    ``autoescape=True`` — user-provided strings can end up interpolated
+    into the templates, so escaping stays on even for an offline report, to
+    prevent XSS/markup breakage. Every value interpolated with ``{{ }}`` is
+    HTML-escaped unless explicitly marked safe (nothing in these templates
+    does that).
     """
 
     environment = jinja2.Environment(
@@ -365,8 +357,8 @@ def _grade_distribution_percentages(
 
     Returns:
         An empty list when ``distribution`` is empty or sums to zero (no
-        anchors evaluated for this region — the template shows "평가 없음"
-        instead of an empty bar).
+        anchors evaluated for this region — the template shows a "no
+        evaluation" placeholder instead of an empty bar).
     """
 
     total = sum(distribution.values())
@@ -438,10 +430,9 @@ def _class_semantic_grid(
 
     Same pure-reshaping role as :func:`_grid_layout` (module docstring): a
     ``ClassSemanticRow`` tuple is already every cell of this cross-tab
-    (``ssat.report.assembler``, IMPLE_PLAN_SEMANTIC_VULNERABILITY_v1.md §3.3
-    item 6) — this only lays it out as a 2D table a template can loop over
-    by row/column, it does not compute anything the rows did not already
-    carry.
+    (``ssat.report.assembler``) — this only lays it out as a 2D table a
+    template can loop over by row/column, it does not compute anything the
+    rows did not already carry.
 
     Returns:
         ``None`` when ``rows`` is empty. Otherwise a mapping with

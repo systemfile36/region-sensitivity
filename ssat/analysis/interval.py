@@ -1,4 +1,4 @@
-"""A5 IntervalEstimator: bootstrap confidence intervals for region-level estimates.
+"""IntervalEstimator: bootstrap confidence intervals for region-level estimates.
 
 ``IntervalRow`` (``analysis.types``) has grain ``(region_key, metric)`` only —
 no ``sample_id``, ``invert_mask``, or ``ConditionKey``. This is deliberately
@@ -9,16 +9,16 @@ items — (1) reduce each sample's items for a given (region_key, metric_name)
 to one per-sample mean (pooling across whatever perturb_op/invert_mask/seed
 combinations exist for that sample and region — the same population
 ``SpatialProfile`` pools over), then (2) average those per-sample values
-across samples. A5's contribution is bootstrapping stage (2) by resampling
-*samples* with replacement (design CONTROL_STABILITY_DESIGN_v1.md §A5) to
-attach a percentile confidence interval to that same point estimate.
+across samples. This module's contribution is bootstrapping stage (2) by
+resampling *samples* with replacement to attach a percentile confidence
+interval to that same point estimate.
 
-No other A-module is imported (IMPLE_PLAN_CONTROL_STABILITY_v1.md §3.3:
-``analysis.interval → analysis.types`` only) — this module re-derives the
-per-sample/per-region reduction directly from a raw ``item_values`` frame
-(the same shape ``analysis.stability``/``analysis.control`` consume), rather
-than depending on A1's ``AnchorTable`` (which carries no degradation values)
-or any other A-module's output.
+No other analysis submodule is imported (``analysis.interval → analysis.types``
+only) — this module re-derives the per-sample/per-region reduction directly
+from a raw ``item_values`` frame (the same shape ``analysis.stability``/
+``analysis.control`` consume), rather than depending on the anchor-table
+module's ``AnchorTable`` (which carries no degradation values) or any other
+analysis submodule's output.
 """
 
 from __future__ import annotations
