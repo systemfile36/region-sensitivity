@@ -111,6 +111,8 @@ def test_estimator_profiles_fixture_without_writing_dump(tmp_path: Path) -> None
     assert report.profile.selected_chunks == 5
     assert report.profile.successful_predictions == report.profile.selected_items
     assert report.sanity is not None
+    assert report.area_sanity is not None
+    assert report.area_sanity.passed is True
     assert report.sanity.selected_samples == 5
     assert report.estimated_remaining_seconds > 0
     assert report.estimated_total_dump_bytes is not None
@@ -164,4 +166,5 @@ def test_estimator_uses_real_resume_index_to_skip_completed_run(
     assert report.pending_perturbed_items == 0
     assert report.profile is None
     assert report.sanity is None
+    assert report.area_sanity is None
     assert report.estimated_remaining_dump_bytes == 0

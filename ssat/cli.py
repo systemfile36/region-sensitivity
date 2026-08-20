@@ -83,12 +83,21 @@ def create_app(
             max=1.0,
             help="Optional minimum clean top-1 accuracy.",
         ),
+        max_area_relative_deviation: float = typer.Option(
+            0.05,
+            "--max-area-relative-deviation",
+            min=0.0,
+            help="Maximum relative preprocessing/effective-area deviation.",
+        ),
     ) -> None:
         try:
             request = RunRequest(
                 config,
                 output,
-                estimate_options=EstimateOptions(minimum_accuracy=minimum_accuracy),
+                estimate_options=EstimateOptions(
+                    minimum_accuracy=minimum_accuracy,
+                    max_area_relative_deviation=max_area_relative_deviation,
+                ),
             )
             with service.prepare_run(request) as prepared:
                 typer.echo(format_estimate(prepared.estimate))
@@ -117,6 +126,12 @@ def create_app(
             max=1.0,
             help="Optional minimum clean top-1 accuracy.",
         ),
+        max_area_relative_deviation: float = typer.Option(
+            0.05,
+            "--max-area-relative-deviation",
+            min=0.0,
+            help="Maximum relative preprocessing/effective-area deviation.",
+        ),
         json_output: bool = typer.Option(False, "--json", help="Emit stable JSON."),
     ) -> None:
         try:
@@ -124,7 +139,10 @@ def create_app(
                 EstimateRequest(
                     config,
                     dump,
-                    options=EstimateOptions(minimum_accuracy=minimum_accuracy),
+                    options=EstimateOptions(
+                        minimum_accuracy=minimum_accuracy,
+                        max_area_relative_deviation=max_area_relative_deviation,
+                    ),
                 )
             )
             typer.echo(json_text(result) if json_output else format_estimate(result))

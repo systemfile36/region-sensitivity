@@ -52,6 +52,7 @@ FIXTURE = Path(__file__).parents[1] / "fixtures" / "synthetic_classification"
 class _FixtureConfig(ProviderConfig):
     provider: Literal["fixture"] = "fixture"
     model_id: str = "application-fixture"
+    area_fail: bool = False
 
 
 class _FixtureProvider(AdapterProvider):
@@ -65,11 +66,17 @@ class _FixtureProvider(AdapterProvider):
             means = batch.astype(np.float32).mean(axis=(1, 2, 3, 4))
             return np.stack((means, -means), axis=1)
 
+        def transform_mask(mask: np.ndarray) -> np.ndarray:
+            transformed = mask.copy()
+            if config.area_fail:
+                transformed[..., : transformed.shape[-2] // 4, :] = False
+            return transformed
+
         return CallableAdapter(
             predict,
             model_id=config.model_id,
             class_names=("positive", "negative"),
-            transform_mask_fn=lambda mask: mask.copy(),
+            transform_mask_fn=transform_mask,
         )
 
 
@@ -205,7 +212,11 @@ def test_application_prepare_execute_resume_inspect_and_rebuild(tmp_path: Path) 
     ) as prepared:
         assert not output.exists()
         assert prepared.mode == "create"
-        result = application.execute_run(prepared, event_sink=events.append)
+        result = application.execute_run(
+            prepared,
+            confirmation_granted=True,
+            event_sink=events.append,
+        )
 
     assert result.status == "completed"
     assert result.summary is not None
@@ -566,6 +577,26 @@ def test_confirmation_is_application_policy_and_does_not_create_dump(
     assert not output.exists()
 
 
+def test_area_sanity_failure_uses_application_confirmation_policy(
+    tmp_path: Path,
+) -> None:
+    config = _config()
+    config["adapter"] = {"provider": "fixture", "area_fail": True}
+    output = tmp_path / "area-fail-dump"
+
+    with _application().prepare_run(
+        RunRequest(config, output, base_dir=tmp_path)
+    ) as prepared:
+        assert prepared.estimate.report.area_sanity is not None
+        assert prepared.estimate.report.area_sanity.passed is False
+        assert prepared.confirmation_required
+        with pytest.raises(ApplicationError) as caught:
+            prepared._application.execute_run(prepared)
+
+    assert caught.value.code is ApplicationErrorCode.CONFIRMATION_REQUIRED
+    assert not output.exists()
+
+
 def test_source_change_makes_preflight_stale(tmp_path: Path) -> None:
     source_manifest = tmp_path / "manifest.json"
     source_manifest.write_text(
@@ -609,6 +640,7 @@ def test_cancellation_flushes_partial_dump_for_resume(tmp_path: Path) -> None:
     ) as prepared:
         result = application.execute_run(
             prepared,
+            confirmation_granted=True,
             event_sink=receive,
             cancellation=token,
         )
@@ -619,7 +651,7 @@ def test_cancellation_flushes_partial_dump_for_resume(tmp_path: Path) -> None:
     with application.prepare_run(
         RunRequest(_config(), output, base_dir=tmp_path)
     ) as resumed:
-        completed = application.execute_run(resumed)
+        completed = application.execute_run(resumed, confirmation_granted=True)
     assert completed.status == "completed"
     assert application.inspect(InspectRequest(output)).clean.rows == 20
 
@@ -640,5 +672,5 @@ def test_application_rejects_concurrent_writer(tmp_path: Path) -> None:
     ) as prepared:
         with output_lock(output):
             with pytest.raises(ApplicationError) as caught:
-                application.execute_run(prepared)
+                application.execute_run(prepared, confirmation_granted=True)
     assert caught.value.code is ApplicationErrorCode.LOCKED

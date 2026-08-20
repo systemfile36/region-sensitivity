@@ -35,14 +35,14 @@ Run the committed CPU-only synthetic example. It uses randomly initialized Torch
 
 ```bash
 ssat estimate configs/examples/quickstart.yaml
-ssat run configs/examples/quickstart.yaml --output /tmp/ssat-quickstart
+ssat run configs/examples/quickstart.yaml --output /tmp/ssat-quickstart --yes
 ssat inspect /tmp/ssat-quickstart
 ssat metrics /tmp/ssat-quickstart
 ssat analyze /tmp/ssat-quickstart
 ssat report /tmp/ssat-quickstart
 ```
 
-Open `/tmp/ssat-quickstart/report/report.html` after the final command. The quickstart manifest intentionally contains two missing image paths to exercise failure recording. A complete run therefore writes 20 clean rows and 80 perturbed rows, of which 18 and 72 respectively have status `ok`.
+Open `/tmp/ssat-quickstart/report/report.html` after the final command. The quickstart manifest intentionally contains two missing image paths to exercise failure recording. Its bounded area check can therefore report a partial-check FAIL; `--yes` explicitly accepts that expected fixture warning. A complete run writes 20 clean rows and 80 perturbed rows, of which 18 and 72 respectively have status `ok`.
 
 The randomly initialized model is useful for exercising the software only; its metrics are not scientifically meaningful. Use pretrained weights or a trusted local checkpoint and a representative dataset for an actual audit.
 
@@ -65,6 +65,12 @@ estimate -> run -> raw Parquet dump -> metrics -> analysis -> HTML/CSV/JSON repo
 4. Compute metrics and, when the audit design supports comparisons, control/stability analysis.
 5. Generate the report and optionally export downstream risk labels.
 
+### Preprocessing/effective-area sanity
+
+Preflight checks whether preprocessing preserves each selected region's intended area fraction. It compares `effective_area_px / model_input_plane_px` with the source-space `intended_area_ratio`; resizing alone therefore passes when it preserves the fraction, while a crop that favors central regions over edge regions is detected. The default inclusive relative-deviation tolerance is 5%.
+
+The check is bounded to three evenly selected samples and 256 deduplicated region geometries per sample. A FAIL is reported as an advisory and makes `ssat run` request confirmation; it is not a hard error, so an reviewed run can proceed with `--yes`. Adapters without a model-space mask transform report `UNAVAILABLE` and do not require confirmation. Use `--max-area-relative-deviation` to adjust the tolerance.
+
 By default, the workflow creates this durable layout:
 
 ```text
@@ -83,8 +89,8 @@ The raw dump remains authoritative. Metrics, analyses, reports, and labels are d
 The full CLI surface is:
 
 ```text
-ssat run CONFIG --output DUMP [--yes] [--minimum-accuracy FLOAT]
-ssat estimate CONFIG [--dump DUMP] [--minimum-accuracy FLOAT] [--json]
+ssat run CONFIG --output DUMP [--yes] [--minimum-accuracy FLOAT] [--max-area-relative-deviation FLOAT]
+ssat estimate CONFIG [--dump DUMP] [--minimum-accuracy FLOAT] [--max-area-relative-deviation FLOAT] [--json]
 ssat inspect DUMP [--json]
 ssat rebuild-index DUMP
 ssat metrics DUMP [--metrics-dir DIR] [--primary-metric NAME] [--json]

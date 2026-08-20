@@ -79,7 +79,7 @@ def test_video_source_runs_through_the_application_api_unmodified(tmp_path: Path
     with application.prepare_run(
         RunRequest(_config(), output, base_dir=tmp_path)
     ) as prepared:
-        result = application.execute_run(prepared)
+        result = application.execute_run(prepared, confirmation_granted=True)
 
     assert result.status == "completed"
     manifest = json.loads((FIXTURE / "manifest.json").read_text(encoding="utf-8"))

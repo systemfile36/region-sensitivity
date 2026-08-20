@@ -10,6 +10,7 @@ from ssat.core.estimate.errors import EstimationError
 from ssat.core.estimate.types import (
     Advisory,
     AdvisoryCode,
+    AreaSanityResult,
     DumpSizeAssumptions,
     EstimateOptions,
     EstimateReport,
@@ -34,6 +35,7 @@ class EstimateInputs:
         pending_perturbed_items: Number of resume-filtered perturbation items.
         adapter_spec: Adapter metadata used to resolve class count.
         sanity: Optional clean measurement result.
+        area_sanity: Optional preprocessing/effective-area result.
         profile: Optional perturbed measurement result.
         options: User-selected estimation options.
         variants_per_chunk: Current runtime chunk-size setting.
@@ -47,6 +49,7 @@ class EstimateInputs:
     pending_perturbed_items: int
     adapter_spec: AdapterSpec
     sanity: SanityCheckResult | None
+    area_sanity: AreaSanityResult | None
     profile: ProfileResult | None
     options: EstimateOptions
     variants_per_chunk: int
@@ -135,6 +138,8 @@ def build_estimate_report(inputs: EstimateInputs) -> EstimateReport:
         inputs.options.limits,
     )
     advisories = list(inputs.sanity.advisories if inputs.sanity else ())
+    if inputs.area_sanity is not None:
+        advisories.extend(inputs.area_sanity.advisories)
     if inputs.profile is not None:
         advisories.extend(inputs.profile.advisories)
     advisories.extend(
@@ -175,6 +180,9 @@ def build_estimate_report(inputs: EstimateInputs) -> EstimateReport:
         and inputs.options.minimum_accuracy is not None
         and inputs.sanity.passed is False
     )
+    area_sanity_requires_confirmation = (
+        inputs.area_sanity is not None and inputs.area_sanity.passed is False
+    )
     recommendations: list[str] = []
     if sample_fraction is not None:
         recommendations.extend(
@@ -207,12 +215,15 @@ def build_estimate_report(inputs: EstimateInputs) -> EstimateReport:
         dump_size_assumptions=inputs.options.dump_size,
         exceedances=exceedances,
         advisories=tuple(advisories),
-        confirmation_required=(
-            bool(exceedances) or sanity_requires_confirmation
-        ),
         recommended_sample_fraction=sample_fraction,
         recommended_variants_per_chunk=recommended_variants,
         recommendations=tuple(recommendations),
+        area_sanity=inputs.area_sanity,
+        confirmation_required=(
+            bool(exceedances)
+            or sanity_requires_confirmation
+            or area_sanity_requires_confirmation
+        ),
     )
 
 

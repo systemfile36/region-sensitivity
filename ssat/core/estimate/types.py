@@ -20,6 +20,10 @@ class AdvisoryCode(str, Enum):
         SANITY_PARTIAL_FAILURES: Clean sanity checking contained failures.
         SANITY_NO_LABELED_OUTPUTS: No valid labeled output was measured.
         SANITY_ACCURACY_BELOW_MINIMUM: Accuracy missed the configured threshold.
+        AREA_SANITY_DEVIATION_EXCEEDED: Effective region area drifted too far.
+        AREA_SANITY_PARTIAL_FAILURES: Some area checks could not be evaluated.
+        AREA_SANITY_UNAVAILABLE: Model-space mask geometry is unavailable.
+        AREA_SANITY_COVERAGE_TRUNCATED: Bounded area-check coverage was capped.
         PREPARED_CHUNK_MEMORY_HIGH: Prepared memory exceeded its budget.
         LIMIT_EXCEEDED: An analytical confirmation limit was exceeded.
     """
@@ -28,6 +32,10 @@ class AdvisoryCode(str, Enum):
     SANITY_PARTIAL_FAILURES = "sanity_partial_failures"
     SANITY_NO_LABELED_OUTPUTS = "sanity_no_labeled_outputs"
     SANITY_ACCURACY_BELOW_MINIMUM = "sanity_accuracy_below_minimum"
+    AREA_SANITY_DEVIATION_EXCEEDED = "area_sanity_deviation_exceeded"
+    AREA_SANITY_PARTIAL_FAILURES = "area_sanity_partial_failures"
+    AREA_SANITY_UNAVAILABLE = "area_sanity_unavailable"
+    AREA_SANITY_COVERAGE_TRUNCATED = "area_sanity_coverage_truncated"
     PREPARED_CHUNK_MEMORY_HIGH = "prepared_chunk_memory_high"
     LIMIT_EXCEEDED = "limit_exceeded"
 
@@ -143,6 +151,10 @@ class EstimateOptions:
     Attributes:
         max_profile_chunks: Maximum perturbed chunks measured directly.
         max_sanity_samples: Maximum clean samples measured directly.
+        max_area_sanity_samples: Maximum samples checked for area consistency.
+        max_area_sanity_regions_per_sample: Maximum region geometries checked
+            for each selected sample.
+        max_area_relative_deviation: Inclusive relative area-drift tolerance.
         minimum_accuracy: Optional inclusive clean top-1 threshold.
         prepared_chunk_budget_bytes: Desired maximum prepared chunk allocation.
         limits: Confirmation thresholds applied to final estimates.
@@ -151,6 +163,9 @@ class EstimateOptions:
 
     max_profile_chunks: int = 20
     max_sanity_samples: int = 20
+    max_area_sanity_samples: int = 3
+    max_area_sanity_regions_per_sample: int = 256
+    max_area_relative_deviation: float = 0.05
     minimum_accuracy: float | None = None
     prepared_chunk_budget_bytes: int = 64 * MIB
     limits: EstimationLimits = field(default_factory=EstimationLimits)
@@ -167,10 +182,24 @@ class EstimateOptions:
         for name, value in (
             ("max_profile_chunks", self.max_profile_chunks),
             ("max_sanity_samples", self.max_sanity_samples),
+            ("max_area_sanity_samples", self.max_area_sanity_samples),
+            (
+                "max_area_sanity_regions_per_sample",
+                self.max_area_sanity_regions_per_sample,
+            ),
             ("prepared_chunk_budget_bytes", self.prepared_chunk_budget_bytes),
         ):
             if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
                 raise ValueError(f"{name} must be a positive integer")
+        if (
+            isinstance(self.max_area_relative_deviation, bool)
+            or not isinstance(self.max_area_relative_deviation, (int, float))
+            or not math.isfinite(self.max_area_relative_deviation)
+            or self.max_area_relative_deviation < 0.0
+        ):
+            raise ValueError(
+                "max_area_relative_deviation must be non-negative and finite"
+            )
         if not isinstance(self.limits, EstimationLimits):
             raise TypeError("limits must be an EstimationLimits")
         if not isinstance(self.dump_size, DumpSizeAssumptions):
@@ -300,6 +329,51 @@ class SanityCheckResult:
 
 
 @dataclass(frozen=True, slots=True)
+class AreaSanityResult:
+    """Report bounded preprocessing/effective-area consistency.
+
+    ``passed`` is ``None`` only when the adapter does not expose model-space
+    mask geometry. A partial load, resolution, or transformation failure is a
+    failed check because area consistency could not be established.
+
+    Attributes:
+        selected_samples: Number of representative samples selected.
+        candidate_regions: Deduplicated region geometries before the per-sample
+            bound was applied, summed across selected samples.
+        evaluated_regions: Number of geometries with valid area measurements.
+        failed_regions: Number of geometries that exceeded the tolerance or
+            could not be evaluated.
+        maximum_relative_deviation: Largest finite observed relative drift.
+        tolerance: Inclusive relative drift threshold used for PASS/FAIL.
+        passed: ``True``/``False`` outcome, or ``None`` when unavailable.
+        coverage_truncated: Whether any sample exceeded the region bound.
+        worst_sample_id: Sample owning the largest finite deviation.
+        worst_region_id: Region family owning the largest finite deviation.
+        worst_region_instance_id: Concrete region owning that deviation.
+        worst_intended_area_ratio: Source-space selected fraction for the
+            worst finite observation.
+        worst_effective_area_ratio: Model-space selected fraction for the
+            worst finite observation.
+        advisories: Stable warnings produced by the area check.
+    """
+
+    selected_samples: int
+    candidate_regions: int
+    evaluated_regions: int
+    failed_regions: int
+    maximum_relative_deviation: float | None
+    tolerance: float
+    passed: bool | None
+    coverage_truncated: bool
+    worst_sample_id: str | None
+    worst_region_id: str | None
+    worst_region_instance_id: str | None
+    worst_intended_area_ratio: float | None
+    worst_effective_area_ratio: float | None
+    advisories: tuple[Advisory, ...] = ()
+
+
+@dataclass(frozen=True, slots=True)
 class ProfileResult:
     """Report perturbed end-to-end throughput without dump I/O.
 
@@ -365,6 +439,7 @@ class EstimateReport:
         recommended_sample_fraction: Suggested pending sample fraction.
         recommended_variants_per_chunk: Suggested smaller chunk size.
         recommendations: Human-readable configuration recommendations.
+        area_sanity: Optional preprocessing/effective-area result.
     """
 
     total_clean_samples: int
@@ -389,3 +464,4 @@ class EstimateReport:
     recommended_sample_fraction: float | None
     recommended_variants_per_chunk: int | None
     recommendations: tuple[str, ...]
+    area_sanity: AreaSanityResult | None = None

@@ -191,6 +191,9 @@ def _config(
 def test_estimate_options_validate_defaults_and_ranges() -> None:
     options = EstimateOptions()
     assert options.max_profile_chunks == 20
+    assert options.max_area_sanity_samples == 3
+    assert options.max_area_sanity_regions_per_sample == 256
+    assert options.max_area_relative_deviation == 0.05
     assert options.limits.max_pending_items == 1_000_000
     assert options.dump_size.compression_ratio == 0.6
 
@@ -198,6 +201,10 @@ def test_estimate_options_validate_defaults_and_ranges() -> None:
         EstimateOptions(max_profile_chunks=0)
     with pytest.raises(ValueError, match="minimum_accuracy"):
         EstimateOptions(minimum_accuracy=1.1)
+    with pytest.raises(ValueError, match="max_area_sanity_samples"):
+        EstimateOptions(max_area_sanity_samples=0)
+    with pytest.raises(ValueError, match="max_area_relative_deviation"):
+        EstimateOptions(max_area_relative_deviation=float("inf"))
     with pytest.raises(ValueError, match="compression_ratio"):
         DumpSizeAssumptions(compression_ratio=0.0)
     with pytest.raises(ValueError, match="max_pending_items"):
@@ -292,6 +299,37 @@ def test_unlabeled_sanity_is_informational_without_minimum(tmp_path: Path) -> No
     }
 
 
+def test_area_sanity_failure_requires_confirmation(tmp_path: Path) -> None:
+    source = MemorySource()
+
+    def remove_one_quarter(mask: np.ndarray) -> np.ndarray:
+        transformed = mask.copy()
+        transformed[..., :1, :] = False
+        return transformed
+
+    adapter = CallableAdapter(
+        _predict_channels,
+        model_id="classifier",
+        class_names=("zero", "one", "two"),
+        transform_mask_fn=remove_one_quarter,
+    )
+    config = _config(tmp_path, adapter)
+    report = CostEstimator(clock=StepClock()).estimate(
+        config,
+        PlanBuilder(config, source),
+        source,
+        adapter,
+    )
+
+    assert report.area_sanity is not None
+    assert report.area_sanity.maximum_relative_deviation == pytest.approx(0.25)
+    assert report.area_sanity.passed is False
+    assert report.confirmation_required is True
+    assert AdvisoryCode.AREA_SANITY_DEVIATION_EXCEEDED in {
+        advisory.code for advisory in report.advisories
+    }
+
+
 def test_cost_estimator_reports_exact_counts_time_calls_and_dump_formula(
     tmp_path: Path,
 ) -> None:
@@ -316,6 +354,8 @@ def test_cost_estimator_reports_exact_counts_time_calls_and_dump_formula(
     assert report.profile.selected_chunks == 8
     assert report.profile.terminal_items == 16
     assert report.sanity is not None
+    assert report.area_sanity is not None
+    assert report.area_sanity.passed is True
     assert report.estimated_remaining_seconds == pytest.approx(4.0)
     assert report.estimated_inference_calls == 5
     assert report.estimated_total_dump_bytes == 16 * 1024 + int(np.ceil(0.6 * raw))
@@ -482,6 +522,7 @@ def test_completed_resume_skips_model_calls(tmp_path: Path) -> None:
     assert report.pending_perturbed_items == 0
     assert report.profile is None
     assert report.sanity is None
+    assert report.area_sanity is None
     assert report.estimated_remaining_seconds == 0.0
     assert report.estimated_remaining_dump_bytes == 0
 

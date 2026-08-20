@@ -36,9 +36,31 @@ class _CliProvider(AdapterProvider):
         )
 
 
+class _AreaFailConfig(ProviderConfig):
+    provider: Literal["area_fail_fixture"] = "area_fail_fixture"
+
+
+class _AreaFailProvider(AdapterProvider):
+    name = "area_fail_fixture"
+    config_model = _AreaFailConfig
+
+    def build(self, config: ProviderConfig, *, base_dir: Path) -> CallableAdapter:
+        def crop_mask(mask: np.ndarray) -> np.ndarray:
+            transformed = mask.copy()
+            transformed[..., : transformed.shape[-2] // 4, :] = False
+            return transformed
+
+        return CallableAdapter(
+            lambda batch: np.zeros((len(batch), 2), dtype=np.float32),
+            model_id="area-fail-fixture",
+            transform_mask_fn=crop_mask,
+        )
+
+
 def _app():
     registry = AdapterProviderRegistry()
     registry.register(_CliProvider())
+    registry.register(_AreaFailProvider())
     return create_app(registry)
 
 
@@ -90,6 +112,17 @@ def _write_config(path: Path, *, manifest: Path = FIXTURE / "manifest.json") -> 
                 "dump:",
                 "  flush_every: 8",
             ]
+        ),
+        encoding="utf-8",
+    )
+
+
+def _write_area_fail_config(path: Path, *, manifest: Path) -> None:
+    _write_config(path, manifest=manifest)
+    path.write_text(
+        path.read_text(encoding="utf-8").replace(
+            "provider: cli_fixture",
+            "provider: area_fail_fixture",
         ),
         encoding="utf-8",
     )
@@ -307,9 +340,13 @@ def test_cli_json_run_inspect_and_rebuild(tmp_path: Path) -> None:
     assert estimate.exit_code == 0, estimate.output
     payload = json.loads(estimate.stdout)
     assert payload["report"]["pending_perturbed_items"] == 20
+    assert payload["report"]["area_sanity"]["passed"] is False
     assert set(payload["report"]["profile"]["status_counts"]) >= {"ok", "load_failed"}
 
-    run = runner.invoke(app, ["run", str(config), "--output", str(output)])
+    run = runner.invoke(
+        app,
+        ["run", str(config), "--output", str(output), "--yes"],
+    )
     assert run.exit_code == 0, run.output
     assert "SSAT run completed" in run.stdout
 
@@ -322,6 +359,53 @@ def test_cli_json_run_inspect_and_rebuild(tmp_path: Path) -> None:
     rebuild = runner.invoke(app, ["rebuild-index", str(output)])
     assert rebuild.exit_code == 0, rebuild.output
     assert "indexed items: 20" in rebuild.stdout
+
+
+def test_cli_area_sanity_output_threshold_and_confirmation(tmp_path: Path) -> None:
+    manifest = tmp_path / "two_class_manifest.json"
+    _write_two_class_manifest(manifest)
+    config = tmp_path / "area-fail.yaml"
+    output = tmp_path / "dump"
+    _write_area_fail_config(config, manifest=manifest)
+    runner = CliRunner()
+    app = _app()
+
+    estimate = runner.invoke(app, ["estimate", str(config), "--json"])
+    assert estimate.exit_code == 0, estimate.output
+    payload = json.loads(estimate.stdout)
+    assert payload["report"]["area_sanity"]["passed"] is False
+    assert payload["report"]["confirmation_required"] is True
+    assert payload["report"]["area_sanity"]["maximum_relative_deviation"] == 0.25
+
+    text_estimate = runner.invoke(app, ["estimate", str(config)])
+    assert text_estimate.exit_code == 0, text_estimate.output
+    assert "region area consistency: FAIL" in text_estimate.stdout
+
+    rejected = runner.invoke(app, ["run", str(config), "--output", str(output)])
+    assert rejected.exit_code != 0
+    assert not output.exists()
+
+    accepted = runner.invoke(
+        app,
+        ["run", str(config), "--output", str(output), "--yes"],
+    )
+    assert accepted.exit_code == 0, accepted.output
+    assert output.is_dir()
+
+    relaxed = runner.invoke(
+        app,
+        [
+            "estimate",
+            str(config),
+            "--max-area-relative-deviation",
+            "0.30",
+            "--json",
+        ],
+    )
+    assert relaxed.exit_code == 0, relaxed.output
+    relaxed_payload = json.loads(relaxed.stdout)
+    assert relaxed_payload["report"]["area_sanity"]["passed"] is True
+    assert relaxed_payload["report"]["options"]["max_area_relative_deviation"] == 0.30
 
 
 def test_cli_metrics_command(tmp_path: Path) -> None:

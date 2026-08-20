@@ -102,6 +102,22 @@ When `classes` is omitted, distinct label strings from the selected CSV rows are
 
 The ImageNet and Kinetics providers are covered by format-compatible synthetic unit fixtures, but have not been validated against complete production-scale downloads. Confirm that your local distribution follows these exact conventions.
 
+## Preflight area sanity
+
+`ssat estimate` and the preflight stage of `ssat run` perform a bounded preprocessing/effective-area check before audit execution. For each selected region they compute:
+
+```text
+intended_ratio = intended_area_px / source_plane_px
+effective_ratio = mean_per_frame(transformed_mask_area_px) / model_input_plane_px
+relative_deviation = abs(effective_ratio - intended_ratio) / intended_ratio
+```
+
+When both ratios are zero, the deviation is zero. A zero intended ratio with a positive effective ratio fails the check. The default inclusive tolerance is `0.05` (5%); set `--max-area-relative-deviation FLOAT` on `estimate` or `run` to change it.
+
+The check evenly selects at most three samples. Within each sample it removes perturbation and seed duplicates using `(region_id, region_instance_id, invert_mask, is_control)`, then evenly selects at most 256 geometries. Truncated coverage is reported as an advisory. Python callers can change these bounds with `EstimateOptions.max_area_sanity_samples` and `EstimateOptions.max_area_sanity_regions_per_sample`.
+
+An excessive deviation or a selected geometry that cannot be loaded, resolved, or transformed produces `FAIL` and makes `run` require explicit confirmation (or `--yes`). This remains an advisory rather than a hard estimation error. If `AdapterSpec.mask_transform_available` is false, the result is `UNAVAILABLE` and does not require confirmation.
+
 ### Custom source providers
 
 Custom providers are available through the Python API only. A provider validates a strict provider-specific configuration and returns a `SampleSource` plus file-backed `SourceProvenance`.

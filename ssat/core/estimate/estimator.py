@@ -12,6 +12,7 @@ from ssat.core.estimate.cost_model import (
     EstimateInputs,
     build_estimate_report,
 )
+from ssat.core.estimate.area_sanity import AreaSanityCheck
 from ssat.core.estimate.measurement import (
     _new_batch_size_state,
     _validate_provenance,
@@ -21,6 +22,7 @@ from ssat.core.estimate.sanity import SanityCheck
 from ssat.core.estimate.types import (
     EstimateOptions,
     EstimateReport,
+    AreaSanityResult,
     ProfileResult,
     SanityCheckResult,
 )
@@ -31,7 +33,7 @@ from ssat.core.resume.index import ResumeIndex
 from ssat.core.source.base import SampleSource
 from ssat.utils.logger_factory import get_logger
 
-__all__ = ["CostEstimator", "SanityCheck"]
+__all__ = ["AreaSanityCheck", "CostEstimator", "SanityCheck"]
 
 
 class CostEstimator:
@@ -124,6 +126,7 @@ class CostEstimator:
         pending_items = sum(chunk.n_items for chunk in pending_chunks)
         no_pending_work = not pending_samples and not pending_chunks
         sanity: SanityCheckResult | None = None
+        area_sanity: AreaSanityResult | None = None
         profile: ProfileResult | None = None
 
         if not no_pending_work:
@@ -142,6 +145,22 @@ class CostEstimator:
                 sample_source,
                 adapter,
                 batch_size_state=shared_batch_state,
+            )
+            area_sanity = AreaSanityCheck(
+                max_samples=self._options.max_area_sanity_samples,
+                max_regions_per_sample=(
+                    self._options.max_area_sanity_regions_per_sample
+                ),
+                max_relative_deviation=(
+                    self._options.max_area_relative_deviation
+                ),
+            ).run(
+                config,
+                all_samples,
+                plan_builder,
+                sample_source,
+                adapter,
+                region_resolver=region_resolver,
             )
             if pending_chunks:
                 profile = PerturbedProfiler(
@@ -168,6 +187,7 @@ class CostEstimator:
                 pending_perturbed_items=pending_items,
                 adapter_spec=adapter.describe(),
                 sanity=sanity,
+                area_sanity=area_sanity,
                 profile=profile,
                 options=self._options,
                 variants_per_chunk=config.runtime.variants_per_chunk,

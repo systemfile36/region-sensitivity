@@ -44,6 +44,23 @@ def format_estimate(result: EstimateResult) -> str:
             "n/a" if report.sanity.accuracy is None else f"{report.sanity.accuracy:.2%}"
         )
         lines.append(f"  sanity top-1 accuracy: {accuracy}")
+    if report.area_sanity is not None:
+        area_sanity = report.area_sanity
+        status = (
+            "UNAVAILABLE"
+            if area_sanity.passed is None
+            else "PASS" if area_sanity.passed else "FAIL"
+        )
+        maximum = (
+            "n/a"
+            if area_sanity.maximum_relative_deviation is None
+            else f"{area_sanity.maximum_relative_deviation:.2%}"
+        )
+        lines.append(
+            "  region area consistency: "
+            f"{status} (max deviation {maximum}, "
+            f"tolerance {area_sanity.tolerance:.2%})"
+        )
     for advisory in report.advisories:
         lines.append(f"  advisory [{advisory.code.value}]: {advisory.message}")
     for recommendation in report.recommendations:
