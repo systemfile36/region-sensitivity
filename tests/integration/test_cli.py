@@ -208,7 +208,7 @@ def test_cli_report_command(tmp_path: Path) -> None:
     assert (tmp_path / "report-again" / "report_question_driven.html").is_file()
 
     # A --analysis-dir that does not exist is an intentional "no analysis"
-    # downgrade, not a CLI failure (IMPLE_PLAN_REPORTING_v1.md §5 단계7).
+    # downgrade, not a CLI failure.
     no_analysis = runner.invoke(
         app,
         [
@@ -264,7 +264,7 @@ def test_cli_export_labels_command(tmp_path: Path) -> None:
     assert report.exit_code == 0, report.output
     assert Path(json.loads(report.stdout)["report_dir"]) == report_dir.resolve()
 
-    # generate_report never runs export-labels automatically (plan §5) --
+    # generate_report never runs export-labels automatically --
     # confirm the labels dir does not already exist before this command.
     assert not (report_dir / "labels").exists()
 
@@ -286,7 +286,7 @@ def test_cli_export_labels_command(tmp_path: Path) -> None:
     assert (csv_output_dir / "labels.jsonl").is_file()
     assert (csv_output_dir / "labels.csv").is_file()
 
-    # R0 is never rerun by export-labels (plan §5) -- deleting the dump
+    # R0 is never rerun by export-labels -- deleting the dump
     # this report was built from must not break a re-export from report_dir.
     shutil.rmtree(output)
     still_works = runner.invoke(app, ["export-labels", str(report_dir)])
@@ -363,7 +363,7 @@ def test_cli_help_and_version() -> None:
     assert runner.invoke(app, ["--help"]).exit_code == 0
     version = runner.invoke(app, ["--version"])
     assert version.exit_code == 0
-    assert version.stdout.strip() == "1.0.0"
+    assert version.stdout.strip() == "0.1.0"
 
 
 def test_cli_confirmation_and_yes_only_control_prompt(tmp_path: Path) -> None:

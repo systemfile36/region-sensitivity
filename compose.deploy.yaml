@@ -3,7 +3,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    image: local/ssat:1.0.0
+    image: local/ssat:0.1.0
     working_dir: /app
     gpus: all
     shm_size: "32G"
