@@ -45,7 +45,7 @@ region/perturbation 마스크는 `(H, W)`(전 프레임 공통 브로드캐스�
 `(T, H, W)`(프레임별로 다른 선택)를 모두 지원하도록 코어가 확장되어 있습니다.
 `grid`/`explicit`/`random_area_match`는 여전히 `(H, W)`만 반환하고, 프레임마다
 달라지는 마스크는 아래 `skeleton_parts` region kind가 제공합니다. 자세한
-설계 배경은 `docs/VIDEO_SKELETON_EXTENSION_ANALYSIS_v1.md`를 참고하세요.
+설계 배경은 `docs/internal/VIDEO_SKELETON_EXTENSION_ANALYSIS_v1.md`를 참고하세요.
 
 ### Skeleton 부위 추적(skeleton_parts)
 
@@ -398,7 +398,7 @@ adapter = TorchvisionAdapter(
   — 지정하지 않으면 리포트/집계 단계는 `region_id` 자체를 의미 단위로
   취급합니다. `semantic_group`은 순수 메타데이터로, 마스크 생성이나 결정론적
   item ID 해시에는 전혀 영향을 주지 않습니다(자세한 사용법과 설계 근거는
-  `docs/IMPLE_PLAN_SEMANTIC_VULNERABILITY_v1.md` 참고).
+  `docs/internal/IMPLE_PLAN_SEMANTIC_VULNERABILITY_v1.md` 참고).
 - `perturbations`: `constant_fill`, `mean_fill`, `blur`, `gaussian_noise`,
   `patch_shuffle`과 params, `invert_mask`, `seed_salts`를 정의합니다.
 - `controls`: `match_area_of`와 `n_samples`로 random area-matched control을 요청합니다.
