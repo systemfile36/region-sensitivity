@@ -2,18 +2,16 @@
 
 ``AnchorKey`` identifies what was measured (sample x region x invert_mask);
 ``ConditionKey`` identifies how it was measured (perturb op x params, with
-the seed axis deliberately excluded — see CONTROL_STABILITY_DESIGN_v1.md §2
-and IMPLE_PLAN_CONTROL_STABILITY_v1.md §1 항목4: the dump only stores
-``seed_used``, a per-item hash that differs across regions even for the
-same seed_salt, so seed cannot be part of a key that must compare equal
-across different AnchorKeys — it becomes a repeat-count axis instead).
+the seed axis deliberately excluded: the dump only stores ``seed_used``, a
+per-item hash that differs across regions even for the same seed_salt, so
+seed cannot be part of a key that must compare equal across different
+AnchorKeys — it becomes a repeat-count axis instead).
 
-Every row type below maps to a parquet table produced by A7 AnalysisStore
-(design §A7). This module has zero dependencies, including on
-``ssat.core.types`` — string-typed fields such as ``perturb_op`` are kept as
-plain ``str`` rather than ``PerturbationOp`` so that later modules can
-depend on this one without pulling in the core package too
-(IMPLE_PLAN_CONTROL_STABILITY_v1.md §3.3 "analysis.types → (없음)").
+Every row type below maps to a parquet table produced by A7 AnalysisStore.
+This module has zero dependencies, including on ``ssat.core.types`` —
+string-typed fields such as ``perturb_op`` are kept as plain ``str`` rather
+than ``PerturbationOp`` so that later modules can depend on this one
+without pulling in the core package too.
 """
 
 from __future__ import annotations
@@ -35,8 +33,7 @@ class AnchorKey:
             ``f"{region_id}::{region_instance_id}"`` — the same convention
             used by ``ssat.metrics.aggregate`` and
             ``ssat.metrics.viz.mask_check`` (intentionally duplicated here
-            rather than extracted into a shared helper; see
-            IMPLE_PLAN_CONTROL_STABILITY_v1.md §9).
+            rather than extracted into a shared helper).
         invert_mask: Whether the region was preserved (True) or removed
             (False) by the perturbation.
     """
@@ -60,8 +57,8 @@ class AnchorKey:
 class ConditionKey:
     """Identify the measurement method: perturbation operator and parameters.
 
-    Deliberately excludes seed (IMPLE_PLAN_CONTROL_STABILITY_v1.md §1
-    항목4): the dump only stores ``seed_used``, a per-item hash that differs
+    Deliberately excludes seed: the dump only stores ``seed_used``, a
+    per-item hash that differs
     across regions even for the same seed_salt, so seed cannot be part of a
     key that must compare equal across different AnchorKeys. Seed instead
     becomes a repeat-count axis (``n_seeds``/``n_conditions``), not a key
@@ -100,9 +97,8 @@ class FlagValue(Enum):
     A plain ``Enum`` (no str/int mixin) so every member is equally truthy —
     ``if flag:`` is unusable for any member, forcing explicit
     ``flag is FlagValue.TRUE`` comparisons everywhere. This enforces the
-    design principle "unavailable을 false로 취급하지 않는다"
-    (CONTROL_STABILITY_DESIGN_v1.md §A6): UNAVAILABLE must never be mistaken
-    for FALSE.
+    design principle that UNAVAILABLE must never be treated as, or mistaken
+    for, FALSE.
 
     Attributes:
         TRUE: The condition was evaluated and holds.
@@ -127,7 +123,7 @@ class ReliabilityGrade(str, Enum):
         LOW: Sign is consistent but the effect is marginal or conditions
             are insufficient.
         UNRELIABLE: ``sign_consistent`` is false — direction flips across
-            conditions (design §A6: this is the grade that matters most).
+            conditions; this is the grade that matters most.
     """
 
     HIGH = "high"
@@ -137,7 +133,7 @@ class ReliabilityGrade(str, Enum):
 
 
 class MatchMethod(str, Enum):
-    """How a control was paired with its target region (design §A1).
+    """How a control was paired with its target region.
 
     Only used for successfully matched pairs — a control that could not be
     paired at all is not represented as a row (see ``ControlPairRow``); it
@@ -146,8 +142,7 @@ class MatchMethod(str, Enum):
     Attributes:
         EXACT_REFERENCE: Paired via the ``target_region`` recipe embedded
             in the control's ``region_params_json`` (the normal-path
-            outcome for every control the core actually produces today,
-            per IMPLE_PLAN_CONTROL_STABILITY_v1.md §1 항목1).
+            outcome for every control the core actually produces today).
         AREA_TOLERANCE: Paired via the ``area_match_tolerance`` fallback
             because no reference recipe was present or resolvable.
     """
@@ -190,7 +185,7 @@ class AnchorRow:
         is_control: Whether this anchor is a random-area-match control.
         n_conditions: Number of distinct ConditionKeys observed for this
             anchor (the seed/strategy repeat count, per the redefined
-            ConditionKey — §1 항목4).
+            ConditionKey).
         condition_keys: Every ConditionKey observed for this anchor.
     """
 
@@ -295,7 +290,7 @@ class ControlComparisonRow:
         metric_name: Registered Metric name.
         control_available: Whether any control was matched for this
             target/condition — UNAVAILABLE (not FALSE) when zero controls
-            matched (design §A2).
+            matched.
         area_matched: Whether area_match_ratio fell within tolerance;
             UNAVAILABLE whenever control_available is UNAVAILABLE, since
             area matching is meaningless without a matched control.
@@ -418,7 +413,7 @@ class StrategyStabilityRow:
     """Per-anchor cross-operator stability for one (AnchorKey, metric).
 
     A3(c) per-anchor output. Deliberately preserves per-op values instead
-    of averaging them away (design §A3(c): averaging hides sign flips).
+    of averaging them away — averaging hides sign flips.
 
     Attributes:
         anchor_key: Anchor these operators were compared on.
@@ -475,14 +470,12 @@ class RankCorrelationRow:
         spearman: Spearman correlation of per-region mean degradation ranks
             between op_a and op_b, over this row's scope.
         n_regions: Number of regions contributing to spearman.
-        spearman_excl_top1: Same correlation excluding the top-k regions
-            (design §A3(c): guards against one dominant signal inflating
-            the correlation).
+        spearman_excl_top1: Same correlation excluding the top-k regions,
+            guarding against one dominant signal inflating the correlation.
         scope: Free-form description of what population this correlation
             was computed over, e.g. ``"full_dataset"`` (kept as ``str``
             rather than a closed enum: v1 only implements the dataset-wide
-            case — IMPLE_PLAN_CONTROL_STABILITY_v1.md §5 단계4 — so the
-            full vocabulary is not yet fixed).
+            case, so the full vocabulary is not yet fixed).
     """
 
     op_a: str
@@ -536,10 +529,9 @@ class StrategyProfileRow:
         mean_corr_across: Mean correlation to other-cluster ops.
         alignment: Whether this op's declared group and empirical cluster
             agree — a per-op projection of the dataset-level alignment
-            judgment defined in design §A4 (the dataset-level
-            declared_groups/empirical_groups/agreement triple itself is
-            out of scope for this module; see design note near
-            ``Alignment``).
+            judgment (the dataset-level declared_groups/empirical_groups/
+            agreement triple itself is out of scope for this module; see
+            the note near ``Alignment``).
         mean_degradation_excl_top: Mean degradation excluding the top-k
             regions by magnitude.
         sign_ratio_positive: Fraction of anchors with positive degradation.
@@ -704,8 +696,8 @@ class CoverageReport:
 
     Attributes:
         n_anchors: Total AnchorKeys enumerated.
-        n_conditions_insufficient: AnchorKeys with n_conditions < 2 (design
-            §2 "불완전 조합의 처리").
+        n_conditions_insufficient: AnchorKeys with n_conditions < 2
+            (handling of incomplete combinations).
         n_controls_unmatched: Control items that could not be paired to a
             target (exact-reference and area-tolerance both failed).
         n_area_mismatch_warnings: Matched control pairs whose
@@ -743,11 +735,11 @@ class CoverageReport:
 class AvailableAnalyses:
     """Report which stability/control analyses one dump+metrics pair supports.
 
-    Produced by ``analysis.reader.AnalysisReader.available_analyses()``
-    (design §A0, IMPLE_PLAN_CONTROL_STABILITY_v1.md §5 단계1). Every field
-    is a plain ``bool`` — validated explicitly here because pandas/numpy
-    reductions (``Series.any()``, comparisons on numpy scalars) produce
-    ``numpy.bool_``, which is not a ``bool`` subclass; a caller that forgot
+    Produced by ``analysis.reader.AnalysisReader.available_analyses()``.
+    Every field is a plain ``bool`` — validated explicitly here because
+    pandas/numpy reductions (``Series.any()``, comparisons on numpy
+    scalars) produce ``numpy.bool_``, which is not a ``bool`` subclass; a
+    caller that forgot
     to wrap one in ``bool(...)`` should fail loudly here rather than
     silently leak a numpy scalar into what is documented as a pure Python
     contract type.
@@ -761,10 +753,9 @@ class AvailableAnalyses:
             ``(AnchorKey, ConditionKey)`` has size >= 2 — i.e. at least one
             anchor/condition pair was run under more than one seed.
         jitter_stability: Always False. The core has no jitter axis at all
-            (IMPLE_PLAN_CONTROL_STABILITY_v1.md §1 항목2) — kept as an
-            explicit fourth field, rather than omitted, so every consumer
-            gets one uniform four-key availability report, and so a future
-            core jitter feature has a single field to flip.
+            — kept as an explicit fourth field, rather than omitted, so
+            every consumer gets one uniform four-key availability report,
+            and so a future core jitter feature has a single field to flip.
     """
 
     control_comparison: bool

@@ -20,7 +20,7 @@ class MetricResult:
         value_clean: Raw clean-side metric value.
         value_perturbed: Raw perturbed-side metric value.
         degradation: Sign-normalized value; positive always means worse
-            performance (design METRIC_ENGINE_DESIGN_v1.md §N2).
+            performance.
     """
 
     value_clean: float
@@ -33,9 +33,8 @@ class Metric(Protocol):
     """Compute one registered metric's item-level clean/perturbed comparison.
 
     Concrete metrics own their full :class:`MetricResult` triple —
-    :class:`MetricRegistry` performs no generic sign math (design §N2
-    "부호 정규화"; IMPLE_PLAN_METRIC_DESIGN_v1.md §5 단계 3 확정 사항). This
-    lets binary "event" metrics (e.g. flip_correct_to_wrong) encode
+    :class:`MetricRegistry` performs no generic sign math. This lets binary
+    "event" metrics (e.g. flip_correct_to_wrong) encode
     degradation directly as a 0/1 occurrence, which a generic
     clean-minus-perturbed formula cannot guarantee.
 

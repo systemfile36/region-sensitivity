@@ -1,11 +1,10 @@
 """N3 Aggregator: reduce ItemMetrics into SampleMetrics/RegionMetrics/ClassMetrics/SpatialProfile.
 
-The four output types (design METRIC_ENGINE_DESIGN_v1.md §N3) are all
-long-form, one row per ``(entity, metric_name)`` — see metrics/types.py's
-module docstring.
+The four output types are all long-form, one row per ``(entity, metric_name)``
+— see metrics/types.py's module docstring.
 
-**Two aggregation grains coexist here, forced by the frozen (stage 0)
-schemas.** ``SampleMetrics`` is item-grain: its ``n_items``/``n_valid`` count
+**Two aggregation grains coexist here, forced by the frozen schemas.**
+``SampleMetrics`` is item-grain: its ``n_items``/``n_valid`` count
 raw ``ItemMetrics`` rows within one sample, and its ``__post_init__``
 enforces ``n_valid <= n_items``. ``RegionMetrics``, by contrast, has no
 ``n_items`` field at all, and its ``__post_init__`` enforces
@@ -98,10 +97,10 @@ def aggregate_item_metrics(
     ``item_metrics`` must have been produced by ``registry`` against this same
     ``joined`` frame. Items whose ``is_control`` flag is set are excluded
     before any aggregation — control-group analysis is a later module's
-    responsibility (design §N3 "집계 시 필수 규칙").
+    responsibility.
 
     ``RegionMetrics``/``ClassMetrics`` intentionally do not stratify by
-    clean_correct: that schema (metrics/types.py, stage 0) has no
+    clean_correct: that schema (metrics/types.py) has no
     clean_correct column at those axes, only SampleMetrics does (where each
     row already carries its own sample's clean_correct without needing to
     split rows). Region/class statistics therefore pool every non-control
@@ -124,9 +123,9 @@ def aggregate_item_metrics(
             ``primary_metric``.
         resolved_config: The source run's resolved config, used to look up
             each region family's explicit-mask ``ref``/``ref_hash`` (not
-            stored per-item in the dump; design §5 단계 5 탐색 결과).
+            stored per-item in the dump).
         primary_metric: Registered metric name whose degradation defines
-            ``vulnerability_score`` (design §N3, default ``margin_drop``).
+            ``vulnerability_score`` (default ``margin_drop``).
 
     Raises:
         MetricsRegistryError: If ``primary_metric`` is not registered.
@@ -248,8 +247,8 @@ def _check_region_geometry(
 ) -> None:
     """Track one region's geometry and reject a later, conflicting report.
 
-    ``None`` areas (from perturbation failures — design §5 탐색 결과) never
-    conflict; they simply defer to whatever non-null value is already known.
+    ``None`` areas (from perturbation failures) never conflict; they simply
+    defer to whatever non-null value is already known.
 
     ``region_kind`` is checked dataset-wide (one region_key names one kind
     everywhere), but areas are checked only within a sample — see
@@ -334,7 +333,7 @@ def _aggregate_sample_metrics(
 def _compute_vulnerability_scores(
     rows: Sequence[ItemMetrics], primary_metric: str
 ) -> dict[str, float]:
-    """Average the primary metric's degradation per sample (design §N3).
+    """Average the primary metric's degradation per sample.
 
     Samples with zero valid primary-metric items are simply absent from the
     result, so callers naturally get ``None`` via ``dict.get``.

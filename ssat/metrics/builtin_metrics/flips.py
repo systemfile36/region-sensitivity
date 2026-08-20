@@ -1,4 +1,4 @@
-"""1순위 오류 전환(binary) 지표: flip_correct_to_wrong, flip_wrong_to_correct, pred_changed, topk_exit."""
+"""Primary error-transition (binary) metrics: flip_correct_to_wrong, flip_wrong_to_correct, pred_changed, topk_exit."""
 
 from __future__ import annotations
 
@@ -74,7 +74,7 @@ class PredChanged:
         changed = clean.top1_index != perturbed.top1_index
         return MetricResult(
             # No genuine single-sided reading exists for a purely comparative
-            # event, so value_clean anchors at 0 (design §5 단계 3 decision).
+            # event, so value_clean anchors at 0.
             value_clean=0.0,
             value_perturbed=float(changed),
             degradation=float(changed),
@@ -86,7 +86,7 @@ class TopkExit:
 
     Args:
         k: Rank cutoff; automatically narrowed to the item's class count
-            when smaller (design §5 잔여 결정, plan §5 단계 3: k=5 default).
+            when smaller.
     """
 
     name = "topk_exit"

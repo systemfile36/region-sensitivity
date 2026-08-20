@@ -3,8 +3,7 @@
 Every aggregate type in this module is long-form: one row per entity plus
 one row per registered metric name (``(entity, metric_name)``). Adding a new
 Metric therefore never changes any of these schemas, only the number of rows
-produced — the same principle ItemMetrics itself is built on (design
-METRIC_ENGINE_DESIGN_v1.md §N2 "long-form을 택한 이유").
+produced — the same principle ItemMetrics itself is built on.
 """
 
 from __future__ import annotations
@@ -20,8 +19,8 @@ class ExclusionReason(str, Enum):
 
     Attributes:
         PERTURBED_STATUS_NOT_OK: The item's perturbed status was not "ok"
-            while its clean counterpart succeeded (design §N0 status table).
-            Clean-side failures remove the entire sample before it reaches
+            while its clean counterpart succeeded. Clean-side failures
+            remove the entire sample before it reaches
             ItemMetrics and are reported via DumpHandle.summary() instead —
             they never appear here.
         GT_LABEL_UNKNOWN: The item's sample has no ground-truth label
@@ -34,8 +33,7 @@ class ExclusionReason(str, Enum):
             distinct from ``PERTURBED_STATUS_NOT_OK`` because the perturbed
             side may have succeeded perfectly; the gap is entirely on the
             clean/label side. Follows the same "never silently drop, always
-            record a reason" principle the design docstring for N0's status
-            table already states (METRIC_ENGINE_DESIGN_v1.md §N0).
+            record a reason" principle used throughout this module.
     """
 
     PERTURBED_STATUS_NOT_OK = "perturbed_status_not_ok"
@@ -276,8 +274,8 @@ class ClassMetrics:
 class SpatialProfile:
     """Carry one metric's degradation for one sample-region pair.
 
-    This is DebugViz's direct input (design §N5): every row already carries
-    enough region geometry to re-resolve a mask without a second dump join.
+    This is DebugViz's direct input: every row already carries enough
+    region geometry to re-resolve a mask without a second dump join.
 
     Attributes:
         sample_id: Sample this row belongs to.

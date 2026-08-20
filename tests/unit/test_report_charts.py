@@ -1,4 +1,4 @@
-"""Unit tests for ssat.report.charts's R2 SVG chart rendering (design §R2).
+"""Unit tests for ssat.report.charts's SVG chart rendering.
 
 No dump/metrics/analysis pipeline needed — every render function is a pure
 transform from already-typed ``report.types`` values (or, for the
@@ -181,7 +181,7 @@ def test_fill_strategy_correlation_handles_none_spearman_without_raising() -> No
     assert isinstance(svg, str) and svg
 
 
-# --- figure hygiene (§1 격차#6 risk) --------------------------------------------
+# --- figure hygiene (no leaked matplotlib figures across calls) -----------------
 
 
 def test_no_pyplot_figures_leak_across_repeated_calls() -> None:
@@ -211,7 +211,7 @@ def test_rc_context_does_not_leak_global_rcparams() -> None:
 
 
 def test_report_charts_module_has_no_analysis_metrics_core_or_assembler_imports() -> None:
-    """Statically enforce §3.3: report.charts → report.types (matplotlib)."""
+    """Statically enforce report.charts → report.types (matplotlib) as the only allowed dependency."""
 
     source_path = Path(__file__).resolve().parents[2] / "ssat" / "report" / "charts.py"
     tree = ast.parse(source_path.read_text(encoding="utf-8"))

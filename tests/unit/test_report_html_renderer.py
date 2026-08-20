@@ -1,4 +1,4 @@
-"""Unit tests for ssat.report.html_renderer's R4 HTML rendering (design §R4, §6.2 C1, §6.3 C2).
+"""Unit tests for ssat.report.html_renderer's R4 HTML rendering.
 
 Builds small, hand-constructed ``ReportModel`` fixtures directly — no dump/
 metrics/analysis pipeline is needed since :func:`render_report`/
@@ -7,9 +7,8 @@ assembled ``ReportModel`` already carries (mirrors ``test_report_exporter.
 py``/``test_report_charts.py``'s precedent: R1/R2/R4 are all pure
 transformers of already-typed data).
 
-Covers both the main report (report layout redesign's "A + C" combination,
-docs/report_layout_improve/AGENTS_OPINION_1.md) and the auxiliary
-"Question Driven" report (:func:`render_secondary_report`).
+Covers both the main report (report layout redesign's "A + C" combination)
+and the auxiliary "Question Driven" report (:func:`render_secondary_report`).
 """
 
 from __future__ import annotations
@@ -117,7 +116,7 @@ def _spatial_concentration(**overrides: object) -> SpatialConcentration:
 
 
 def _no_semantic_groups() -> SemanticConcentration:
-    """The §1 격차#6 graceful-degradation marker.
+    """The graceful-degradation marker.
 
     The default fixture used by every non-semantic-focused test, so those
     tests exercise (and pin) the ``#semantic-profile`` section's collapsed
@@ -236,7 +235,7 @@ def _report_model(**overrides: object) -> ReportModel:
 
 
 def _no_analysis_model() -> ReportModel:
-    """A ReportModel matching what R0 assembles when analysis_dir=None (design §6.2 C1).
+    """A ReportModel matching what R0 assembles when analysis_dir=None.
 
     ``spatial_concentration`` stays populated even without an analysis run
     (assembler.py: it is derived from ``spatial_profile`` alone, never
@@ -349,7 +348,7 @@ def test_render_report_creates_output_dir(tmp_path: Path) -> None:
     assert paths.report_html.parent == output_dir
 
 
-# --- report_manifest.json (design §R4) ----------------------------------------
+# --- report_manifest.json -------------------------------------------------
 
 
 def test_report_manifest_json_has_every_design_field(tmp_path: Path) -> None:
@@ -405,7 +404,7 @@ def test_render_report_full_model_renders_every_section(tmp_path: Path) -> None:
 
 
 def test_render_report_no_analysis_model_shows_explicit_markers_not_silence(tmp_path: Path) -> None:
-    """§6.2 C1: missing analysis must render "해당 없음"/badges, never vanish (design §6.2)."""
+    """Missing analysis must render "해당 없음"/badges, never vanish."""
 
     paths = render_report(_no_analysis_model(), tmp_path, top_k=20, bottom_k=20)
     html = paths.report_html.read_text(encoding="utf-8")
@@ -653,11 +652,11 @@ def test_flagged_anchors_section_lists_spotlight_items(tmp_path: Path) -> None:
     assert "sign flips across fill strategies" in html
 
 
-# --- semantic region profile (IMPLE_PLAN_SEMANTIC_VULNERABILITY_v1.md §4, 단계5) --
+# --- semantic region profile -----------------------------------------------------
 
 
 def test_semantic_profile_gate_collapses_to_not_applicable_notice(tmp_path: Path) -> None:
-    """The default fixture's semantic_concentration has n_semantic_groups == 0 (§1 격차#6)."""
+    """The default fixture's semantic_concentration has n_semantic_groups == 0."""
 
     paths = render_report(_report_model(), tmp_path, top_k=20, bottom_k=20)
     html = paths.report_html.read_text(encoding="utf-8")
@@ -792,7 +791,7 @@ def test_provenance_details_is_collapsed_by_default(tmp_path: Path) -> None:
 
 
 def test_content_survives_removing_every_script_tag(tmp_path: Path) -> None:
-    """§6.3 C2: strip <script>...</script> and confirm core content is still there."""
+    """Strip <script>...</script> and confirm core content is still there."""
 
     paths = render_report(_report_model(), tmp_path, top_k=20, bottom_k=20)
     html = paths.report_html.read_text(encoding="utf-8")
@@ -827,7 +826,7 @@ def test_no_external_http_references_anywhere_in_output(tmp_path: Path) -> None:
 
 
 def test_report_folder_survives_being_moved(tmp_path: Path) -> None:
-    """§6.3 C2 "폴더 이동 후 상대경로 보존", exercised at the whole-report-folder level."""
+    """Folder moved, relative paths must still resolve -- exercised at the whole-report-folder level."""
 
     output_dir = tmp_path / "original" / "report"
     render_report(_report_model(), output_dir, top_k=20, bottom_k=20)
@@ -1013,7 +1012,7 @@ def test_heat_color_scales_toward_accent_with_higher_value() -> None:
 
 
 def test_report_html_renderer_module_has_no_forbidden_package_imports() -> None:
-    """Statically enforce §3.3: report.html_renderer → report.types, report.static (jinja2)."""
+    """Statically enforce report.html_renderer → report.types, report.static (jinja2)."""
 
     source_path = Path(__file__).resolve().parents[2] / "ssat" / "report" / "html_renderer.py"
     tree = ast.parse(source_path.read_text(encoding="utf-8"))
@@ -1038,7 +1037,7 @@ def test_report_html_renderer_module_has_no_forbidden_package_imports() -> None:
 
 
 def test_report_static_module_has_zero_dependencies() -> None:
-    """Statically enforce §3.3: report.static → (없음)."""
+    """Statically enforce report.static → (none)."""
 
     source_path = Path(__file__).resolve().parents[2] / "ssat" / "report" / "static.py"
     tree = ast.parse(source_path.read_text(encoding="utf-8"))

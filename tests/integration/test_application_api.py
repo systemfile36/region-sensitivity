@@ -132,8 +132,7 @@ class _EchoSourceProvider(SourceProvider):
     Proves a caller-registered SourceProvider is reachable end to end and
     need not reuse image_manifest's own file-parsing path, while keeping
     SourceProvenance backed by a real file + hash -- the reproducibility
-    contract this registry does not relax
-    (docs/IMPLE_PLAN_DATASET_INGESTION_v1.md §1 item5).
+    contract this registry does not relax.
     """
 
     name = "test_echo"
@@ -177,8 +176,7 @@ def test_custom_source_provider_runs_estimate_and_run_end_to_end(tmp_path: Path)
 
     Without this test the source_registry extension point could regress
     into an unused shell -- the registry accepting registration without any
-    real code path ever building a sample source through it
-    (docs/IMPLE_PLAN_DATASET_INGESTION_v1.md §9).
+    real code path ever building a sample source through it.
     """
 
     application = _application_with_echo_source()
@@ -506,7 +504,7 @@ def test_application_export_labels_reads_report_dir_without_rerunning_r0(
         ReportRequest(output, primary_metric="flip_correct_to_wrong", report_dir=report_dir)
     )
 
-    # generate_report never runs export_labels automatically (plan §5).
+    # generate_report never runs export_labels automatically.
     default_labels_dir = report.report_dir / "labels"
     assert not default_labels_dir.exists()
 
@@ -526,7 +524,7 @@ def test_application_export_labels_reads_report_dir_without_rerunning_r0(
 
     # R0 is never rerun: the dump/metrics this report was built from can be
     # deleted entirely and export_labels must still succeed from report_dir
-    # alone (plan §5 "이미 계산된 것을 export").
+    # alone -- it only exports what was already computed.
     shutil.rmtree(output)
     csv_output_dir = tmp_path / "labels-again"
     again = application.export_labels(

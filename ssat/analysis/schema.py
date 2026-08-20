@@ -6,12 +6,11 @@ dataset, a shared version tag in Arrow metadata) — independent of it:
 ``ssat.metrics.schema.METRICS_SCHEMA_VERSION``.
 
 Each row type gets its own file/schema, one per (grain) — no two row types
-sharing a schema, even when both belong to the same design-doc-level "axis"
+sharing a schema, even when both belong to the same design-level "axis"
 (e.g. ``SeedStabilityRow`` and ``StrategyStabilityRow`` are different grains
 and get separate schemas), following ``ssat.metrics.schema``'s own
-established convention over the design document's higher-level file list
-(IMPLE_PLAN_CONTROL_STABILITY_v1.md §5 단계8 결정 — user-confirmed "타입별
-분리").
+established convention of separating by type over the design document's
+higher-level file list.
 
 ``AnchorKey``/``ConditionKey`` are flattened into their scalar components
 (``sample_id``/``region_key``/``invert_mask``,

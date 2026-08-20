@@ -67,7 +67,7 @@ def test_margin_is_negative_when_ground_truth_is_not_top1() -> None:
 def test_normalize_output_withholds_logit_derived_fields_when_output_kind_is_not_logits() -> None:
     """output_kind="probs" is unreachable with the v1 core (AdapterSpec.output_kind
     is fixed to Literal["logits"]); this mock AdapterSpec forces the branch to
-    exercise the defensive code path (design §N1, plan §5 단계 2)."""
+    exercise the defensive code path."""
 
     values = np.array([0.2, 0.5, 0.3], dtype=np.float64)
     mock_spec = _adapter_spec(output_kind="probs")

@@ -2,11 +2,11 @@
 
 Re-implements the same atomic-write/fsync pattern as
 ``ssat.metrics._storage`` (which itself re-implements ``ssat.core.dump._storage``'s
-pattern), rather than importing it directly — IMPLE_PLAN_CONTROL_STABILITY_v1.md
-§3.3 restricts ``analysis.store`` to depending on ``analysis.types`` and
-``ssat.utils`` only, not ``ssat.metrics``. Duplicating this well-tested,
-package-boundary-local helper is the same trade-off ``ssat.metrics._storage``
-itself already made one layer down.
+pattern), rather than importing it directly — ``analysis.store`` is restricted
+to depending on ``analysis.types`` and ``ssat.utils`` only, not
+``ssat.metrics``. Duplicating this well-tested, package-boundary-local helper
+is the same trade-off ``ssat.metrics._storage`` itself already made one layer
+down.
 """
 
 from __future__ import annotations

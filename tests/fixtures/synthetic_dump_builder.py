@@ -2,8 +2,7 @@
 
 This module never imports ``PlanBuilder``, ``ssat.core.runtime``, or any
 adapter — every record is constructed by hand and written straight to
-``DumpWriter`` (design IMPLE_PLAN_METRIC_DESIGN_v1.md §3.3 "코어를 실행하지
-않고 의도적으로 구성한 dump", §5 단계 5). This keeps L2 failures attributable
+``DumpWriter``. This keeps L2 failures attributable
 to the metrics engine rather than to the core execution path. It generalizes
 the ad hoc helpers already proven in tests/unit/test_metrics_dump_reader.py.
 
@@ -18,9 +17,8 @@ in every test module.
 wires the A0-A6 control/stability analysis pipeline over an already-computed
 metrics store. Rather than re-implementing that sequence by hand (the way
 ``compute_and_save_metrics`` above wires N2-N4 directly), it delegates to
-``AuditApplication.analyze()`` — that method already is this exact sequence
-(IMPLE_PLAN_REPORTING_v1.md §5 단계0), so re-deriving it here would just be a
-second copy to keep in sync. This exists so report-layer tests (and any
+``AuditApplication.analyze()`` — that method already is this exact sequence,
+so re-deriving it here would just be a second copy to keep in sync. This exists so report-layer tests (and any
 future consumer needing dump+metrics+analysis all three) can get a
 ready-to-load ``analysis_dir`` without repeating that wiring themselves.
 """

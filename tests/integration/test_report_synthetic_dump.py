@@ -1,4 +1,4 @@
-"""C1 integration tests for R0 ReportDataAssembler (IMPLE_PLAN_REPORTING_v1.md §5 단계2).
+"""C1 integration tests for R0 ReportDataAssembler.
 
 Builds one dump+metrics pair through the real pipeline (``synthetic_dump_
 builder``, core never executed) and one AnalysisStore assembled by hand from
@@ -133,7 +133,7 @@ def _build_dump_and_metrics(tmp_path: Path) -> tuple[Path, Path]:
 def _build_analysis(tmp_path: Path, metrics_dir: Path) -> Path:
     """Hand-assemble an AnalysisStore with exactly one HIGH and one UNRELIABLE anchor.
 
-    Both anchors share ``_MAIN_REGION_KEY`` (§1 격차#3's worst-case policy
+    Both anchors share ``_MAIN_REGION_KEY`` (the worst-case policy
     test target). ``compute_reliability`` (the real A6 scorer) is fed
     directly-constructed A2/A3(c)/A5 rows rather than the noisy bootstrap
     pipeline, exactly as ``tests/unit/test_analysis_reliability.py`` already
@@ -260,7 +260,7 @@ def _assembler(dump_root: Path, metrics_dir: Path, analysis_dir: Path | None) ->
     )
 
 
-# --- sample rankings (§1 격차#5) -------------------------------------------
+# --- sample rankings ------------------------------------------------------
 
 
 def test_top_k_bottom_k_selected_by_vulnerability_score_and_full_rankings_not_truncated(
@@ -288,7 +288,7 @@ def test_top_k_bottom_k_selected_by_vulnerability_score_and_full_rankings_not_tr
     assert len(rankings.most_vulnerable) + len(rankings.most_robust) <= 4
 
 
-# --- region summary worst-case policy (§1 격차#3) ---------------------------
+# --- region summary worst-case policy ---------------------------------------
 
 
 def test_region_row_worst_case_grade_and_distribution(tmp_path: Path) -> None:
@@ -322,8 +322,7 @@ def test_spatial_concentration_and_region_top_region_share(tmp_path: Path) -> No
     """Every sample's only non-control region is _MAIN_REGION_KEY -- a maximally concentrated fixture.
 
     With exactly one region_key in the run, spatial_entropy is undefined
-    (not zero) -- there is nothing to spread across (report layout redesign,
-    docs/report_layout_improve/AGENTS_OPINION_1.md).
+    (not zero) -- there is nothing to spread across.
     """
 
     dump_root, metrics_dir = _build_dump_and_metrics(tmp_path)
@@ -352,7 +351,7 @@ def test_control_only_region_excluded_from_region_summary(tmp_path: Path) -> Non
     assert _CONTROL_REGION_KEY not in region_keys
 
 
-# --- sample cards / top_regions (§1 격차#4) ---------------------------------
+# --- sample cards / top_regions ---------------------------------------------
 
 
 def test_sample_card_top_regions_matches_spatial_profile_and_grade(tmp_path: Path) -> None:
@@ -375,7 +374,7 @@ def test_sample_card_top_regions_matches_spatial_profile_and_grade(tmp_path: Pat
     assert s1_card.reliability_grade is ReportGrade.UNRELIABLE
 
     # s2 has no reliability row at all -- "not evaluated" must stay None,
-    # never a stand-in grade (design §6.2 "unavailable ≠ false").
+    # never a stand-in grade ("unavailable ≠ false").
     most_robust_by_id = {card.sample_id: card for card in assembled.model.sample_rankings.most_robust}
     s3_card = most_robust_by_id["s3"]
     assert s3_card.reliability_grade is None
@@ -453,7 +452,7 @@ def test_analysis_dir_none_marks_every_analysis_derived_field_unavailable(tmp_pa
     assert len(assembled.full_sample_rankings) == 5
 
 
-# --- semantic_group axis (IMPLE_PLAN_SEMANTIC_VULNERABILITY_v1.md §3.3) -----
+# --- semantic_group axis ------------------------------------------------------
 
 # sample_id -> (gt_label, {region_id: perturbed gt-logit}). gt_label=0
 # samples degrade most under lower_limb occlusion (a "foot action" class);
@@ -568,8 +567,7 @@ def test_semantic_summary_and_class_semantic_matrix_reproduce_foot_action_class_
     assert all(row.flip_rate is None for row in model.class_semantic_matrix)
     assert model.provenance.class_semantic_excluded_no_gt_label == 0
 
-    # AssembledReport.sample_semantic_degradation (plan §6 단계4 note: this
-    # interface change belongs to 단계 2) carries the per-sample values
+    # AssembledReport.sample_semantic_degradation carries the per-sample values
     # class_semantic_matrix was built from, for the future labels.py export.
     assert assembled.sample_semantic_degradation[("s0", "lower_limb")] == pytest.approx(0.85)
     assert assembled.sample_semantic_degradation[("s2", "upper_limb")] == pytest.approx(0.85)
@@ -597,7 +595,7 @@ def test_ungrouped_run_gates_semantic_concentration_but_still_computes_trivial_r
     assert concentration.semantic_group_entropy is None
     assert concentration.n_scored_samples == 0
 
-    # §1 격차#6: computed, not display-suppressed -- one self-evident row/cell.
+    # Computed, not display-suppressed -- one self-evident row/cell.
     assert len(model.semantic_summary) == 1
     assert model.semantic_summary[0].semantic_group == "grid"
     assert model.semantic_summary[0].region_ids == ("grid",)

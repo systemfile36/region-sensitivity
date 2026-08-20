@@ -1,10 +1,8 @@
 #!/usr/bin/env python3
 """B3 -- L3 re-analysis: apply ssat.analysis (A0-A6) to the already-completed
-shortcut_A_* runs and check whether it reproduces, automatically, the
-structure docs/L3_Synthetic-Shortcut Experiment Report.md found by hand
-(patch-region reliability, fill-strategy sign disagreement,
-spearman_excl_top1). Implements
-docs/IMPLE_PLAN_CONTROL_STABILITY_v1.md §5 단계9 / §4.4.
+shortcut_A_* runs and check whether it automatically reproduces the
+structure found by hand in the original L3 analysis (patch-region
+reliability, fill-strategy sign disagreement, spearman_excl_top1).
 
 This script only *reads* the dumps/metrics run_audit.py already produced; it
 makes no audit or training calls of its own, and does not persist an
@@ -25,14 +23,12 @@ Depends on experiments/synthetic_shortcut/results/ (gitignored, produced by
 run_audit.py) -- not included in pytest collection.
 
 Not superseded, but scoped to the original (cropped) run by design: it
-checks reproduction of the *hand-derived* numbers in
-deprecated_L3_Synthetic-Shortcut Experiment Report.md, so pointing
---results-dir at results_crop_free is expected to report Q3/Q4/Q5 as FAIL
-(the crop-free split genuinely differs -- that mismatch is itself the
-finding, not a bug in this script or in ssat.analysis). For the actual
-crop-free sign-group question, see analyze_sign_group_premise.py and
-docs/L3_Synthetic-Shortcut Experiment Report.md's "Sign-Group Premise
-Re-examination" section instead. See also
+checks reproduction of the *hand-derived* numbers from the original L3
+analysis, so pointing --results-dir at results_crop_free is expected to
+report Q3/Q4/Q5 as FAIL (the crop-free split genuinely differs -- that
+mismatch is itself the finding, not a bug in this script or in
+ssat.analysis). For the actual crop-free sign-group question, see
+analyze_sign_group_premise.py instead. See also
 experiments/synthetic_shortcut/README.md's script inventory.
 
 Run as: python3 experiments/synthetic_shortcut/analyze_control_stability.py
@@ -77,10 +73,9 @@ _SHORTCUT_A_RUN_IDS = tuple(
     spec.run_id for spec in RUN_SPECS if spec.model == "shortcut" and spec.dataset == "A"
 )
 
-# Pre-registered expected values, design CONTROL_STABILITY_DESIGN_v1.md §4.4 /
-# IMPLE_PLAN_CONTROL_STABILITY_v1.md §5 단계9, transcribed from L3's Check 2
-# table (docs/L3_Synthetic-Shortcut Experiment Report.md) -- the 15-non-patch-
-# region column, not the "all 16 regions" column that section 3.5 reported.
+# Pre-registered expected values, transcribed from L3's Check 2 table --
+# the 15-non-patch-region column, not the "all 16 regions" column that
+# the fill-strategy sensitivity check reported.
 _EXPECTED_SPEARMAN_EXCL_TOP1 = {
     "mean_fill": -0.311,
     "blur": -0.843,
@@ -107,13 +102,11 @@ def parse_args() -> argparse.Namespace:
 def _combined_available_analyses(item_values: pd.DataFrame) -> AvailableAnalyses:
     """Recompute AvailableAnalyses over all five runs' item_values combined.
 
-    ``AnalysisReader.available_analyses()`` is scoped to one dump (design
-    §A0) -- called per run here it would always report
-    ``fill_strategy_stability=False``, since each individual
-    ``shortcut_A_<op>`` dump only ever contains one ``perturb_op``. This
-    applies the same criteria (IMPLE_PLAN_CONTROL_STABILITY_v1.md §5 단계1
-    table) to the combined frame instead, where >=2 distinct ops are
-    actually present.
+    ``AnalysisReader.available_analyses()`` is scoped to one dump -- called
+    per run here it would always report ``fill_strategy_stability=False``,
+    since each individual ``shortcut_A_<op>`` dump only ever contains one
+    ``perturb_op``. This applies the same criteria to the combined frame
+    instead, where >=2 distinct ops are actually present.
     """
 
     non_control = item_values.loc[~item_values["is_control"]]
@@ -168,10 +161,9 @@ def _grade_distribution_by_region(
     """Group ReliabilityRows by region_key and count each grade within it.
 
     ReliabilityRow is per (sample_id, region_key, invert_mask, metric) --
-    finer than the region-level questions B3 asks (design §4.4). This
-    reduces the sample axis the same way A7's
-    ``AnalysisManifest.grade_distribution`` reduces the whole dataset
-    (IMPLE_PLAN §5 단계8): a ``Counter`` of grade values, just scoped per
+    finer than the region-level questions B3 asks. This reduces the sample
+    axis the same way A7's ``AnalysisManifest.grade_distribution`` reduces
+    the whole dataset: a ``Counter`` of grade values, just scoped per
     region instead of dataset-wide.
     """
 
@@ -313,10 +305,9 @@ def main() -> int:
         "",
         "Applies ssat.analysis (A0-A6) to the already-completed "
         f"{', '.join(_SHORTCUT_A_RUN_IDS)} runs, combined into one item_values frame, "
-        "and checks whether it reproduces the structure "
-        "docs/L3_Synthetic-Shortcut Experiment Report.md found by hand "
-        "(IMPLE_PLAN_CONTROL_STABILITY_v1.md §5 단계9). A7 (persistence) is "
-        "intentionally not exercised here -- see this script's module docstring.",
+        "and checks whether it reproduces the structure found by hand in "
+        "the original L3 analysis. A7 (persistence) is intentionally not "
+        "exercised here -- see this script's module docstring.",
         "",
         f"- available_analyses: {available}",
         f"- coverage_report: {coverage_report}",

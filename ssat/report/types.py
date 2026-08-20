@@ -1,16 +1,16 @@
-"""Contract types for the reporting layer (``ReportModel``, design §3).
+"""Contract types for the reporting layer (``ReportModel``).
 
 ``ReportModel`` is the single source of truth this whole package assembles
-into, exports as JSON, and renders as HTML (REPORT_LAYER_DESIGN_v1.md §0
-"JSON 모델이 먼저이고 HTML은 그 뷰 중 하나다"). It is deliberately the *only*
+into, exports as JSON, and renders as HTML — the JSON model comes first,
+and HTML is just one of its possible views. It is deliberately the *only*
 thing R1 (Exporter), R2 (ChartRenderer), R3 (AssetLinker), and R4
 (HTMLRenderer) consume — none of them recompute statistics, they only
 select, sort, and visualize what is already here.
 
 This module has zero dependencies, including on ``ssat.analysis.types`` and
-``ssat.metrics.types`` (IMPLE_PLAN_REPORTING_v1.md §5 단계0, mirroring the
-same zero-dependency rule ``ssat.analysis.types`` already follows for the
-same reason — see that module's docstring). Concretely this means:
+``ssat.metrics.types``, mirroring the same zero-dependency rule
+``ssat.analysis.types`` already follows for the same reason — see that
+module's docstring. Concretely this means:
 
 - ``AnchorKey`` is never carried through; ``FlaggedItem.anchor_key_repr``
   flattens it to ``f"{sample_id}::{region_key}::{invert_mask}"`` instead.
@@ -21,7 +21,7 @@ same reason — see that module's docstring). Concretely this means:
 - ``ssat.core.types.RegionKind`` is not reused either; ``RegionRow.
   region_kind`` is a plain ``str``.
 
-The payoff (REPORT_LAYER_DESIGN_v1.md §4.6): the day a WebUI wants to serve
+The payoff: the day a WebUI wants to serve
 ``ReportModel`` as an HTTP response body instead of a file, this module does
 not change — every field is already a JSON-primitive, a plain ``str``/
 ``int``/``float``/``bool``/``None``, a tuple (JSON array), or a ``dict``
@@ -63,8 +63,8 @@ class ReportGrade(str, Enum):
         HIGH: Reproduced reliably across every check the analysis module ran.
         MODERATE: Reproduced with some, but not all, checks satisfied.
         LOW: Sign is consistent but the effect is marginal or under-evidenced.
-        UNRELIABLE: Direction flips across conditions — the grade design
-            treats as most important to surface (§4.3 "숫자 옆에 등급 배지").
+        UNRELIABLE: Direction flips across conditions — treated as most
+            important to surface, e.g. as a badge next to the number.
     """
 
     HIGH = "high"
@@ -77,30 +77,29 @@ _REPORT_GRADE_VALUES = frozenset(grade.value for grade in ReportGrade)
 
 GRADE_COLORS: Mapping[ReportGrade, str] = MappingProxyType(
     {
-        ReportGrade.HIGH: "#2e7d32",  # green — design §4.3 "HIGH(녹)"
-        ReportGrade.MODERATE: "#1565c0",  # blue — design §4.3 "MODERATE(청)"
-        ReportGrade.LOW: "#757575",  # gray — design §4.3 "LOW(회)"
-        ReportGrade.UNRELIABLE: "#c62828",  # red — design §4.3 "UNRELIABLE(적)"
+        ReportGrade.HIGH: "#2e7d32",       # green
+        ReportGrade.MODERATE: "#1565c0",   # blue
+        ReportGrade.LOW: "#757575",        # gray
+        ReportGrade.UNRELIABLE: "#c62828", # red
     }
 )
-"""Shared hex colors for each :class:`ReportGrade` (design §4.3 badge colors).
+"""Shared hex colors for each :class:`ReportGrade`.
 
 Lives here — rather than in ``report.charts`` or a future ``report.static``
 — because ``report.types`` is the only module both already depend on
-(§3.3: ``report.charts → report.types``, ``report.html_renderer →
+(``report.charts -> report.types``, ``report.html_renderer ->
 report.types, report.static``); a color duplicated independently in each
-would drift the moment one side changes, breaking §4.3's own requirement
-that a grade reads the same color whether it appears on a chart bar or an
-HTML badge chip.
+would drift the moment one side changes, and a grade should read the same
+color whether it appears on a chart bar or an HTML badge chip.
 """
 
 
 class TaskKind(str, Enum):
-    """Which prediction task this report was assembled for (design §3, §5).
+    """Which prediction task this report was assembled for.
 
     Attributes:
         CLASSIFICATION: Rendered end-to-end in v1.
-        DETECTION: Schema-level placeholder only in v1 (design §5) — a
+        DETECTION: Schema-level placeholder only in v1 — a
             ``ReportModel`` may declare this ``task_kind`` but R0/R4 do not
             yet populate/render detection-specific content.
     """
@@ -114,7 +113,7 @@ class TaskKind(str, Enum):
 
 @dataclass(frozen=True, slots=True)
 class MetricCard:
-    """One task-agnostic scorecard entry (design §R5).
+    """One task-agnostic scorecard entry.
 
     Produced by a ``TaskPresentationAdapter``; ``ReportModel``/R4 never
     branch on task kind, they only ever iterate a list of these.
@@ -125,11 +124,10 @@ class MetricCard:
         value: The card's headline number; ``None`` when not applicable to
             this run (e.g. ``flip_rate`` for a continuous primary metric) —
             distinct from omitting the card, so the reason can be shown via
-            ``note`` instead of the card silently disappearing (design §6.2
-            "결측이... 조용히 생략되지 않음").
+            ``note`` instead of the card silently disappearing.
         unit: Display unit, e.g. ``"%"``; empty string when unitless.
         higher_is_better: Whether a larger ``value`` is the desired direction.
-        note: Optional human-readable caveat or "해당 없음" explanation.
+        note: Optional human-readable caveat or "not applicable" explanation.
     """
 
     key: str
@@ -152,14 +150,14 @@ class MetricCard:
 
 @dataclass(frozen=True, slots=True)
 class TopRegionEntry:
-    """One region's degradation surfaced inside a ``SampleCard`` (design §3).
+    """One region's degradation surfaced inside a ``SampleCard``.
 
     Attributes:
         region_key: Stable concrete-region identity.
         degradation: ``SpatialProfile.degradation`` for this sample/region,
             when available — sourced identically to what R3's heatmap
             renders, so the card's text and image never contradict each
-            other (IMPLE_PLAN_REPORTING_v1.md §1 격차#4).
+            other.
         reliability_grade: This anchor's grade, when an analysis run exists;
             ``None`` means "not evaluated", never a stand-in for a poor grade.
     """
@@ -186,7 +184,7 @@ class TopRegionEntry:
 
 @dataclass(frozen=True, slots=True)
 class SampleCard:
-    """One sample's vulnerability, evidence, and grade (design §3, §4.4).
+    """One sample's vulnerability, evidence, and grade.
 
     Attributes:
         sample_id: Owning sample identity.
@@ -198,10 +196,10 @@ class SampleCard:
         heatmap_asset_ref: Relative path (from the report root) to R3's
             rendered heatmap PNG; ``None`` if it could not be produced.
         thumbnail_asset_ref: Relative path to the R3 thumbnail; ``None`` if
-            unavailable (design §5 단계5, e.g. no source_provenance).
+            unavailable (e.g. no source_provenance).
         top_regions: This sample's most-affected regions, most severe first.
         task_extra: Task-specific fields from ``TaskPresentationAdapter.
-            sample_extra_fields`` (design §R5); empty for classification.
+            sample_extra_fields``; empty for classification.
     """
 
     sample_id: str
@@ -240,18 +238,18 @@ class SampleCard:
 
 @dataclass(frozen=True, slots=True)
 class RegionRow:
-    """One region_key's dataset-wide summary (design §3, extended by §1 격차#3).
+    """One region_key's dataset-wide summary.
 
     Attributes:
         region_key: Stable concrete-region identity.
         region_id: The region family this ``region_key`` belongs to, e.g.
             ``"left_arm"`` — recovered as ``region_key.split("::", 1)[0]``
-            (IMPLE_PLAN_SEMANTIC_VULNERABILITY_v1.md §1 격차#4: ``RegionId``'s
-            pattern forbids ``"::"``, so the split is always safe). Unlike
-            ``region_key`` (which for ``skeleton_parts`` regions is unique
-            per sample, §1 격차#1), ``region_id`` is the stable semantic
-            identity a reader recognizes across samples — the field this
-            plan adds so that identity survives into the report layer.
+            (``RegionId``'s pattern forbids ``"::"``, so the split is
+            always safe). Unlike ``region_key`` (which for
+            ``skeleton_parts`` regions is unique per sample), ``region_id``
+            is the stable semantic identity a reader recognizes across
+            samples, surviving into the report layer even though
+            ``region_key`` does not.
         region_kind: Mask materialization strategy, e.g. ``"grid"`` — a
             plain string (see module docstring on why this is not
             ``ssat.core.types.RegionKind``).
@@ -262,13 +260,12 @@ class RegionRow:
             metric is binary; ``None`` for continuous metrics.
         n_valid: Number of items with an available, unexcluded value.
         reliability_grade: Worst-case grade across every anchor sharing this
-            region_key (IMPLE_PLAN_REPORTING_v1.md §1 격차#3's worst-case
-            policy); ``None`` when no analysis run exists.
+            region_key; ``None`` when no analysis run exists.
         reliability_distribution: Count of anchors sharing this region_key
             per grade value, e.g. ``{"high": 1, "unreliable": 1}`` — added
             precisely so the worst-case ``reliability_grade`` above does not
-            read as more uniformly alarming than it is (§1 격차#3). Empty
-            when no analysis run exists.
+            read as more uniformly alarming than it is. Empty when no
+            analysis run exists.
         top_region_share: Fraction of dataset samples whose single most-
             degraded region (across the whole sample, not just this region)
             is this ``region_key`` — the "dominant-region share" concept
@@ -279,10 +276,9 @@ class RegionRow:
         high_rate: ``reliability_distribution["high"] / sum(reliability_
             distribution.values())`` — the fraction of this region's anchors
             that passed every reliability check, alongside (not instead of)
-            the worst-case ``reliability_grade`` above (report layout
-            redesign, docs/report_layout_improve/AGENTS_OPINION_1.md: a
-            region table cell should show *composition*, not only the worst
-            anchor). ``None`` when ``reliability_distribution`` is empty.
+            the worst-case ``reliability_grade`` above, so a region table
+            cell shows *composition*, not only the worst anchor. ``None``
+            when ``reliability_distribution`` is empty.
     """
 
     region_key: str
@@ -331,7 +327,7 @@ class RegionRow:
 
 @dataclass(frozen=True, slots=True)
 class SemanticGroupRow:
-    """One semantic_group's dataset-wide summary (design §1 격차#2/#3, §3.2).
+    """One semantic_group's dataset-wide summary.
 
     A semantic_group is a user-declared grouping of one or more concrete
     ``region_id`` families (``ssat/core/config/schema.py``'s
@@ -340,7 +336,7 @@ class SemanticGroupRow:
     "upper_limb"``. This row is the semantic-group counterpart of
     ``RegionRow`` — same shape of summary, but keyed on the coarser axis a
     reader recognizes across the whole dataset rather than one concrete
-    region family (IMPLE_PLAN_SEMANTIC_VULNERABILITY_v1.md §3.2).
+    region family.
 
     Attributes:
         semantic_group: The semantic grouping key, e.g. ``"upper_limb"``.
@@ -352,16 +348,16 @@ class SemanticGroupRow:
             value among this group's regions.
         mean_degradation: Mean degradation across this group's regions,
             averaged within-sample first when a sample has more than one
-            concrete region in the group, then across samples (plan §3.3
-            item 3 — mean, not worst-case, matching the primary-value
-            aggregation convention this report package already follows).
-            ``None`` when no sample contributed a value.
+            concrete region in the group, then across samples — mean, not
+            worst-case, matching the primary-value aggregation convention
+            this report package already follows. ``None`` when no sample
+            contributed a value.
         high_rate: Fraction of this group's anchors graded HIGH, defined
             identically to ``RegionRow.high_rate``; ``None`` when no
             analysis run exists.
         flip_rate: Fraction of valid items that flipped, populated only
-            when the run's primary metric is binary (plan §3.3 item 5);
-            ``None`` for continuous metrics.
+            when the run's primary metric is binary; ``None`` for
+            continuous metrics.
     """
 
     semantic_group: str
@@ -392,15 +388,14 @@ class SemanticGroupRow:
 
 @dataclass(frozen=True, slots=True)
 class ClassSemanticRow:
-    """One ``(gt_label, semantic_group)`` cell of the cross-tabulation (design §1 격차#3).
+    """One ``(gt_label, semantic_group)`` cell of the cross-tabulation.
 
-    The primary artifact this plan exists to produce: a table a reader can
-    scan to answer "for this action class, which body part matters most?"
-    (IMPLE_PLAN_SEMANTIC_VULNERABILITY_v1.md §3.3 item 6, e.g. "발 동작이
-    중요한 클래스에서만 하반신 가림이 치명적"). Computed in R0 by joining
-    per-sample ``gt_label`` with the same per-sample semantic_group values
-    ``SemanticGroupRow`` averages — no new statistic, only a finer grouping
-    key (plan §1 격차#3(c)).
+    A table a reader can scan to answer "for this action class, which body
+    part matters most?" (e.g. lower-body occlusion may only be critical for
+    classes whose defining action is a foot movement). Computed in R0 by
+    joining per-sample ``gt_label`` with the same per-sample semantic_group
+    values ``SemanticGroupRow`` averages — no new statistic, only a finer
+    grouping key.
 
     Attributes:
         gt_label: Ground-truth class this row summarizes.
@@ -411,8 +406,7 @@ class ClassSemanticRow:
             semantic_group)`` cell, aggregated the same way as
             ``SemanticGroupRow.mean_degradation``; ``None`` when no sample
             contributed a value. Always shown alongside ``n_samples`` so a
-            small-sample cell is never mistaken for a well-evidenced one
-            (plan §9 risk table).
+            small-sample cell is never mistaken for a well-evidenced one.
         flip_rate: Fraction of this cell's valid items that flipped, when
             the primary metric is binary; ``None`` for continuous metrics.
     """
@@ -440,7 +434,7 @@ class ClassSemanticRow:
 
 @dataclass(frozen=True, slots=True)
 class FlaggedItem:
-    """One unreliable-grade anchor surfaced in the spotlight (design §3, §4.2 step 6).
+    """One unreliable-grade anchor surfaced in the spotlight.
 
     Attributes:
         anchor_key_repr: Flattened ``AnchorKey``, formatted as
@@ -473,11 +467,11 @@ class FlaggedItem:
 
 @dataclass(frozen=True, slots=True)
 class RunSummary:
-    """Header metadata for the report (design §3, §4.2 step 1).
+    """Header metadata for the report.
 
     Attributes:
-        dataset_name: Derived from source provenance (IMPLE_PLAN_REPORTING_v1
-            .md §1 "부수 확인" — not a field any upstream schema carries).
+        dataset_name: Derived from source provenance — not a field any
+            upstream schema carries.
         n_samples: Number of samples audited.
         n_regions_per_sample: Number of distinct regions per sample, when
             uniform across the dataset.
@@ -524,7 +518,7 @@ class RunSummary:
 
 @dataclass(frozen=True, slots=True)
 class VulnerabilitySummaryStats:
-    """Distributional summary of the full vulnerability_score population (design §3).
+    """Distributional summary of the full vulnerability_score population.
 
     Attributes:
         mean: Arithmetic mean of vulnerability_score across every sample;
@@ -558,7 +552,7 @@ class VulnerabilitySummaryStats:
 
 @dataclass(frozen=True, slots=True)
 class VulnerabilityDistribution:
-    """The "평균 뒤에 숨은 변이" section (design §4.2 step 3, §R2).
+    """The "variation hidden behind the average" section.
 
     Attributes:
         histogram_asset_ref: Relative path to R2's rendered SVG histogram;
@@ -582,7 +576,7 @@ class VulnerabilityDistribution:
 
 @dataclass(frozen=True, slots=True)
 class SampleRankings:
-    """Top-K/bottom-K sample galleries (design §3, §4.2 step 4).
+    """Top-K/bottom-K sample galleries.
 
     Attributes:
         most_vulnerable: Top-K by vulnerability_score, descending.
@@ -607,7 +601,7 @@ class SampleRankings:
 
 @dataclass(frozen=True, slots=True)
 class RegionSummary:
-    """Dataset-wide region table (design §3, §4.2 step 5).
+    """Dataset-wide region table.
 
     Attributes:
         rows: One RegionRow per region_key present in the dataset.
@@ -616,15 +610,13 @@ class RegionSummary:
             row's own ``RegionRow.reliability_distribution``. Empty when no
             analysis run exists.
         chart_asset_ref: Relative path to R2's rendered ``region_bar`` SVG
-            (mean degradation per region_key, colored by ``reliability_grade``
-            — design §R2); ``None`` if not yet rendered. Added in Stage 6
-            (IMPLE_PLAN_REPORTING_v1.md §5 단계6, confirmed with the user):
-            ``report.adapters.ClassificationAdapter.applicable_charts()``
-            already lists ``"region_bar"`` unconditionally, but until this
-            field existed nothing in ``ReportModel`` could carry a rendered
-            reference to it — the same "additive, backward-compatible
-            extension" pattern §1 격차#3 already used for
-            ``reliability_distribution`` itself (design §4.6).
+            (mean degradation per region_key, colored by ``reliability_grade``);
+            ``None`` if not yet rendered. ``report.adapters.
+            ClassificationAdapter.applicable_charts()`` already lists
+            ``"region_bar"`` unconditionally, but until this field existed
+            nothing in ``ReportModel`` could carry a rendered reference to
+            it — the same additive, backward-compatible extension pattern
+            ``reliability_distribution`` itself already used.
     """
 
     rows: tuple[RegionRow, ...]
@@ -649,18 +641,15 @@ class RegionSummary:
 class SpatialConcentration:
     """Dataset-wide "does this model depend on one fixed location?" summary.
 
-    Added for the report layout redesign
-    (docs/report_layout_improve/AGENTS_OPINION_1.md): the pre-redesign
-    report answered "which anchor is HIGH?" but had no dataset-level answer
-    to "is there a fixed location most samples repeatedly depend on, or is
-    sensitivity spread across many locations?" — the question layout C's
-    "behavioral fingerprint" and layout A's "공간 집중 패턴" sections both
-    center on. Every field here is a straightforward arithmetic reduction
+    The report answers "which anchor is HIGH?" per-sample/per-region, but
+    also needs a dataset-level answer to "is there a fixed location most
+    samples repeatedly depend on, or is sensitivity spread across many
+    locations?" Every field here is a straightforward arithmetic reduction
     (argmax-per-sample, then a Counter, then a ratio/normalized entropy) of
     ``SpatialProfile.degradation`` values the metrics engine already
     computed — no new model inference, matching R0's "assembles, does not
-    compute new statistics" boundary (REPORT_LAYER_DESIGN_v1.md §0,
-    ``ssat.report.assembler`` module docstring Gap#6).
+    compute new statistics" boundary (see ``ssat.report.assembler`` module
+    docstring).
 
     Attributes:
         dominant_region_key: The region_key that is the single most-
@@ -727,17 +716,16 @@ class SemanticConcentration:
     The semantic-group counterpart of ``SpatialConcentration`` — same
     computation (argmax-per-sample over the semantic-group-averaged
     degradation, then a Counter, then a ratio/normalized entropy), but over
-    the ``semantic_group`` axis instead of raw ``region_key``
-    (IMPLE_PLAN_SEMANTIC_VULNERABILITY_v1.md §3.2, §3.3 item 4).
+    the ``semantic_group`` axis instead of raw ``region_key``.
 
     Unlike ``SpatialConcentration``, this type enforces its own graceful
-    degradation at the type level (plan §1 격차#6, §3.2): when
-    ``n_semantic_groups <= 1`` — the common case for a plain grid run where
-    ``regions[].semantic_group`` was never set, so every region family
-    collapses to one semantic group by default — every other field must be
-    the explicit "해당 없음" marker (``None``/``0``), never a value that
-    would misleadingly look like a real finding computed over a single,
-    self-evidently-dominant group.
+    degradation at the type level: when ``n_semantic_groups <= 1`` — the
+    common case for a plain grid run where ``regions[].semantic_group`` was
+    never set, so every region family collapses to one semantic group by
+    default — every other field must be the explicit "not applicable"
+    marker (``None``/``0``), never a value that would misleadingly look
+    like a real finding computed over a single, self-evidently-dominant
+    group.
 
     Attributes:
         dominant_semantic_group: The semantic_group that is the single
@@ -756,7 +744,7 @@ class SemanticConcentration:
             in ``region_summary``, control-comparison-only families already
             excluded — the same population ``SpatialConcentration``'s
             entropy normalizer uses) — the gate this whole type is built
-            around (plan §1 격차#6).
+            around.
         n_scored_samples: Number of samples whose top semantic_group could
             be determined; ``0`` when ``n_semantic_groups <= 1``.
     """
@@ -775,7 +763,7 @@ class SemanticConcentration:
                 dominant_semantic_group_share is present without the other,
                 either share/entropy is outside [0, 1], n_semantic_groups
                 or n_scored_samples is negative, or n_semantic_groups <= 1
-                while any other field is not its "해당 없음" marker.
+                while any other field is not its "not applicable" marker.
         """
 
         has_group = self.dominant_semantic_group is not None
@@ -801,13 +789,13 @@ class SemanticConcentration:
             raise ValueError(
                 "n_semantic_groups <= 1 requires dominant_semantic_group, "
                 "dominant_semantic_group_share, and semantic_group_entropy to be "
-                "None and n_scored_samples to be 0 (graceful degradation, plan §1 격차#6)"
+                "None and n_scored_samples to be 0 (graceful degradation)"
             )
 
 
 @dataclass(frozen=True, slots=True)
 class ReliabilitySpotlight:
-    """"이 결과는 믿지 말라" section (design §3, §4.2 step 6).
+    """The "don't trust this result" section.
 
     Attributes:
         flagged_examples: Every UNRELIABLE-grade anchor, with reasons.
@@ -828,7 +816,7 @@ class ReliabilitySpotlight:
 
 @dataclass(frozen=True, slots=True)
 class ReportSchemaVersions:
-    """On-disk schema versions this report was assembled from (design §3).
+    """On-disk schema versions this report was assembled from.
 
     Attributes:
         dump: The source run's core schema_version.
@@ -859,7 +847,7 @@ class ReportSchemaVersions:
 
 @dataclass(frozen=True, slots=True)
 class ReportMeta:
-    """Top-level provenance/identity block (design §3).
+    """Top-level provenance/identity block.
 
     Attributes:
         run_id: Identity of the audited run (typically the dump directory name).
@@ -896,7 +884,7 @@ class ReportMeta:
 
 @dataclass(frozen=True, slots=True)
 class ProvenanceInfo:
-    """Collapsible reproducibility appendix (design §3, §4.2 step 7).
+    """Collapsible reproducibility appendix.
 
     Attributes:
         dump_path: Absolute path to the source dump.
@@ -904,15 +892,13 @@ class ProvenanceInfo:
         analysis_dir: Absolute path to the source AnalysisStore, when one
             was provided.
         run_manifest_hash: SHA-256 of the source dump's run manifest
-            (``ssat.metrics.dump_reader.DumpHandle.manifest_path``). Added
-            in Stage 6 (IMPLE_PLAN_REPORTING_v1.md §5 단계6): R4's
+            (``ssat.metrics.dump_reader.DumpHandle.manifest_path``). R4's
             ``report_manifest.json`` requires ``source_manifest_hashes:
-            {run, metrics, analysis}`` (design §R4), but this type only ever
-            carried the latter two — an unambiguous omission from R0's
-            original implementation (Stage 2), fixed the same way Stage 5
-            fixed ``link_assets``'s missing ``metrics_dir`` parameter: there
-            is no alternative source for this hash, so it is added rather
-            than routed around.
+            {run, metrics, analysis}``, but this type only ever carried the
+            latter two — an unambiguous omission from R0's original
+            implementation, fixed the same way ``link_assets``'s missing
+            ``metrics_dir`` parameter was: there is no alternative source
+            for this hash, so it is added rather than routed around.
         metrics_manifest_hash: SHA-256 of the source metrics_manifest.json.
         analysis_manifest_hash: SHA-256 of the source analysis_manifest.json,
             when an analysis run was provided.
@@ -920,12 +906,11 @@ class ProvenanceInfo:
             (A2-A6), carried through verbatim for reproducibility.
         class_semantic_excluded_no_gt_label: Number of samples omitted from
             ``ReportModel.class_semantic_matrix`` because ``gt_label`` was
-            unknown (IMPLE_PLAN_SEMANTIC_VULNERABILITY_v1.md §3.3 item 6).
-            A dedicated field rather than a ``thresholds`` entry — that
-            mapping is documented as "thresholds used to derive grades",
-            and an exclusion count is not a threshold (confirmed with the
-            user). Always ``0`` when no exclusions occurred or the run
-            predates this plan's semantic analysis.
+            unknown. A dedicated field rather than a ``thresholds`` entry —
+            that mapping is documented as "thresholds used to derive
+            grades", and an exclusion count is not a threshold. Always
+            ``0`` when no exclusions occurred or the run predates this
+            semantic analysis.
     """
 
     dump_path: str
@@ -965,46 +950,41 @@ class ProvenanceInfo:
 
 @dataclass(frozen=True, slots=True)
 class ReportModel:
-    """The single JSON-serializable model every report view is built from (design §3).
+    """The single JSON-serializable model every report view is built from.
 
     Attributes:
         meta: Top-level identity/provenance block.
         run_summary: Header metadata.
-        scorecard: Task-agnostic metric cards (design §R5).
+        scorecard: Task-agnostic metric cards.
         vulnerability_distribution: Dataset-wide score distribution.
         sample_rankings: Top-K/bottom-K sample galleries.
         region_summary: Dataset-wide region table.
         spatial_concentration: Dataset-wide "fixed location dependence"
-            summary (dominant-region share, spatial entropy). Added for the
-            report layout redesign (docs/report_layout_improve/
-            AGENTS_OPINION_1.md) alongside ``RegionRow.top_region_share``/
-            ``high_rate`` — an additive, backward-compatible extension
-            (design §4.6), the same pattern ``RegionSummary.chart_asset_ref``
-            and ``RegionRow.reliability_distribution`` already used.
+            summary (dominant-region share, spatial entropy), alongside
+            ``RegionRow.top_region_share``/``high_rate`` — an additive,
+            backward-compatible extension, the same pattern
+            ``RegionSummary.chart_asset_ref`` and ``RegionRow.
+            reliability_distribution`` already used.
         semantic_summary: Dataset-wide semantic_group table, the
             semantic-axis counterpart of ``region_summary``. Empty when
-            ``semantic_concentration.n_semantic_groups <= 1`` (plan §1
-            격차#6) — computed either way (a single, self-evident row), just
-            not a meaningfully differentiated summary.
+            ``semantic_concentration.n_semantic_groups <= 1`` — computed
+            either way (a single, self-evident row), just not a
+            meaningfully differentiated summary.
         class_semantic_matrix: ``(gt_label, semantic_group)`` cross-
-            tabulation — the primary artifact
-            IMPLE_PLAN_SEMANTIC_VULNERABILITY_v1.md exists to add (§1
-            격차#3). Empty under the same ``n_semantic_groups <= 1``
+            tabulation. Empty under the same ``n_semantic_groups <= 1``
             condition as ``semantic_summary``.
         semantic_concentration: Dataset-wide "fixed body-part dependence"
             summary, the semantic-axis counterpart of
-            ``spatial_concentration`` (plan §3.2, §3.3 item 4).
+            ``spatial_concentration``.
         fill_strategy_correlation_asset_ref: Relative path to R2's rendered
-            op×op Spearman rank-correlation SVG (design §R2
-            ``render_fill_strategy_correlation``); ``None`` when the
+            op×op Spearman rank-correlation SVG
+            (``render_fill_strategy_correlation``); ``None`` when the
             adapter's ``applicable_charts()`` did not include
             ``"fill_strategy_correlation_heatmap"`` (no fill-strategy
             stability analysis was run) or the chart has not yet been
-            rendered. Added in Stage 6 (IMPLE_PLAN_REPORTING_v1.md §5
-            단계6, confirmed with the user) alongside
-            ``RegionSummary.chart_asset_ref`` — see that field's docstring
-            for why a ``ReportModel`` field was missing for an already-listed
-            ``applicable_charts()`` entry.
+            rendered. Alongside ``RegionSummary.chart_asset_ref`` — see
+            that field's docstring for why a ``ReportModel`` field was
+            missing for an already-listed ``applicable_charts()`` entry.
         reliability_spotlight: Unreliable-grade anchors.
         provenance: Collapsible reproducibility appendix.
     """

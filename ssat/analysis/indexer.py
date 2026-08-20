@@ -3,14 +3,13 @@
 Decomposes ``AnalysisReader.item_context()``'s joined item context into an
 AnchorTable and ControlPairs, keyed by ``AnchorKey``/``ConditionKey``
 (``ssat.analysis.types``), and reports incomplete combinations via
-``CoverageReport`` (design CONTROL_STABILITY_DESIGN_v1.md §A1,
-IMPLE_PLAN_CONTROL_STABILITY_v1.md §5 단계2).
+``CoverageReport``.
 
 This module intentionally does not import ``ssat.metrics.aggregate`` even
 though ``_check_region_geometry`` below reproduces that module's policy for
-detecting inconsistent per-region geometry: the design's dependency
-direction (§3.3) restricts ``analysis.indexer`` to ``analysis.types`` and
-``analysis.reader``'s output (a plain DataFrame), and §9's risk table already
+detecting inconsistent per-region geometry: this package's dependency
+direction restricts ``analysis.indexer`` to ``analysis.types`` and
+``analysis.reader``'s output (a plain DataFrame), and this package already
 accepts the smaller duplication of the ``region_key`` format string for the
 same reason. Everything here consumes only ``AnalysisReader.item_context()``
 column values.
@@ -81,8 +80,8 @@ class ComparisonIndexer:
                 ``AnalysisReader.item_context()``.
             area_match_tolerance: Fractional tolerance for the area-based
                 control match, and for flagging area mismatches on
-                exact-reference matches (design §A1, IMPLE_PLAN §8 "A1 구현
-                시" default 5%).
+                exact-reference matches (default 5%, chosen when A1 was
+                implemented).
 
         Raises:
             AnalysisCorruptionError: If the same concrete region
@@ -268,8 +267,8 @@ def _check_region_geometry(
         raise AnalysisCorruptionError(f"region {region_key!r} reports inconsistent region_kind")
 
     # Literal rather than ``ssat.core.types.RegionKind.RANDOM_AREA_MATCH``:
-    # §3.3 keeps this module off ``ssat.core``, the same trade-off §9's risk
-    # table already accepts for the ``region_key`` format string.
+    # this module intentionally stays off ``ssat.core``, the same trade-off
+    # already accepted for the ``region_key`` format string.
     if region_kind == "random_area_match":
         return
 
@@ -300,7 +299,7 @@ def _match_controls(
     *,
     area_match_tolerance: float,
 ) -> tuple[list[ControlPairRow], int, int]:
-    """Pair each control anchor's conditions to a target anchor (design §A1).
+    """Pair each control anchor's conditions to a target anchor.
 
     For every control anchor and every distinct ``ConditionKey`` it exercises
     (one ``ControlPairRow`` per combination -- seed repeats collapse into the
@@ -416,7 +415,7 @@ def _parse_target_region_recipe(region_params_json: str) -> dict[str, Any] | Non
         ``region_id``/``region_instance_id`` strings; ``None`` for any
         parse failure or malformed/missing recipe -- callers treat that as
         "exact reference unavailable" and fall through to the area-tolerance
-        match (design §A1).
+        match.
     """
 
     try:
@@ -449,9 +448,9 @@ def _area_tolerance_fallback(
     """Search every non-control anchor for the closest in-tolerance area match.
 
     Restricted to anchors sharing this control's ``sample_id``,
-    ``invert_mask``, and this ``condition_key`` (design §A1 fallback path).
-    Among candidates within ``area_match_tolerance``, the one with the
-    smallest deviation from a 1.0 ratio wins.
+    ``invert_mask``, and this ``condition_key`` (the fallback path). Among
+    candidates within ``area_match_tolerance``, the one with the smallest
+    deviation from a 1.0 ratio wins.
     """
 
     best: tuple[float, AnchorRow] | None = None
@@ -478,9 +477,9 @@ def _area_tolerance_fallback(
 def _area_match_ratio(control_anchor: AnchorRow, target_anchor: AnchorRow) -> float | None:
     """Compute control-area / target-area, preferring effective over intended area.
 
-    Design §A1 "면적 기준": ``effective_area_px`` is used when *both* sides
-    have it; otherwise both sides fall back to ``intended_area_px`` together
-    (never mixed bases).
+    Area basis: ``effective_area_px`` is used when *both* sides have it;
+    otherwise both sides fall back to ``intended_area_px`` together (never
+    mixed bases).
 
     Returns:
         The ratio, or ``None`` when the chosen area basis is unavailable on

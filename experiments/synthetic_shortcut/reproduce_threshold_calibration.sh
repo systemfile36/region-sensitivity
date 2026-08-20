@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# Reproduce docs/RELIABILITY_THRESHOLD_CALIBRATION_v1.md. Requires
-# checkpoints_crop_free/ to already exist (run reproduce_l3_report.sh, or at
-# least its train.py steps, first). Run inside the
-# region-sensitivity-workspace container.
+# Reproduce the reliability-threshold recalibration pass end to end.
+# Requires checkpoints_crop_free/ to already exist (run
+# reproduce_l3_report.sh, or at least its train.py steps, first). Run
+# inside the region-sensitivity-workspace container.
 set -euo pipefail
 cd "$(dirname "$0")"
 

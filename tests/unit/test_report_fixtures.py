@@ -1,7 +1,7 @@
 """Regression tests for the report-layer test fixture extension.
 
 Covers ``tests/fixtures/synthetic_dump_builder.compute_and_save_analysis``
-(IMPLE_PLAN_REPORTING_v1.md §5 단계0) — the thin wrapper future report-layer
+— the thin wrapper future report-layer
 tests will use to get a ready-to-load dump+metrics+analysis triple without
 hand-rolling the A0-A6 pipeline themselves.
 """

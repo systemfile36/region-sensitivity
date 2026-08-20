@@ -2,18 +2,18 @@
 
 Lists the most- and least-vulnerable samples side by side, each with its
 heatmap, so a developer can see at a glance whether the top and bottom of
-the ranking actually look different (design METRIC_ENGINE_DESIGN_v1.md §N5
-"V3. 샘플 랭킹 대조 뷰": "상위와 하위가 눈으로 봐도 다른가. 구분이 안 되면
-지표나 코어에 문제가 있을 가능성"). Ranking is driven by ``SampleMetrics``'s
-``vulnerability_score`` (design §N3), computed from the run's configured
-primary metric.
+the ranking actually look visually different — if they can't be told apart,
+that's a sign the metric or the core itself may have a problem. Ranking is
+driven by ``SampleMetrics``'s ``vulnerability_score``, computed from the
+run's configured primary metric.
 
 This module deliberately imports ``ssat.metrics.viz.heatmap`` — unlike V1
 (``mask_check.py``), which stays fully independent, V3 is defined in terms
-of V2: "vulnerability_score 상위 N개와 하위 N개를 히트맵과 함께 나열" is not
-an accidental coupling, it is the feature itself. V1 stays reachable even if
-V2/V3 break; a broken ``heatmap.py`` legitimately takes ``ranking.py`` down
-with it, since ranking's panels *are* heatmaps.
+of V2: listing the top N and bottom N samples by ``vulnerability_score``
+alongside their heatmaps is not an accidental coupling, it is the feature
+itself. V1 stays reachable even if V2/V3 break; a broken ``heatmap.py``
+legitimately takes ``ranking.py`` down with it, since ranking's panels *are*
+heatmaps.
 """
 
 from __future__ import annotations
@@ -47,7 +47,7 @@ class RankedSample:
 
     Attributes:
         sample_id: Ranked sample.
-        vulnerability_score: This sample's score (design §N3).
+        vulnerability_score: This sample's score.
     """
 
     sample_id: str
@@ -63,8 +63,8 @@ def select_ranked_samples(
     """Rank samples by vulnerability_score and cut the top/bottom N.
 
     ``vulnerability_score`` is denormalized across every ``metric_name`` row
-    for a sample (design §N3), so each sample_id is scored once here
-    regardless of how many metric_name rows it has in ``sample_metrics``.
+    for a sample, so each sample_id is scored once here regardless of how
+    many metric_name rows it has in ``sample_metrics``.
 
     Args:
         sample_metrics: Rows from ``AggregationResult.sample_metrics``.

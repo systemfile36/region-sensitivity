@@ -2,8 +2,8 @@
 
 Writes ``<metrics_dir>/item_metrics.parquet``, ``sample_metrics.parquet``,
 ``region_metrics.parquet``, ``class_metrics.parquet``, ``spatial_profile.parquet``,
-and ``metrics_manifest.json`` (design METRIC_ENGINE_DESIGN_v1.md §N4). Follows
-the same provenance principle as the raw dump: metrics are only as trustworthy
+and ``metrics_manifest.json``. Follows the same provenance principle as the
+raw dump: metrics are only as trustworthy
 as the dump they were computed from, tracked here via
 ``source_run_manifest_hash`` — a SHA-256 of the source run's actual
 ``run_manifest.json`` bytes, not a re-serialization of its parsed contents.
@@ -52,9 +52,9 @@ class MetricConfig:
 
     Attributes:
         primary_metric: Registered metric name whose degradation defined
-            ``vulnerability_score`` (design §N3).
+            ``vulnerability_score``.
         topk: The ``topk_exit`` metric's rank cutoff, when that metric was
-            registered; ``None`` otherwise (design §N4 "primary_metric, topk 등").
+            registered; ``None`` otherwise.
     """
 
     primary_metric: str
@@ -71,10 +71,9 @@ class MetricConfig:
 class RegisteredMetricInfo:
     """Describe one metric that took part in a stored aggregation run.
 
-    No ``version`` field is carried here: the ``Metric`` protocol (design §N2,
-    fixed in stage 2-4) has no per-metric version concept, and
-    ``metrics_schema_version`` already tracks "a metric's definition changed"
-    at the file-format level (design §N4, confirmed with the user in stage 6).
+    No ``version`` field is carried here: the ``Metric`` protocol has no
+    per-metric version concept, and ``metrics_schema_version`` already tracks
+    "a metric's definition changed" at the file-format level.
     """
 
     name: str
@@ -99,8 +98,8 @@ class MetricsManifest:
         metric_config: Configuration choices that shaped this run.
         registered_metrics: Every metric that took part, sorted by name.
         computed_at: When this aggregation run was persisted.
-        exclusion_summary: Status-based exclusion counts (design §N4),
-            typically ``DumpHandle.summary()``'s own return value.
+        exclusion_summary: Status-based exclusion counts, typically
+            ``DumpHandle.summary()``'s own return value.
     """
 
     metrics_schema_version: str
@@ -261,8 +260,8 @@ def verify_source_dump(manifest: MetricsManifest, source_run_manifest_path: Path
 
     Raises:
         MetricsCorruptionError: If the source dump was re-run or otherwise
-            changed since this metrics store was computed (design §N4
-            "dump가 바뀌면 지표도 무효가 되어야 한다").
+            changed since this metrics store was computed — metrics become
+            invalid whenever the dump they were computed from changes.
     """
 
     actual_hash = sha256_file(source_run_manifest_path)

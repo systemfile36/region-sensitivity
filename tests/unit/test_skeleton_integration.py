@@ -1,11 +1,10 @@
 """Round-trip tests wiring SkeletonRegionProvider + SkeletonPartsMaskGenerator
 into planning, region resolution, and the perturbation pipeline via DI.
 
-CLI/YAML wiring for skeleton config is a separate, not-yet-implemented stage
-(see docs/VIDEO_SKELETON_EXTENSION_ANALYSIS_v1.md §5.4); these tests exercise
-the components the way Python code (or a future Application-layer adapter)
-would inject them, mirroring the pattern already used for per-frame masks in
-tests/unit/test_runtime_pipeline.py.
+CLI/YAML wiring for skeleton config is a separate, not-yet-implemented stage;
+these tests exercise the components the way Python code (or a future
+Application-layer adapter) would inject them, mirroring the pattern already
+used for per-frame masks in tests/unit/test_runtime_pipeline.py.
 """
 
 from __future__ import annotations

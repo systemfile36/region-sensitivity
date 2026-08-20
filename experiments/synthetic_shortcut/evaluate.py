@@ -1,19 +1,16 @@
 #!/usr/bin/env python3
 """Judge Q1-Q5 and the section 3.5 fill-strategy sensitivity check, and report.
 
-Implements docs/STAGE9_SYNTHETIC_SHORTCUT_DESIGN_v1.md sections 5-9. This
-script only *reads* the dumps/metrics run_audit.py already produced and the
-accuracy numbers evaluate_accuracy.py already produced; it makes no model or
-audit calls of its own. Thresholds are loaded from thresholds.json rather
+This script only *reads* the dumps/metrics run_audit.py already produced and
+the accuracy numbers evaluate_accuracy.py already produced; it makes no model
+or audit calls of its own. Thresholds are loaded from thresholds.json rather
 than hardcoded here, because that file is the pre-registered record of what
-counts as a pass (design section 5/9: "결과를 본 뒤 변경하지 않는다") --
-keeping it as data, not code, makes it obvious nothing here was tuned after
-seeing the numbers.
+counts as a pass -- keeping it as data, not code, makes it obvious nothing
+here was tuned after seeing the numbers.
 
-Per design section 9, a failed threshold is reported as failed, not adjusted
--- this script never raises or exits non-zero on a Q1-Q5 failure; it always
-finishes and writes report.md with whatever the pre-registered criteria
-actually say.
+A failed threshold is reported as failed, not adjusted -- this script never
+raises or exits non-zero on a Q1-Q5 failure; it always finishes and writes
+report.md with whatever the pre-registered criteria actually say.
 
 Run as: python3 experiments/synthetic_shortcut/evaluate.py
 """
@@ -33,8 +30,8 @@ from ssat.metrics.viz.heatmap import save_heatmap_views
 
 FILL_STRATEGIES = tuple(FILL_PARAMS)  # ("constant_fill", "mean_fill", "blur", "gaussian_noise", "patch_shuffle")
 
-# Representative heatmaps only -- design section 8 asks for "M_shortcut/
-# M_normal 각각 대표 샘플", not one heatmap set per fill strategy.
+# Representative heatmaps only -- one representative sample each for
+# M_shortcut/M_normal, not one heatmap set per fill strategy.
 HEATMAP_RUN_IDS = ("shortcut_A_constant_fill", "normal_A_constant_fill", "shortcut_B_constant_fill")
 
 
@@ -186,7 +183,7 @@ def _render_report(verdicts: dict, correlations: dict[str, float], thresholds: d
     """Render the Q1-Q5 verdicts and section 3.5 correlations as Markdown."""
 
     lines = ["# L3 Synthetic-Shortcut Experiment Report", ""]
-    lines.append("## Q1-Q5 (pre-registered, docs/STAGE9_SYNTHETIC_SHORTCUT_DESIGN_v1.md section 5)")
+    lines.append("## Q1-Q5 (pre-registered)")
     lines.append("")
     lines.append("| Question | Result | Detail |")
     lines.append("|---|---|---|")
@@ -253,8 +250,8 @@ def main() -> int:
     print(report)
     print(f"saved report to {report_path}")
 
-    # Representative heatmaps (design section 8), reusing the already-shipped
-    # DebugViz V2 view rather than building a second rendering path.
+    # Representative heatmaps, reusing the already-shipped DebugViz V2 view
+    # rather than building a second rendering path.
     for run_id in HEATMAP_RUN_IDS:
         save_heatmap_views(
             args.results_dir / "dumps" / run_id,

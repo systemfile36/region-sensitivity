@@ -2,17 +2,15 @@
 
 Overlays one metric's per-region degradation on the original image so a
 developer can see whether sensitive regions sit on the object or scatter
-across the background (design METRIC_ENGINE_DESIGN_v1.md §N5 "V2. 공간 민감도
-히트맵").
+across the background.
 
 Unlike V1 (``mask_check.py``), this view's data input is ``SpatialProfile``
 (the N3 Aggregator's output, loaded via ``ssat.metrics.store.load_metrics``)
 rather than the raw dump — ``SpatialProfile``'s own docstring states every
 row "already carries enough region geometry to re-resolve a mask without a
 second dump join". A ``dump_root`` is still needed, but only for the
-``metrics.viz -> core.source`` exception (IMPLE_PLAN_METRIC_DESIGN_v1.md
-§3.3, extended in stage 7) that lets this module load the original image
-referenced by ``ResolvedConfig.source_provenance``.
+``metrics.viz -> core.source`` exception that lets this module load the
+original image referenced by ``ResolvedConfig.source_provenance``.
 
 Region geometry is re-resolved via ``core.region.RegionResolver`` from each
 row's ``RegionGeometryRef`` (the same explicit dependency exception V1
@@ -254,8 +252,7 @@ def _resolve_region_mask(
 def render_heatmap_panel(axes: tuple[Axes, Axes], view: HeatmapView) -> None:
     """Draw one view's original/heatmap-overlay panels onto two given axes.
 
-    Public so ``ranking.py`` can reuse it for its top/bottom composite views
-    (design §N5 "vulnerability_score 상위 N개와 하위 N개를 히트맵과 함께 나열").
+    Public so ``ranking.py`` can reuse it for its top/bottom composite views.
 
     Args:
         axes: ``(original_axis, overlay_axis)`` to draw into.

@@ -1,12 +1,12 @@
-"""R5 TaskPresentationAdapter: translate task-specific concepts into ReportModel's shared vocabulary.
+"""TaskPresentationAdapter: translate task-specific concepts into ReportModel's shared vocabulary.
 
-This is the extension point design §R5 designates as "the key extension
-point": adding a new task (e.g. detection) means writing a new adapter here,
-never touching ``ReportModel`` or R0-R4 (design §5 "검출 지원을 실제로 붙일
-때, R5의 검출 어댑터만 추가하고 R0~R4는 손대지 않는 것이 목표다").
+This is the extension point for supporting new tasks: adding a new task
+(e.g. detection) means writing a new adapter here, never touching
+``ReportModel`` or the rest of the report pipeline — the goal is that
+adding detection support only requires a new detection adapter, with no
+changes to the shared report stages.
 
-Per the dependency table (IMPLE_PLAN_REPORTING_v1.md §3.3 "report.adapters →
-report.types"), this module does not import ``ssat.metrics`` or
+By design, this module does not import ``ssat.metrics`` or
 ``ssat.analysis``. Instead of importing ``ssat.metrics.types.SampleMetrics``,
 :class:`SampleMetricLike` below declares the same shape structurally
 (PEP 544) — the real ``SampleMetrics`` dataclass satisfies it without either
@@ -48,9 +48,9 @@ class SampleMetricLike(Protocol):
 
 
 class TaskPresentationAdapter(Protocol):
-    """Translate task-specific concepts into ReportModel's task-agnostic vocabulary (design §R5).
+    """Translate task-specific concepts into ReportModel's task-agnostic vocabulary.
 
-    ``ReportModel``, R0 (assembler), and R4 (HTMLRenderer) never branch on
+    ``ReportModel``, the assembler, and the HTML renderer never branch on
     task kind — they only ever consume what one of these produces.
     """
 
@@ -65,7 +65,7 @@ class TaskPresentationAdapter(Protocol):
         """Return this task's extra fields for one sample's ``SampleCard.task_extra``."""
 
     def applicable_charts(self) -> list[str]:
-        """List chart identifiers (design §R2) this task/run combination can render."""
+        """List chart identifiers this task/run combination can render."""
 
 
 class ClassificationAdapter:
@@ -79,14 +79,14 @@ class ClassificationAdapter:
         Args:
             primary_metric: Registered metric name this adapter's scorecard
                 is built from. Used only for card key/label text — the
-                underlying values are already sign-normalized degradation
-                (§1 격차#4), so no metric-specific math happens here.
+                underlying values are already sign-normalized degradation,
+                so no metric-specific math happens here.
             fill_strategy_stability_available: Whether AnalysisStore has
                 fill-strategy stability rows for this run
                 (``AvailableAnalyses.fill_strategy_stability``, passed as a
                 plain bool rather than importing that type — see module
                 docstring). Controls whether the correlation heatmap chart
-                is offered (design §5 단계 1).
+                is offered.
 
         Raises:
             ValueError: If ``primary_metric`` is empty.
@@ -100,11 +100,11 @@ class ClassificationAdapter:
     def summarize_performance(
         self, sample_metrics: Sequence[SampleMetricLike]
     ) -> list[MetricCard]:
-        """Build ``[accuracy, mean_<primary_metric>, flip_rate]`` (design §5 단계 1).
+        """Build ``[accuracy, mean_<primary_metric>, flip_rate]``.
 
         Each card is always present — an unavailable value is expressed as
         ``value=None`` plus an explanatory ``note``, never by omitting the
-        card (design §6.2 "결측이... 조용히 생략되지 않음").
+        card entirely, so a missing value is never silently hidden.
         """
 
         rows = list(sample_metrics)
@@ -182,7 +182,7 @@ class ClassificationAdapter:
     def sample_extra_fields(
         self, sample_metrics_row: SampleMetricLike
     ) -> dict[str, ReportJsonValue]:
-        """Return no extra fields — classification has none (design §R5, §3)."""
+        """Return no extra fields — classification has none."""
 
         return {}
 
@@ -196,12 +196,11 @@ class ClassificationAdapter:
 
 
 class DetectionAdapter:
-    """Schema-only stub for a future detection TaskPresentationAdapter (design §5, out of v1 scope).
+    """Schema-only stub for a future detection TaskPresentationAdapter, out of scope for now.
 
     Instantiates without error so a future task_kind -> adapter selector can
     hold a reference to this class unconditionally; every method raises only
-    when actually called (IMPLE_PLAN_REPORTING_v1.md §5 단계 1 성공 조건
-    "인스턴스화 시점에는 실패하지 않고 호출 시점에만 NotImplementedError").
+    when actually called, never at instantiation time.
     """
 
     def __init__(
@@ -221,12 +220,12 @@ class DetectionAdapter:
     def summarize_performance(
         self, sample_metrics: Sequence[SampleMetricLike]
     ) -> list[MetricCard]:
-        raise NotImplementedError("Detection scorecards are out of scope for v1 (design §5).")
+        raise NotImplementedError("Detection scorecards are out of scope for v1.")
 
     def sample_extra_fields(
         self, sample_metrics_row: SampleMetricLike
     ) -> dict[str, ReportJsonValue]:
-        raise NotImplementedError("Detection sample fields are out of scope for v1 (design §5).")
+        raise NotImplementedError("Detection sample fields are out of scope for v1.")
 
     def applicable_charts(self) -> list[str]:
-        raise NotImplementedError("Detection chart selection is out of scope for v1 (design §5).")
+        raise NotImplementedError("Detection chart selection is out of scope for v1.")

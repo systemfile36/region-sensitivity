@@ -217,7 +217,7 @@ def test_build_spatial_concentration_single_possible_region_leaves_entropy_none(
     assert concentration.spatial_entropy is None
 
 
-# --- semantic_group axis (IMPLE_PLAN_SEMANTIC_VULNERABILITY_v1.md §3.3) -----
+# --- semantic_group axis -----------------------------------------------------
 
 
 class _FakeRegionFamily:
@@ -260,7 +260,7 @@ _UPPER_LOWER_LIMB_MAP = {
 def test_region_id_from_region_key_splits_on_first_double_colon() -> None:
     assert _region_id_from_region_key("grid::0") == "grid"
     # A skeleton_parts region_key looks like "{region_id}::{region_id}/
-    # {sample_id}" (§1 격차#1) -- region_id itself may contain every
+    # {sample_id}" -- region_id itself may contain every
     # character RegionId's pattern allows (letters/digits/"_"/"."/"-", but
     # never "::"), exercised here with "." and "-".
     assert _region_id_from_region_key("left-arm.v2::left-arm.v2/sample-1") == "left-arm.v2"
@@ -328,7 +328,7 @@ def test_sample_semantic_group_degradation_skips_none_and_falls_back_when_ungrou
     result = _sample_semantic_group_degradation(rows, _UPPER_LOWER_LIMB_MAP)
 
     # left_arm contributed no value (None); "grid" is absent from the map, so
-    # it falls back to being its own semantic_group (§1 격차#2 default).
+    # it falls back to being its own semantic_group by default.
     assert result == {("s0", "grid"): pytest.approx(0.5)}
 
 

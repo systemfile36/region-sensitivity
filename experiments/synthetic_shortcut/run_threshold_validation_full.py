@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
 """Produce a crop-free, all-fill-strategy audit run with control regions and
 multiple seeds, for the final z_vs_control_threshold/seed_cv_threshold
-recalibration required by docs/IMPLE_PLAN_CONTROL_STABILITY_v1.md section 8's
-"단계 7, B3 재분석 후 재조정" procedure (proposed defaults: z=2.0, cv=0.2 --
+recalibration after re-analyzing B3 (proposed defaults: z=2.0, cv=0.2 --
 see ssat/analysis/reliability.py).
 
 This supersedes run_threshold_validation.py's provisional, single-op

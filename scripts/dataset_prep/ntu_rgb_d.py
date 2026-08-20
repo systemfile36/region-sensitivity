@@ -9,12 +9,11 @@ is dataset-agnostic and can stay as-is.
 
 It bridges two things that already exist and are independently tested:
 
-- Raw-file parsing reused near-verbatim from ``docs/ntu_rgb_d.py`` (a prior
-  project's preprocessing script, not itself part of SSAT): file-name
-  parsing, xsub/xview splitting, and ``.skeleton`` file parsing into
-  per-frame joint arrays.
-- ``ssat.core.region.skeleton_bbox_builder`` (see
-  ``docs/IMPLE_PLAN_DATASET_INGESTION_v1.md`` §3.4), which turns those joint
+- Raw-file parsing adapted from an existing NTU-RGB+D preprocessing
+  reference implementation (a prior project's script, not itself part of
+  SSAT): file-name parsing, xsub/xview splitting, and ``.skeleton`` file
+  parsing into per-frame joint arrays.
+- ``ssat.core.region.skeleton_bbox_builder``, which turns those joint
   arrays into the exact bounding-box JSON ``ssat.core.region.skeleton_store``
   reads at audit time.
 
@@ -52,8 +51,8 @@ from ssat.core.source.video_folder import uniform_frame_indices
 from ssat.utils.io import write_json_atomic
 
 # ---------------------------------------------------------------------------
-# Reused near-verbatim from docs/ntu_rgb_d.py (IMPLE_PLAN_DATASET_INGESTION_v1.md
-# §3.5). Only file_io.* calls were replaced with plain pathlib, and
+# Adapted from an existing NTU-RGB+D preprocessing reference
+# implementation. Only file_io.* calls were replaced with plain pathlib, and
 # collect_ntu_rgb_data now also records normalize_video_key(...) as
 # video_key -- everything else is unchanged.
 # ---------------------------------------------------------------------------
@@ -162,7 +161,7 @@ def choose_primary_body_index(parsed: ParsedSkeleton) -> int:
     reasonably stable, which is usually acceptable for single-person NTU
     actions. For two-person actions (A050-A060) this heuristic can pick the
     wrong body -- a known limitation inherited as-is from the reference
-    project (see IMPLE_PLAN_DATASET_INGESTION_v1.md §9).
+    project.
     """
 
     max_bodies = max((len(bodies) for bodies in parsed.frames), default=0)

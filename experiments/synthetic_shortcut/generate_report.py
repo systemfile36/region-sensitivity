@@ -1,17 +1,15 @@
 #!/usr/bin/env python3
 """C3 -- real-data validation of the reporting layer (``ssat.report`` R0-R4)
 against the crop-free, all-fill-strategy, control+multi-seed dump
-``run_threshold_validation_full.py`` produced. Implements
-docs/IMPLE_PLAN_REPORTING_v1.md §5 단계8.
+``run_threshold_validation_full.py`` produced.
 
 Unlike analyze_control_stability.py's B3 (which had to combine five
 separate shortcut_A_* dumps at script level, since each held only one fill
 strategy), this dump already holds all 5 fill strategies plus controls and
 multiple seeds by itself (run_threshold_validation_full.py §51-121) --
 exactly the single dump+metrics+analysis triple ``AuditApplication.
-generate_report`` expects (IMPLE_PLAN_REPORTING_v1.md §5 단계7,
-``generate_report`` takes exactly one ``analysis_dir``). No script-level
-combining is needed here.
+generate_report`` expects (``generate_report`` takes exactly one
+``analysis_dir``). No script-level combining is needed here.
 
 metrics/ for this run already exists (run_threshold_validation_full.py
 computes and saves it); analysis/ does not yet exist, so this script runs
@@ -21,9 +19,8 @@ computes and saves it); analysis/ does not yet exist, so this script runs
 Depends on experiments/synthetic_shortcut/results_crop_free/ (gitignored,
 produced by run_threshold_validation_full.py) -- not included in pytest
 collection. After running, open ``<results-dir>/report/<run_id>/report.html``
-directly in a browser (no server needed -- see docs/REPORT_LAYER_DESIGN_v1.md
-§0's offline principle) and check it against the table in
-IMPLE_PLAN_REPORTING_v1.md §5 단계8.
+directly in a browser (no server needed -- the report layer is designed to
+be viewed offline) and check that every section renders correctly.
 
 ``--model {shortcut,normal}`` mirrors run_threshold_validation_full.py's
 flag of the same name and must match whichever run that script produced --
@@ -121,20 +118,20 @@ def main() -> int:
     print(f"  samples: {report_result.n_samples:,}, regions: {report_result.n_regions:,}")
     print(f"  reliability grades: {dict(report_result.grade_distribution)}")
 
-    # A minimal automated signal for §5 단계8's headline success condition:
-    # the region_summary's reliability_distribution field (§1 격차#3's
-    # worst-case-grade mitigation) must actually carry more than one grade
-    # for at least one non-patch region, not just decorate a single value.
-    # This is a necessary-but-not-sufficient check -- the plan's remaining
-    # five checklist items still require opening report.html by eye.
+    # A minimal automated signal for the headline success condition: the
+    # region_summary's reliability_distribution field (the worst-case-grade
+    # mitigation) must actually carry more than one grade for at least one
+    # non-patch region, not just decorate a single value. This is a
+    # necessary-but-not-sufficient check -- the remaining checklist items
+    # still require opening report.html by eye.
     region_summary_path = report_dir / "data" / "region_summary.csv"
     _check_region_summary_has_mixed_distributions(region_summary_path)
 
     print()
     print(f"report.html: {report_dir / 'report.html'}")
     print(
-        "Open the file above directly in a browser and check it against the "
-        "table in docs/IMPLE_PLAN_REPORTING_v1.md §5 단계8."
+        "Open the file above directly in a browser and manually verify the "
+        "report renders every section correctly."
     )
     return 0
 
@@ -142,15 +139,15 @@ def main() -> int:
 def _check_region_summary_has_mixed_distributions(region_summary_path: Path) -> None:
     """Warn (not fail) if every region's reliability_distribution is a single grade.
 
-    Per the plan's success condition: if every region ends up with exactly
-    one grade among its ``{high,moderate,low,unreliable}_count`` columns
-    (exporter.py's ``_region_summary_row`` flattening of ``RegionRow.
-    reliability_distribution``), the worst-case-grade mitigation field
-    (IMPLE_PLAN_REPORTING_v1.md §1 격차#3) is not actually carrying
-    information for this dump, and R0's join/aggregation policy would need
-    re-examination. This script only surfaces the signal; it does not raise,
-    matching evaluate.py's convention of always finishing and reporting
-    whatever the checks actually found.
+    If every region ends up with exactly one grade among its
+    ``{high,moderate,low,unreliable}_count`` columns (exporter.py's
+    ``_region_summary_row`` flattening of ``RegionRow.
+    reliability_distribution``), the worst-case-grade mitigation field is
+    not actually carrying information for this dump, and R0's
+    join/aggregation policy would need re-examination. This script only
+    surfaces the signal; it does not raise, matching evaluate.py's
+    convention of always finishing and reporting whatever the checks
+    actually found.
     """
 
     import csv
@@ -178,7 +175,7 @@ def _check_region_summary_has_mixed_distributions(region_summary_path: Path) -> 
     if rows and mixed == 0:
         print(
             "  [warn] every region's reliability_distribution is a single grade -- "
-            "re-examine R0's join/aggregation policy per §5 단계8's success condition."
+            "re-examine R0's join/aggregation policy."
         )
 
 

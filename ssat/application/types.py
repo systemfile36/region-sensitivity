@@ -227,9 +227,7 @@ class ReportRequest:
     not an error: ``AuditApplication.generate_report`` treats it exactly
     like ``analysis_dir=None``, assembling a report with every
     analysis-derived section explicitly marked unavailable rather than
-    failing (``ssat.report.assembler`` module docstring; design
-    REPORT_LAYER_DESIGN_v1.md §6.2 C1; IMPLE_PLAN_REPORTING_v1.md §5 단계7
-    "analysis_dir가 존재하지 않는 경로면... 조용히 None으로 취급").
+    failing (``ssat.report.assembler`` module docstring).
     """
 
     dump: Path
@@ -252,7 +250,7 @@ class ReportRequest:
 
 @dataclass(frozen=True, slots=True)
 class ReportResult:
-    """Summarize one generated report (design REPORT_LAYER_DESIGN_v1.md §R4).
+    """Summarize one generated report.
 
     ``analysis_dir`` is ``None`` exactly when the source run had no
     ``ssat analyze`` output available for this report (see
@@ -261,8 +259,7 @@ class ReportResult:
     rather than silently absent.
 
     ``secondary_report_html`` is the auxiliary "Question Driven" report
-    (``ssat.report.html_renderer.render_secondary_report``, report layout
-    redesign docs/report_layout_improve/AGENTS_OPINION_1.md) -- always
+    (``ssat.report.html_renderer.render_secondary_report``) -- always
     written alongside ``report_dir / "report.html"``, not behind a flag.
     """
 
@@ -286,9 +283,8 @@ class ExportLabelsRequest:
 
     Deliberately takes only ``report_dir``, not ``dump``/``metrics_dir``/
     ``analysis_dir`` like ``ReportRequest`` -- this is ``report_model.json``
-    read back off disk, not a fresh assembly
-    (IMPLE_PLAN_SEMANTIC_VULNERABILITY_v1.md §5: "이미 계산된 것을 export", R0
-    never reruns). ``report_dir`` must be a directory a prior
+    read back off disk, not a fresh assembly (R0 never reruns).
+    ``report_dir`` must be a directory a prior
     ``AuditApplication.generate_report()`` call wrote to.
     """
 

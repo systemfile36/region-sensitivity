@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 """Compute Q5's plain top-1 accuracy numbers for the L3 synthetic-shortcut experiment.
 
-Implements docs/STAGE9_SYNTHETIC_SHORTCUT_DESIGN_v1.md section 5, Q5: "M_shortcut
-을 C(무패치)에서 평가 시 성능 하락이 M_normal보다 큼". Q5 is a plain
-generalization check -- it asks how much each model's accuracy changes when
-the patch it may or may not depend on is removed -- and has no region or
-perturbation dimension. It is therefore computed here as a direct forward
-pass over each checkpoint, entirely independent of run_audit.py's ssat
-pipeline (which exists to answer Q1-Q4 and section 3.5, not Q5).
+Implements Q5: M_shortcut's accuracy drop when evaluated on C (unpatched)
+should be larger than M_normal's. Q5 is a plain generalization check -- it
+asks how much each model's accuracy changes when the patch it may or may
+not depend on is removed -- and has no region or perturbation dimension.
+It is therefore computed here as a direct forward pass over each
+checkpoint, entirely independent of run_audit.py's ssat pipeline (which
+exists to answer Q1-Q4 and the fill-strategy sensitivity check, not Q5).
 
 Both models are evaluated on both A_test (patched) and C_test (clean) so
 evaluate.py can compare each model's own (A accuracy - C accuracy) drop

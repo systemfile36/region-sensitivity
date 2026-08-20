@@ -4,8 +4,7 @@ Mirrors the precedent set by ``ssat.metrics._storage`` (a private module
 ``store.py`` alone consumes): each public view module (``mask_check.py``,
 ``heatmap.py``, ``ranking.py``) imports from here instead of from one
 another, so a bug in one view's own logic can never break another view's
-import (design METRIC_ENGINE_DESIGN_v1.md §3.1 "하나가 깨져도 나머지 디버깅
-도구는 계속 쓸 수 있어야 한다").
+import — even if one view breaks, the rest must stay usable.
 """
 
 from __future__ import annotations

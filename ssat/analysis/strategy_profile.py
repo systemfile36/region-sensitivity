@@ -5,28 +5,28 @@ differently?" by contrasting a **declarative** attribute table (a
 hypothesis about each operator's own nature) against an **empirical**
 grouping derived from the fill-strategy correlation data A3 already
 produced (an observation about how the operators actually behaved on this
-dataset) -- design CONTROL_STABILITY_DESIGN_v1.md §A4: "선언적 속성은
-가설로, 경험적 그룹은 관측으로 제시하고 정합 여부를 보고하는 것이 정직한
-설계이다".
+dataset). Presenting declared attributes as a hypothesis and empirical
+groups as an observation, then reporting whether they agree, is the honest
+way to design this comparison.
 
 This module consumes A3's *output types*, not its code: ``strategy_rows``
 (``analysis.stability``'s per-anchor ``StrategyStabilityRow`` list) and
 ``rank_correlation_rows`` (its dataset-level ``RankCorrelationRow`` list) are
 passed in by the caller, the same composition pattern A2 already uses for
-A1's ``control_pairs`` (IMPLE_PLAN_CONTROL_STABILITY_v1.md §6 "단계5는
-단계4가 만든 op×op 상관 행렬을 그대로 재사용"). Because
+A1's ``control_pairs`` (this step reuses, as-is, the op×op correlation
+matrix the previous step built). Because
 ``StrategyStabilityRow.strategy_values`` already carries one degradation
 value per (anchor, op), this module never needs to re-join raw item data --
 it depends on nothing but ``analysis.types``, ``analysis.errors``, and
 ``ssat.core.types.PerturbationOp`` (used only as a declarative-table lookup
-key, per IMPLE_PLAN §3.3's explicit exception).
+key, as an explicit exception to this package's usual dependency rules).
 
 Like ``RankCorrelationRow``, ``StrategyProfileRow`` has no ``metric_name``
 field, so the dataset-level pieces of this module (clustering, the sign-group
 summary) are scoped to a single ``primary_metric`` -- ``DEFAULT_PRIMARY_METRIC``
 is redefined locally rather than imported, the same duplication policy
 already applied to ``region_key``/``ConditionKey`` formulas and
-``ssat.metrics.aggregate.DEFAULT_PRIMARY_METRIC`` (IMPLE_PLAN §9).
+``ssat.metrics.aggregate.DEFAULT_PRIMARY_METRIC``.
 """
 
 from __future__ import annotations
@@ -50,10 +50,9 @@ DEFAULT_CLUSTER_THRESHOLD = 0.3
 DEFAULT_TOP_K_EXCLUDE = 1
 
 # (preserves_statistics, preserves_local_texture, is_global_operation) per op.
-# preserves_statistics values are design CONTROL_STABILITY_DESIGN_v1.md §A4's
-# own examples; the remaining ten cells are this module's proposed values,
-# read off ssat/core/perturb/operators.py's actual compositing behavior (see
-# IMPLE_PLAN_CONTROL_STABILITY_v1.md §5 단계5 plan for the full derivation):
+# preserves_statistics values are the design's own worked examples; the
+# remaining ten cells are this module's proposed values, read off
+# ssat/core/perturb/operators.py's actual compositing behavior:
 # preserves_local_texture is True only for patch_shuffle (every other op
 # overwrites the signal outright); is_global_operation is True only for
 # blur and patch_shuffle, since both build their replacement candidate from
@@ -79,7 +78,7 @@ def compute_strategy_profile(
     cluster_threshold: float = DEFAULT_CLUSTER_THRESHOLD,
     top_k_exclude: int = DEFAULT_TOP_K_EXCLUDE,
 ) -> list[StrategyProfileRow]:
-    """Profile every observed fill-strategy operator (design §A4).
+    """Profile every observed fill-strategy operator.
 
     Args:
         strategy_rows: A3's per-anchor fill-strategy output
@@ -93,8 +92,8 @@ def compute_strategy_profile(
             (module docstring: neither ``StrategyProfileRow`` nor
             ``RankCorrelationRow`` carries a metric axis).
         cluster_threshold: Minimum signed correlation for two ops to be
-            connected in the empirical grouping graph (design §A4 "단순
-            임계 기반 connected components").
+            connected in the empirical grouping graph (simple
+            threshold-based connected components).
         top_k_exclude: Number of an op's own highest-value contributing
             anchors excluded from ``mean_degradation_excl_top`` (same
             top-k-exclusion idea A3(c) uses for ``spearman_excl_top1``).
@@ -183,7 +182,7 @@ def _correlation_lookup(
     field specifically because a single dominant signal shared by every
     operator mechanically pulls the plain correlation toward +1, so the
     excl_top1 value is the more honest measure of true behavioral
-    similarity between two operators (design §A4).
+    similarity between two operators.
     """
 
     lookup: dict[tuple[str, str], float | None] = {}
@@ -212,8 +211,8 @@ def _cluster_ops(
 
     Uses the *signed* value, not its magnitude: a strong negative
     correlation means two operators respond in opposite directions, not
-    that they behave similarly (design §A4 -- L3's blur vs constant_fill,
-    -0.843, is exactly this case). Every op gets an integer cluster_id, even
+    that they behave similarly (L3's blur vs constant_fill, -0.843, is
+    exactly this case). Every op gets an integer cluster_id, even
     an isolated one with no qualifying edges (its own singleton cluster) --
     ``None`` is reserved for "too few ops to cluster at all"
     (``StrategyProfileRow`` docstring), not "clustered alone".
@@ -286,7 +285,7 @@ def _alignment(
     declared_group_by_op: dict[str, bool],
     cluster_id_by_op: dict[str, int | None],
 ) -> Alignment:
-    """Jaccard-compare op's declared group against its empirical cluster (design §A4)."""
+    """Jaccard-compare op's declared group against its empirical cluster."""
 
     declared = {other for other in ops if declared_group_by_op[other] == declared_group_by_op[op]}
     this_cluster = cluster_id_by_op.get(op)

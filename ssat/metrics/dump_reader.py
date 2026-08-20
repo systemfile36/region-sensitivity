@@ -4,8 +4,7 @@
 contract between the core and everything downstream. This module is the
 *only* place in the metrics engine that imports ``ssat.core.dump`` — every
 other metrics module consumes the ``JoinedFrame``/``summary()`` output of
-:class:`DumpHandle` instead (design METRIC_ENGINE_DESIGN_v1.md §N0,
-IMPLE_PLAN_METRIC_DESIGN_v1.md §3.1).
+:class:`DumpHandle` instead.
 """
 
 from __future__ import annotations
@@ -23,9 +22,8 @@ from ssat.metrics.errors import MetricsCorruptionError
 JoinedFrame: TypeAlias = pd.DataFrame
 """Item-grain frame combining each perturbed item with its clean sample.
 
-Columns (design §N0, plus ``region_id``/``region_instance_id`` needed by
-later Aggregator/DebugViz stages to identify and re-resolve a concrete
-region):
+Columns (plus ``region_id``/``region_instance_id`` needed by later
+Aggregator/DebugViz stages to identify and re-resolve a concrete region):
 ``item_id``, ``sample_id``, ``gt_label``, ``region_id``,
 ``region_instance_id``, ``region_kind``, ``region_params_json``,
 ``intended_area_px``, ``effective_area_px``, ``effective_area_available``,
@@ -35,11 +33,10 @@ region):
 
 Only items whose sample's clean status is ``ok`` are present. Samples whose
 clean status is not ``ok`` are excluded entirely and reported through
-:meth:`DumpHandle.summary` instead of appearing here (design §N0 status
-table, row "clean≠ok"). Items whose *perturbed* status is not ``ok`` remain
-present with ``logits_perturbed=None`` — later metric computation is
-responsible for treating them as unavailable (design §N0 status table, row
-"clean=ok, perturbed≠ok").
+:meth:`DumpHandle.summary` instead of appearing here. Items whose
+*perturbed* status is not ``ok`` remain present with
+``logits_perturbed=None`` — later metric computation is responsible for
+treating them as unavailable.
 """
 
 _JOINED_COLUMNS = [
@@ -116,8 +113,7 @@ class DumpHandle:
 
         Raises:
             MetricsCorruptionError: If a perturbed item references a
-                sample_id absent from the clean data entirely (design §N0
-                status table, row "clean 레코드 없음").
+                sample_id absent from the clean data entirely.
         """
 
         clean_df = self.clean()
@@ -215,10 +211,9 @@ def coerce_nullable_int(value: object) -> int | None:
     here — rather than duplicated per call site — because both N2
     (``MetricRegistry.compute_item_metrics``'s ``gt_label``) and N3
     (``aggregate._build_context``'s ``gt_label``) need the exact same
-    coercion for the exact same column (design METRIC_ENGINE_DESIGN_v1.md's
-    "결측을 조용히 버리지 않는다" principle applied here: a naive cast would
-    crash the entire run instead of letting a caller decide how to record
-    the exclusion).
+    coercion for the exact same column: missing values must never be
+    silently dropped, and a naive cast would crash the entire run instead of
+    letting a caller decide how to record the exclusion.
 
     Args:
         value: One cell read from a ``JoinedFrame`` int64 column, e.g. via

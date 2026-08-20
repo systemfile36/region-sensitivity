@@ -1,10 +1,9 @@
-"""Unit tests for ssat.report.exporter's R1 JSON/CSV export (design §R1).
+"""Unit tests for ssat.report.exporter's R1 JSON/CSV export.
 
 Builds small, hand-constructed ``ReportModel``/``SampleCard`` fixtures
 directly — no dump/metrics/analysis pipeline is needed since :func:`export`
 only ever reads what :class:`AssembledReportLike` already carries in memory
-(IMPLE_PLAN_REPORTING_v1.md §5 단계 3's work is pure serialization, not a new
-join/aggregation policy).
+(this stage's work is pure serialization, not a new join/aggregation policy).
 """
 
 from __future__ import annotations
@@ -165,7 +164,7 @@ def _report_model(
             spatial_entropy=0.9,
             n_scored_samples=len(full_sample_ids),
         ),
-        # Defaults to the §1 격차#6 graceful-degradation marker (empty
+        # Defaults to the graceful-degradation marker (empty
         # tuples); tests exercising semantic_summary.csv/
         # class_semantic_matrix.csv pass populated tuples via the
         # semantic_summary/class_semantic_matrix parameters instead.
@@ -205,7 +204,7 @@ def _assembled_report(
         class_semantic_matrix=class_semantic_matrix,
     )
     # full_sample_rankings intentionally outnumbers model.sample_rankings — the
-    # whole reason it exists (§1 격차#5) — so tests can tell "full population"
+    # whole reason it exists — so tests can tell "full population"
     # apart from "top-K/bottom-K only" if the exporter accidentally conflates them.
     full_rankings = tuple(
         _sample_card(
@@ -289,8 +288,7 @@ def test_sample_rankings_csv_nested_fields_survive_as_json_columns(tmp_path: Pat
 
 
 def test_sample_rankings_csv_semantic_degradation_json_groups_by_sample(tmp_path: Path) -> None:
-    # IMPLE_PLAN_SEMANTIC_VULNERABILITY_v1.md §3.5: this column is
-    # report.labels's disk source for AssembledReport.sample_semantic_
+    # This column is report.labels's disk source for AssembledReport.sample_semantic_
     # degradation, so it must group strictly by sample_id -- s0's pairs must
     # never leak into s1's cell.
     assembled = _assembled_report(
@@ -388,7 +386,7 @@ def test_region_summary_csv_empty_distribution_yields_zero_counts(tmp_path: Path
     assert row["high_count"] == row["moderate_count"] == row["low_count"] == row["unreliable_count"] == "0"
 
 
-# --- semantic_summary.csv / class_semantic_matrix.csv (§3.4) --------------------
+# --- semantic_summary.csv / class_semantic_matrix.csv --------------------------
 
 
 def test_semantic_summary_csv_flattens_region_ids_with_semicolons(tmp_path: Path) -> None:
@@ -444,8 +442,8 @@ def test_class_semantic_matrix_csv_reproduces_foot_action_class_pattern(tmp_path
     by_key = {(row["gt_label"], row["semantic_group"]): row for row in rows}
     assert by_key[("0", "lower_limb")]["mean_degradation"] == "0.85"
     assert by_key[("1", "upper_limb")]["mean_degradation"] == "0.65"
-    # flip_rate is always None for this plan (IMPLE_PLAN_SEMANTIC_VULNERABILITY_v1.md
-    # §1 격차#3(b) — no (gt_label × semantic_group)-grain flip signal in N3).
+    # flip_rate is always None here -- no (gt_label × semantic_group)-grain
+    # flip signal in N3.
     assert all(row["flip_rate"] == "" for row in rows)
 
 
@@ -535,7 +533,7 @@ def test_export_returns_paths_inside_output_dir(tmp_path: Path) -> None:
         assert path.is_file()
 
 
-# --- structural typing (§3.3 "report.exporter → report.types, ssat.utils" only) -----
+# --- structural typing ("report.exporter → report.types, ssat.utils" only) -----
 
 
 class _DuckTypedAssembledReport:
@@ -557,7 +555,7 @@ def test_export_accepts_any_structurally_matching_object(tmp_path: Path) -> None
 
 
 def test_report_exporter_module_has_no_assembler_metrics_or_analysis_imports() -> None:
-    """Statically enforce §3.3: report.exporter → report.types, ssat.utils (no report.assembler)."""
+    """Statically enforce report.exporter → report.types, ssat.utils (no report.assembler)."""
 
     source_path = Path(__file__).resolve().parents[2] / "ssat" / "report" / "exporter.py"
     tree = ast.parse(source_path.read_text(encoding="utf-8"))

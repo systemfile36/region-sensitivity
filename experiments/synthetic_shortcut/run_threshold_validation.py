@@ -4,19 +4,18 @@
 Replaced by run_threshold_validation_full.py, which covers everything this
 script does plus crop-free preprocessing and all five fill strategies
 instead of just constant_fill (see that script's module docstring for the
-two concrete reasons). docs/RELIABILITY_THRESHOLD_CALIBRATION_v1.md, the
-current reliability-threshold report, cites only the ``_full`` run's output.
-This script is kept only so the prior (provisional) numbers it produced
-remain reproducible for historical comparison -- see
-experiments/synthetic_shortcut/README.md's script inventory.
+two concrete reasons). The current reliability-threshold report cites only
+the ``_full`` run's output. This script is kept only so the prior
+(provisional) numbers it produced remain reproducible for historical
+comparison -- see experiments/synthetic_shortcut/README.md's script
+inventory.
 
 Produce one extra L3 synthetic-shortcut run with control regions and
 multiple seeds, to validate ssat.analysis's z_vs_control_threshold /
 seed_cv_threshold defaults (2.0 / 0.2) -- something the five existing
 shortcut_A_* runs cannot do, since run_audit.py's config has no ``controls``
-entry and uses a single ``seed_salt`` (IMPLE_PLAN_CONTROL_STABILITY_v1.md §5
-단계9 follow-up to docs/L3_Synthetic-Shortcut Experiment Report.md, whose
-dataset answered Q1-Q5 with no control/seed axis at all).
+entry and uses a single ``seed_salt`` (a follow-up to the original L3
+dataset, which answered Q1-Q5 with no control/seed axis at all).
 
 Deliberately NOT added to run_audit.py's RUN_SPECS/_build_audit_config:
 run_audit.py's own docstring documents "exactly seven combinations are
