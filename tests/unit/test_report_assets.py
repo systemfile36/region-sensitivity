@@ -26,7 +26,7 @@ from synthetic_dump_builder import (
     write_dump,
 )
 
-from ssat.core.config.schema import ResolvedRegionConfig
+from ssat.core.config.schema import ResolvedRegionConfig, SourceProvenance
 from ssat.core.types import RegionKind
 from ssat.metrics.builtin_metrics.continuous import GtLogitDrop
 from ssat.metrics.registry import MetricRegistry
@@ -38,6 +38,7 @@ from ssat.report.assets import (
     apply_asset_manifest,
     link_assets,
 )
+from ssat.utils.io import sha256_file
 
 _METRIC_NAME = "gt_logit_drop"
 _CLEAN_GT_LOGIT = 10.0
@@ -64,11 +65,38 @@ def _registry() -> MetricRegistry:
 
 
 def _build_dump_and_metrics(
-    tmp_path: Path, *, include_bad_sample: bool, with_images: bool = True
+    tmp_path: Path,
+    *,
+    include_bad_sample: bool,
+    with_images: bool = True,
+    imagenet_source: bool = False,
 ) -> tuple[Path, Path]:
-    source_provenance = (
-        image_manifest_source_provenance(_FIXTURE_MANIFEST) if with_images else None
-    )
+    sample_degradations = dict(_GOOD_SAMPLES)
+    if include_bad_sample:
+        sample_degradations[_BAD_SAMPLE] = _BAD_DEGRADATION
+
+    if imagenet_source:
+        image_root = tmp_path / "imagenet_images"
+        image_root.mkdir()
+        annotation_file = tmp_path / "imagenet.txt"
+        annotation_lines = []
+        for index, sample_id in enumerate(sample_degradations):
+            shutil.copyfile(
+                _FIXTURE_ROOT / "images" / f"sample_{index:03d}.png",
+                image_root / sample_id,
+            )
+            annotation_lines.append(f"{sample_id} 0")
+        annotation_file.write_text("\n".join(annotation_lines) + "\n", encoding="utf-8")
+        source_provenance = SourceProvenance(
+            kind="imagenet",
+            manifest=annotation_file.resolve(),
+            manifest_hash=sha256_file(annotation_file),
+            loader_parameters={"root": str(image_root.resolve())},
+        )
+    else:
+        source_provenance = (
+            image_manifest_source_provenance(_FIXTURE_MANIFEST) if with_images else None
+        )
     config = build_resolved_config(
         tmp_path,
         regions=(
@@ -77,10 +105,6 @@ def _build_dump_and_metrics(
         ),
         source_provenance=source_provenance,
     )
-
-    sample_degradations = dict(_GOOD_SAMPLES)
-    if include_bad_sample:
-        sample_degradations[_BAD_SAMPLE] = _BAD_DEGRADATION
 
     clean_records = tuple(
         clean_record(sample_id, logits=np.array([_CLEAN_GT_LOGIT, 0.0]), gt_label=0)
@@ -160,6 +184,29 @@ def test_link_assets_writes_one_png_pair_per_gallery_sample(tmp_path: Path) -> N
     one_thumbnail = output_dir / next(iter(manifest.thumbnail_refs.values()))
     with Image.open(one_thumbnail) as image:
         assert image.size == (64, 64)
+
+
+def test_link_assets_supports_imagenet_file_list_source(tmp_path: Path) -> None:
+    dump_root, metrics_dir = _build_dump_and_metrics(
+        tmp_path,
+        include_bad_sample=False,
+        imagenet_source=True,
+    )
+    assembled = _assemble(dump_root, metrics_dir, top_k=1, bottom_k=1)
+    output_dir = tmp_path / "report"
+
+    manifest = link_assets(
+        assembled,
+        dump_root,
+        metrics_dir,
+        output_dir,
+        primary_metric=_METRIC_NAME,
+    )
+
+    gallery_ids = _gallery_ids(assembled)
+    assert manifest.assets_available is True
+    assert set(manifest.heatmap_refs) == gallery_ids
+    assert set(manifest.thumbnail_refs) == gallery_ids
 
 
 def test_link_assets_isolates_debug_viz_error_to_one_sample(tmp_path: Path) -> None:

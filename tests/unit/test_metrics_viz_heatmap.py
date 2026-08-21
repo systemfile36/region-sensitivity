@@ -17,7 +17,7 @@ from synthetic_dump_builder import (
     write_dump,
 )
 
-from ssat.core.config.schema import ResolvedRegionConfig
+from ssat.core.config.schema import ResolvedRegionConfig, SourceProvenance
 from ssat.core.source import ImageFolderSource
 from ssat.core.source.types import SampleMeta
 from ssat.core.types import RegionKind
@@ -96,6 +96,49 @@ def _build_grid_metrics(tmp_path: Path, *, sample_id: str = "synthetic-000") -> 
         dump_root, config, metrics_dir, registry=_registry(), primary_metric=_METRIC_NAME
     )
     return dump_root, metrics_dir
+
+
+def _build_imagenet_dump(tmp_path: Path, *, legacy_provenance: bool) -> Path:
+    """Write a dump whose source uses the ImageNet text-file-list format."""
+
+    annotation_file = tmp_path / "imagenet.txt"
+    annotation_file.write_text("images/sample_000.png 0\n", encoding="utf-8")
+    loader_parameters = {} if legacy_provenance else {"root": str(_FIXTURE_ROOT)}
+    provenance = SourceProvenance(
+        kind="imagenet",
+        manifest=annotation_file.resolve(),
+        manifest_hash=sha256_file(annotation_file),
+        loader_parameters=loader_parameters,
+    )
+    config = build_resolved_config(
+        tmp_path,
+        regions=_GRID_REGIONS,
+        source_provenance=provenance,
+    )
+    if legacy_provenance:
+        config_source = tmp_path / "audit.yaml"
+        config_source.write_text(
+            json.dumps(
+                {
+                    "source": {
+                        "kind": "imagenet",
+                        "root": str(_FIXTURE_ROOT),
+                        "annotation_file": str(annotation_file),
+                    }
+                }
+            ),
+            encoding="utf-8",
+        )
+        config = config.model_copy(update={"config_source": config_source.resolve()})
+
+    dump_root = tmp_path / "dump"
+    write_dump(
+        dump_root,
+        config,
+        clean_records=(clean_record("images/sample_000.png", logits=_CLEAN_LOGITS),),
+        perturbed_records=(),
+    )
+    return dump_root
 
 
 def test_resolved_heatmap_matches_grid_coordinates_and_degradation_order(tmp_path: Path) -> None:
@@ -189,3 +232,21 @@ def test_open_image_source_used_by_save_heatmap_views_matches_fixture(tmp_path: 
     source = open_image_source(dump_root)
     loaded = source.load("synthetic-000")
     assert loaded.original_shape == (1, 64, 64, 3)
+
+
+def test_open_image_source_supports_imagenet_file_list(tmp_path: Path) -> None:
+    dump_root = _build_imagenet_dump(tmp_path, legacy_provenance=False)
+
+    loaded = open_image_source(dump_root).load("images/sample_000.png")
+
+    assert loaded.original_shape == (1, 64, 64, 3)
+    assert loaded.gt_label == 0
+
+
+def test_open_image_source_supports_legacy_imagenet_provenance(tmp_path: Path) -> None:
+    dump_root = _build_imagenet_dump(tmp_path, legacy_provenance=True)
+
+    loaded = open_image_source(dump_root).load("images/sample_000.png")
+
+    assert loaded.original_shape == (1, 64, 64, 3)
+    assert loaded.gt_label == 0

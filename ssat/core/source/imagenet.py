@@ -71,6 +71,7 @@ class ImageNetSourceProvider(SourceProvider):
             kind=config.kind,
             manifest=annotation_path,
             manifest_hash=sha256_file(annotation_path),
+            loader_parameters={"root": str(root)},
         )
         return ImageFolderSource(samples), provenance
 

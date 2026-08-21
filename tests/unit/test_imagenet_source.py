@@ -54,6 +54,7 @@ def test_builds_source_from_synset_style_tree_and_file_list(tmp_path: Path) -> N
     assert provenance.kind == "imagenet"
     assert provenance.manifest == annotation_file.resolve()
     assert len(provenance.manifest_hash) == 64
+    assert provenance.loader_parameters == {"root": str(root.resolve())}
 
     samples = {sample.sample_id: sample for sample in source.list_samples()}
     assert set(samples) == {"n01440764/a.png", "n02391049/b.png"}
