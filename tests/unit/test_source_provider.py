@@ -72,7 +72,25 @@ def test_default_registry_builds_video_manifest_source(tmp_path: Path) -> None:
     assert provenance.kind == "video_manifest"
     assert provenance.manifest == _VIDEO_MANIFEST.resolve()
     assert len(provenance.manifest_hash) == 64
+    assert provenance.loader_parameters == {"num_frames": 4, "sampling": "uniform"}
     assert len(source.list_samples()) > 0
+
+
+def test_video_provider_records_segment_center_sampling(tmp_path: Path) -> None:
+    registry = default_source_provider_registry()
+    config = registry.parse(
+        {
+            "kind": "video_manifest",
+            "manifest": str(_VIDEO_MANIFEST),
+            "num_frames": 8,
+            "sampling": "segment_center",
+        }
+    )
+    _source, provenance = registry.build(config, base_dir=tmp_path)
+    assert provenance.loader_parameters == {
+        "num_frames": 8,
+        "sampling": "segment_center",
+    }
 
 
 def test_custom_provider_requires_explicit_registration() -> None:

@@ -16,7 +16,11 @@ from ssat.core.source.provider import (
     default_source_provider_registry,
 )
 from ssat.core.source.types import LoadError, LoadedSample, SampleMeta
-from ssat.core.source.video_folder import VideoFolderSource
+from ssat.core.source.video_folder import (
+    VideoFolderSource,
+    segment_center_frame_indices,
+    uniform_frame_indices,
+)
 
 __all__ = [
     "ImageFolderSource",
@@ -38,4 +42,6 @@ __all__ = [
     "VideoManifestProvider",
     "VideoManifestSourceConfig",
     "default_source_provider_registry",
+    "segment_center_frame_indices",
+    "uniform_frame_indices",
 ]

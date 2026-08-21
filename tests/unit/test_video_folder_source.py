@@ -9,7 +9,10 @@ import numpy as np
 import pytest
 
 from ssat.core.source import LoadError, LoadedSample, SampleMeta, VideoFolderSource
-from ssat.core.source.video_folder import uniform_frame_indices
+from ssat.core.source.video_folder import (
+    segment_center_frame_indices,
+    uniform_frame_indices,
+)
 from ssat.utils.io import sha256_file
 
 # 48 triggers a known decord/mp4v get_batch size-mismatch quirk; keep clips tiny
@@ -42,6 +45,16 @@ def test_uniform_frame_indices_spacing_and_validation() -> None:
         uniform_frame_indices(4, 0)
 
 
+def test_segment_center_indices_match_mmaction2_test_sampling() -> None:
+    assert list(segment_center_frame_indices(10, 4)) == [1, 3, 6, 8]
+    assert list(segment_center_frame_indices(3, 5)) == [0, 0, 1, 2, 2]
+    assert list(segment_center_frame_indices(16, 8)) == [1, 3, 5, 7, 9, 11, 13, 15]
+    with pytest.raises(ValueError, match="frame_count"):
+        segment_center_frame_indices(0, 8)
+    with pytest.raises(ValueError, match="num_frames"):
+        segment_center_frame_indices(8, 0)
+
+
 def test_lists_metadata_without_loading_and_rejects_duplicates(tmp_path: Path) -> None:
     """The source preserves its explicit catalog and enforces unique IDs."""
 
@@ -53,6 +66,8 @@ def test_lists_metadata_without_loading_and_rejects_duplicates(tmp_path: Path) -
         VideoFolderSource((sample, sample), num_frames=4)
     with pytest.raises(TypeError, match="SampleMeta"):
         VideoFolderSource((sample, object()), num_frames=4)  # type: ignore[arg-type]
+    with pytest.raises(ValueError, match="sampling"):
+        VideoFolderSource((sample,), num_frames=4, sampling="random")  # type: ignore[arg-type]
 
 
 @pytest.mark.parametrize("num_frames", [0, -1, True])

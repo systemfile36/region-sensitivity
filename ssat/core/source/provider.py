@@ -51,11 +51,12 @@ class ImageManifestSourceConfig(SourceProviderConfig):
 
 
 class VideoManifestSourceConfig(SourceProviderConfig):
-    """Configure a decord-backed video source with uniform frame sampling."""
+    """Configure a decord-backed video source with deterministic sampling."""
 
     kind: Literal["video_manifest"] = "video_manifest"
     manifest: Path
     num_frames: int = Field(default=16, gt=0)
+    sampling: Literal["uniform", "segment_center"] = "uniform"
 
 
 class _ManifestSample(BaseModel):
@@ -148,8 +149,16 @@ class VideoManifestProvider(SourceProvider):
             kind=config.kind,
             manifest=manifest_path,
             manifest_hash=sha256_file(manifest_path),
+            loader_parameters={
+                "num_frames": config.num_frames,
+                "sampling": config.sampling,
+            },
         )
-        return VideoFolderSource(samples, num_frames=config.num_frames), provenance
+        return VideoFolderSource(
+            samples,
+            num_frames=config.num_frames,
+            sampling=config.sampling,
+        ), provenance
 
 
 class SourceProviderRegistry:

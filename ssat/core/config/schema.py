@@ -181,12 +181,21 @@ class SourceProvenance(FrozenModel):
     kind: str
     manifest: Path
     manifest_hash: str = Field(pattern=r"^[0-9a-f]{64}$")
+    loader_parameters: dict[str, Any] = Field(default_factory=dict)
 
     @field_validator("manifest")
     @classmethod
     def validate_manifest(cls, value: Path) -> Path:
         if not value.is_absolute():
             raise ValueError("source manifest must be absolute")
+        return value
+
+    @field_validator("loader_parameters")
+    @classmethod
+    def validate_loader_parameters(cls, value: dict[str, Any]) -> dict[str, Any]:
+        """Keep source loader identity canonical and manifest-safe."""
+
+        validate_json_value(value)
         return value
 
 
