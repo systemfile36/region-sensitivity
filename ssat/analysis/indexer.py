@@ -135,6 +135,31 @@ class ComparisonIndexer:
         return self._index
 
 
+def _region_key_column(df: pd.DataFrame) -> pd.Series:
+    """Vectorized form of ``AnchorKey.region_key``'s ``f"{region_id}::{region_instance_id}"`` formula.
+
+    Duplicated per module rather than extracted into a shared helper, the
+    same trade-off ``AnchorKey.region_key`` already documents for the
+    scalar formula (``ssat.analysis.types``).
+    """
+
+    return df["region_id"].astype(str) + "::" + df["region_instance_id"].astype(str)
+
+
+def _perturb_params_hash_column(df: pd.DataFrame) -> pd.Series:
+    """Vectorized form of ``ConditionKey.perturb_params_hash``.
+
+    ``perturb_params_json`` takes only a handful of distinct values across
+    an entire frame (one per configured (op, params) combination actually
+    run), so this hashes each distinct value once via ``.map()`` instead of
+    calling ``sha256_bytes`` once per row.
+    """
+
+    distinct = df["perturb_params_json"].unique()
+    hash_by_json = {value: sha256_bytes(value.encode("utf-8")) for value in distinct}
+    return df["perturb_params_json"].map(hash_by_json)
+
+
 def _build_anchor_table(
     context: pd.DataFrame,
 ) -> tuple[list[AnchorRow], dict[AnchorKey, AnchorRow], dict[AnchorKey, list[Any]]]:
@@ -149,12 +174,24 @@ def _build_anchor_table(
             sample, or if one anchor's rows disagree on ``is_control``.
     """
 
+    # region_key/perturb_params_hash computed once as vectorized columns
+    # (rather than per row below) since perturb_params_json only takes a
+    # handful of distinct values across the whole frame -- sha256_bytes is
+    # then called once per distinct value, not once per row. The geometry
+    # conflict check below still runs row-by-row in frame order (it raises
+    # on the first conflicting row it sees, with a message naming that
+    # row's own values), so that sequencing is deliberately left alone.
+    context = context.assign(
+        region_key_col=_region_key_column(context),
+        perturb_params_hash_col=_perturb_params_hash_column(context),
+    )
+
     kind_by_region: dict[str, str] = {}
     area_by_region: dict[tuple[str, str], tuple[int | None, int | None]] = {}
     rows_by_anchor: dict[AnchorKey, list[Any]] = defaultdict(list)
 
     for row in context.itertuples(index=False):
-        region_key = f"{row.region_id}::{row.region_instance_id}"
+        region_key = row.region_key_col
         _check_region_geometry(
             kind_by_region,
             area_by_region,
@@ -183,7 +220,7 @@ def _build_anchor_table(
             {
                 ConditionKey(
                     perturb_op=row.perturb_op,
-                    perturb_params_hash=sha256_bytes(row.perturb_params_json.encode("utf-8")),
+                    perturb_params_hash=row.perturb_params_hash_col,
                 )
                 for row in rows
             },
@@ -336,7 +373,7 @@ def _match_controls(
         for row in rows:
             condition_key = ConditionKey(
                 perturb_op=row.perturb_op,
-                perturb_params_hash=sha256_bytes(row.perturb_params_json.encode("utf-8")),
+                perturb_params_hash=row.perturb_params_hash_col,
             )
             rows_by_condition[condition_key].append(row)
 

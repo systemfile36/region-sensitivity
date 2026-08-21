@@ -26,12 +26,11 @@ failures.
 
 from __future__ import annotations
 
-from collections import Counter
 from pathlib import Path
 
 import pandas as pd
 
-from ssat.analysis.types import AnchorKey, AvailableAnalyses, ConditionKey
+from ssat.analysis.types import AvailableAnalyses
 from ssat.metrics.aggregate import AggregationResult
 from ssat.metrics.dump_reader import DumpHandle
 from ssat.metrics.store import MetricsManifest, load_metrics, verify_source_dump
@@ -167,18 +166,49 @@ def _has_repeated_condition_group(context: pd.DataFrame) -> bool:
     fixed; ``analysis.indexer`` will compute the same values again for its
     own AnchorTable/ConditionKey construction, matching the intentional
     ``region_key``-format duplication already documented on ``AnchorKey``.
+
+    Grouped with pandas rather than a per-row Python loop: the only
+    observable output is a single bool, so no ``AnchorKey``/``ConditionKey``
+    objects need to be constructed at all -- this groups directly on the
+    underlying string/hash columns.
     """
 
-    counts: Counter[tuple[AnchorKey, ConditionKey]] = Counter()
-    for row in context.itertuples(index=False):
-        anchor = AnchorKey(
-            sample_id=row.sample_id,
-            region_key=f"{row.region_id}::{row.region_instance_id}",
-            invert_mask=bool(row.invert_mask),
-        )
-        condition = ConditionKey(
-            perturb_op=row.perturb_op,
-            perturb_params_hash=sha256_bytes(row.perturb_params_json.encode("utf-8")),
-        )
-        counts[(anchor, condition)] += 1
-    return any(count >= 2 for count in counts.values())
+    keyed = pd.DataFrame(
+        {
+            "sample_id": context["sample_id"],
+            "region_key": _region_key_column(context),
+            "invert_mask": context["invert_mask"],
+            "perturb_op": context["perturb_op"],
+            "perturb_params_hash": _perturb_params_hash_column(context),
+        }
+    )
+    counts = keyed.groupby(
+        ["sample_id", "region_key", "invert_mask", "perturb_op", "perturb_params_hash"],
+        sort=False,
+    ).size()
+    return bool((counts >= 2).any())
+
+
+def _region_key_column(df: pd.DataFrame) -> pd.Series:
+    """Vectorized form of ``AnchorKey.region_key``'s ``f"{region_id}::{region_instance_id}"`` formula.
+
+    Duplicated per module rather than extracted into a shared helper, the
+    same trade-off ``AnchorKey.region_key`` already documents for the
+    scalar formula (``ssat.analysis.types``).
+    """
+
+    return df["region_id"].astype(str) + "::" + df["region_instance_id"].astype(str)
+
+
+def _perturb_params_hash_column(df: pd.DataFrame) -> pd.Series:
+    """Vectorized form of ``ConditionKey.perturb_params_hash``.
+
+    ``perturb_params_json`` takes only a handful of distinct values across
+    an entire frame (one per configured (op, params) combination actually
+    run), so this hashes each distinct value once via ``.map()`` instead of
+    calling ``sha256_bytes`` once per row.
+    """
+
+    distinct = df["perturb_params_json"].unique()
+    hash_by_json = {value: sha256_bytes(value.encode("utf-8")) for value in distinct}
+    return df["perturb_params_json"].map(hash_by_json)

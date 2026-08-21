@@ -120,9 +120,23 @@ def _per_sample_region_metric_means(
     if metric_names is not None:
         available = available[available["metric_name"].isin(metric_names)]
 
-    raw: dict[tuple[str, str, str], list[float]] = defaultdict(list)
-    for row in available.itertuples(index=False):
-        region_key = f"{row.region_id}::{row.region_instance_id}"
-        raw[(row.sample_id, region_key, row.metric_name)].append(float(row.degradation))
+    if available.empty:
+        return {}
 
-    return {key: float(np.mean(values)) for key, values in raw.items()}
+    region_key = _region_key_column(available)
+    grouped = available.assign(region_key=region_key).groupby(
+        ["sample_id", "region_key", "metric_name"], sort=False
+    )["degradation"].mean()
+
+    return {key: float(value) for key, value in grouped.items()}
+
+
+def _region_key_column(df: pd.DataFrame) -> pd.Series:
+    """Vectorized form of ``AnchorKey.region_key``'s ``f"{region_id}::{region_instance_id}"`` formula.
+
+    Duplicated per module rather than extracted into a shared helper, the
+    same trade-off ``AnchorKey.region_key`` already documents for the
+    scalar formula (``ssat.analysis.types``).
+    """
+
+    return df["region_id"].astype(str) + "::" + df["region_instance_id"].astype(str)

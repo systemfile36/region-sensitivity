@@ -19,7 +19,7 @@ well. ``compare_to_controls`` therefore depends only on
 from __future__ import annotations
 
 from collections import defaultdict
-from typing import Any, Sequence
+from typing import Sequence
 
 import numpy as np
 import pandas as pd
@@ -219,36 +219,83 @@ def _anchor_level_means(
     repeats sharing one ``ConditionKey`` (seed is deliberately excluded
     from ``ConditionKey``) collapse to a single anchor-level value before
     any control/target comparison happens.
+
+    Grouped with pandas rather than a per-row Python loop: ``item_values``
+    can run into the tens of millions of rows for a real dataset, so
+    ``AnchorKey``/``ConditionKey`` objects are only constructed once per
+    grouped result (anchors x conditions x metrics), not once per raw row.
     """
 
-    raw_values: dict[tuple[AnchorKey, ConditionKey, str], list[float]] = defaultdict(list)
-    is_control_by_anchor: dict[AnchorKey, bool] = {}
+    df = item_values.assign(
+        region_key=_region_key_column(item_values),
+        perturb_params_hash=_perturb_params_hash_column(item_values),
+    )
 
-    for row in item_values.itertuples(index=False):
-        anchor_key = _anchor_key(row)
-        is_control_by_anchor.setdefault(anchor_key, bool(row.is_control))
-        if not row.available:
-            continue
-        condition_key = _condition_key(row)
-        raw_values[(anchor_key, condition_key, row.metric_name)].append(float(row.degradation))
+    # .first() takes the first row's value per group in frame order, same
+    # as the previous itertuples + dict.setdefault behavior.
+    is_control_by_group = df.groupby(
+        ["sample_id", "region_key", "invert_mask"], sort=False
+    )["is_control"].first()
+    is_control_by_anchor = {
+        AnchorKey(sample_id=sample_id, region_key=region_key, invert_mask=bool(invert_mask)): bool(
+            is_control
+        )
+        for (sample_id, region_key, invert_mask), is_control in is_control_by_group.items()
+    }
 
-    means = {key: float(np.mean(values)) for key, values in raw_values.items()}
+    available = df[df["available"]]
+    grouped_means = available.groupby(
+        [
+            "sample_id",
+            "region_key",
+            "invert_mask",
+            "perturb_op",
+            "perturb_params_hash",
+            "metric_name",
+        ],
+        sort=False,
+    )["degradation"].mean()
+
+    means: dict[tuple[AnchorKey, ConditionKey, str], float] = {}
+    for (
+        sample_id,
+        region_key,
+        invert_mask,
+        perturb_op,
+        perturb_params_hash,
+        metric_name,
+    ), value in grouped_means.items():
+        anchor_key = AnchorKey(
+            sample_id=sample_id, region_key=region_key, invert_mask=bool(invert_mask)
+        )
+        condition_key = ConditionKey(
+            perturb_op=perturb_op, perturb_params_hash=perturb_params_hash
+        )
+        means[(anchor_key, condition_key, metric_name)] = float(value)
+
     return means, is_control_by_anchor
 
 
-def _anchor_key(row: Any) -> AnchorKey:
-    """Reconstruct one item row's AnchorKey (same formula as A1's indexer)."""
+def _region_key_column(df: pd.DataFrame) -> pd.Series:
+    """Vectorized form of ``AnchorKey.region_key``'s ``f"{region_id}::{region_instance_id}"`` formula.
 
-    region_key = f"{row.region_id}::{row.region_instance_id}"
-    return AnchorKey(
-        sample_id=row.sample_id, region_key=region_key, invert_mask=bool(row.invert_mask)
-    )
+    Duplicated per module rather than extracted into a shared helper, the
+    same trade-off ``AnchorKey.region_key`` already documents for the
+    scalar formula (``ssat.analysis.types``).
+    """
+
+    return df["region_id"].astype(str) + "::" + df["region_instance_id"].astype(str)
 
 
-def _condition_key(row: Any) -> ConditionKey:
-    """Reconstruct one item row's ConditionKey (same formula as A1's indexer)."""
+def _perturb_params_hash_column(df: pd.DataFrame) -> pd.Series:
+    """Vectorized form of ``ConditionKey.perturb_params_hash``.
 
-    return ConditionKey(
-        perturb_op=row.perturb_op,
-        perturb_params_hash=sha256_bytes(row.perturb_params_json.encode("utf-8")),
-    )
+    ``perturb_params_json`` takes only a handful of distinct values across
+    an entire frame (one per configured (op, params) combination actually
+    run), so this hashes each distinct value once via ``.map()`` instead of
+    calling ``sha256_bytes`` once per row.
+    """
+
+    distinct = df["perturb_params_json"].unique()
+    hash_by_json = {value: sha256_bytes(value.encode("utf-8")) for value in distinct}
+    return df["perturb_params_json"].map(hash_by_json)

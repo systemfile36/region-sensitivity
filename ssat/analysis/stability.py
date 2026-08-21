@@ -36,7 +36,7 @@ module already accepts for ``region_key``/``ConditionKey`` formulas.
 from __future__ import annotations
 
 from collections import Counter, defaultdict
-from typing import Any, Sequence
+from typing import Sequence
 
 import numpy as np
 import pandas as pd
@@ -93,16 +93,14 @@ def compute_seed_stability(
     candidate_metric_names = (
         set(metric_names) if metric_names is not None else set(item_values["metric_name"])
     )
-    raw_values = _raw_values_by_anchor_condition_metric(item_values)
+    stats, _ = _condition_level_stats(item_values)
 
     rows: list[SeedStabilityRow] = []
-    for (anchor_key, condition_key, metric_name), values in raw_values.items():
+    for (anchor_key, condition_key, metric_name), (n_seeds, seed_mean, population_std) in stats.items():
         if metric_name not in candidate_metric_names:
             continue
-        n_seeds = len(values)
-        seed_mean = float(np.mean(values))
         if n_seeds >= 2:
-            seed_std = float(np.std(values))
+            seed_std = population_std
             seed_cv = (
                 seed_std / abs(seed_mean) if abs(seed_mean) >= cv_zero_threshold else None
             )
@@ -191,22 +189,46 @@ def compute_strategy_stability(
         row with ``spearman=None`` (undefined, not omitted).
     """
 
-    strategy_rows = _per_anchor_strategy_rows(item_values, metric_names=metric_names)
+    # Computed once and handed to both helpers below -- they otherwise each
+    # independently call ``_op_level_anchor_means``, which would re-scan
+    # ``item_values`` a second time now that the scan itself is cheap but
+    # still needless duplicate work.
+    op_means_and_control = _op_level_anchor_means(item_values)
+    strategy_rows = _per_anchor_strategy_rows(
+        item_values, metric_names=metric_names, op_means_and_control=op_means_and_control
+    )
     rank_rows = _rank_correlation_rows(
-        item_values, primary_metric=primary_metric, top_k_exclude=top_k_exclude, scope=scope
+        item_values,
+        primary_metric=primary_metric,
+        top_k_exclude=top_k_exclude,
+        scope=scope,
+        op_means_and_control=op_means_and_control,
     )
     return strategy_rows, rank_rows
 
 
 def _per_anchor_strategy_rows(
-    item_values: pd.DataFrame, *, metric_names: Sequence[str] | None
+    item_values: pd.DataFrame,
+    *,
+    metric_names: Sequence[str] | None,
+    op_means_and_control: (
+        tuple[dict[tuple[AnchorKey, str, str], float], dict[AnchorKey, bool]] | None
+    ) = None,
 ) -> list[StrategyStabilityRow]:
-    """Build one StrategyStabilityRow per (target AnchorKey, metric_name)."""
+    """Build one StrategyStabilityRow per (target AnchorKey, metric_name).
+
+    Args:
+        op_means_and_control: ``_op_level_anchor_means(item_values)``'s
+            result, when the caller (``compute_strategy_stability``) has
+            already computed it and wants to avoid a second pass; computed
+            internally when omitted, so this function stays independently
+            callable/testable.
+    """
 
     candidate_metric_names = (
         set(metric_names) if metric_names is not None else set(item_values["metric_name"])
     )
-    op_means, is_control_by_anchor = _op_level_anchor_means(item_values)
+    op_means, is_control_by_anchor = op_means_and_control or _op_level_anchor_means(item_values)
 
     grouped: dict[tuple[AnchorKey, str], dict[str, float]] = defaultdict(dict)
     for (anchor_key, perturb_op, metric_name), value in op_means.items():
@@ -244,7 +266,14 @@ def _per_anchor_strategy_rows(
 
 
 def _rank_correlation_rows(
-    item_values: pd.DataFrame, *, primary_metric: str, top_k_exclude: int, scope: str
+    item_values: pd.DataFrame,
+    *,
+    primary_metric: str,
+    top_k_exclude: int,
+    scope: str,
+    op_means_and_control: (
+        tuple[dict[tuple[AnchorKey, str, str], float], dict[AnchorKey, bool]] | None
+    ) = None,
 ) -> list[RankCorrelationRow]:
     """Build one RankCorrelationRow per (op_a, op_b) pair for ``primary_metric``.
 
@@ -254,9 +283,13 @@ def _rank_correlation_rows(
     spatial_profile -> region_metrics reduction, stratified by
     ``perturb_op`` (``region_metrics.parquet`` itself cannot be reused here
     since it has already collapsed that axis).
+
+    Args:
+        op_means_and_control: See ``_per_anchor_strategy_rows``'s parameter
+            of the same name.
     """
 
-    op_means, is_control_by_anchor = _op_level_anchor_means(item_values)
+    op_means, is_control_by_anchor = op_means_and_control or _op_level_anchor_means(item_values)
 
     region_values: dict[str, dict[str, list[float]]] = defaultdict(lambda: defaultdict(list))
     for (anchor_key, perturb_op, metric_name), value in op_means.items():
@@ -355,24 +388,75 @@ def _sign(value: float) -> int:
     return 0
 
 
-def _raw_values_by_anchor_condition_metric(
+def _condition_level_stats(
     item_values: pd.DataFrame,
-) -> dict[tuple[AnchorKey, ConditionKey, str], list[float]]:
+) -> tuple[dict[tuple[AnchorKey, ConditionKey, str], tuple[int, float, float]], dict[AnchorKey, bool]]:
     """Group available degradation values by (AnchorKey, ConditionKey, metric).
 
     Includes both target and control anchors -- seed stability is a
     property of one anchor's own repeat trials, independent of whether that
     anchor is a target or a control.
+
+    Returns each group's ``(n_seeds, seed_mean, seed_std)`` -- ``seed_std``
+    is the population std (``ddof=0``, matching ``np.std``'s default, *not*
+    pandas' own ``ddof=1`` default). Computed via ``GroupBy.count()``/
+    ``.mean()``/``.std(ddof=0)`` -- true vectorized GroupBy reductions
+    (Cython-backed), not a per-group Python callback (unlike
+    ``GroupBy.apply(...)``) -- so this stays fast even when ``item_values``
+    has millions of rows spread over a large number of groups.
+    ``AnchorKey``/``ConditionKey`` objects are only constructed once per
+    grouped result, not once per raw row.
     """
 
-    raw_values: dict[tuple[AnchorKey, ConditionKey, str], list[float]] = defaultdict(list)
-    for row in item_values.itertuples(index=False):
-        if not row.available:
-            continue
-        anchor_key = _anchor_key(row)
-        condition_key = _condition_key(row)
-        raw_values[(anchor_key, condition_key, row.metric_name)].append(float(row.degradation))
-    return raw_values
+    df = item_values.assign(
+        region_key=_region_key_column(item_values),
+        perturb_params_hash=_perturb_params_hash_column(item_values),
+    )
+
+    is_control_by_group = df.groupby(
+        ["sample_id", "region_key", "invert_mask"], sort=False
+    )["is_control"].first()
+    is_control_by_anchor = {
+        AnchorKey(sample_id=sample_id, region_key=region_key, invert_mask=bool(invert_mask)): bool(
+            is_control
+        )
+        for (sample_id, region_key, invert_mask), is_control in is_control_by_group.items()
+    }
+
+    available = df[df["available"]]
+    group_keys = [
+        "sample_id",
+        "region_key",
+        "invert_mask",
+        "perturb_op",
+        "perturb_params_hash",
+        "metric_name",
+    ]
+    grouped = available.groupby(group_keys, sort=False)["degradation"]
+    # Combined into one frame (a single vectorized index-aligned join) so
+    # the loop below reads each group's three stats off one already-aligned
+    # row instead of doing three separate per-key pandas Series lookups --
+    # Series.__getitem__ by MultiIndex key is not a plain dict lookup and
+    # doing it ~3x per group is markedly slower than aligning once upfront.
+    combined = pd.DataFrame(
+        {"n_seeds": grouped.count(), "seed_mean": grouped.mean(), "seed_std": grouped.std(ddof=0)}
+    ).reset_index()
+
+    stats: dict[tuple[AnchorKey, ConditionKey, str], tuple[int, float, float]] = {}
+    for row in combined.itertuples(index=False):
+        anchor_key = AnchorKey(
+            sample_id=row.sample_id, region_key=row.region_key, invert_mask=bool(row.invert_mask)
+        )
+        condition_key = ConditionKey(
+            perturb_op=row.perturb_op, perturb_params_hash=row.perturb_params_hash
+        )
+        stats[(anchor_key, condition_key, row.metric_name)] = (
+            int(row.n_seeds),
+            float(row.seed_mean),
+            float(row.seed_std),
+        )
+
+    return stats, is_control_by_anchor
 
 
 def _op_level_anchor_means(
@@ -384,38 +468,84 @@ def _op_level_anchor_means(
     metric) -- absorbing seed repeats, the same first macro-average stage A2
     uses -- then averages across any ConditionKeys that share a
     ``perturb_op`` (distinct params under the same op), so each anchor
-    contributes exactly one value per operator.
+    contributes exactly one value per operator. Both stages are vectorized
+    ``groupby(...).mean()`` calls (not ``_condition_level_stats``, which
+    computes count/std this function doesn't need); only the final
+    (much smaller) grouped result is converted into ``AnchorKey`` objects.
     """
 
-    raw_values = _raw_values_by_anchor_condition_metric(item_values)
-    condition_means = {key: float(np.mean(values)) for key, values in raw_values.items()}
+    df = item_values.assign(
+        region_key=_region_key_column(item_values),
+        perturb_params_hash=_perturb_params_hash_column(item_values),
+    )
 
-    is_control_by_anchor: dict[AnchorKey, bool] = {}
-    for row in item_values.itertuples(index=False):
-        anchor_key = _anchor_key(row)
-        is_control_by_anchor.setdefault(anchor_key, bool(row.is_control))
+    is_control_by_group = df.groupby(
+        ["sample_id", "region_key", "invert_mask"], sort=False
+    )["is_control"].first()
+    is_control_by_anchor = {
+        AnchorKey(sample_id=sample_id, region_key=region_key, invert_mask=bool(invert_mask)): bool(
+            is_control
+        )
+        for (sample_id, region_key, invert_mask), is_control in is_control_by_group.items()
+    }
 
-    grouped: dict[tuple[AnchorKey, str, str], list[float]] = defaultdict(list)
-    for (anchor_key, condition_key, metric_name), value in condition_means.items():
-        grouped[(anchor_key, condition_key.perturb_op, metric_name)].append(value)
+    available = df[df["available"]]
+    condition_means = available.groupby(
+        [
+            "sample_id",
+            "region_key",
+            "invert_mask",
+            "perturb_op",
+            "perturb_params_hash",
+            "metric_name",
+        ],
+        sort=False,
+    )["degradation"].mean()
 
-    op_means = {key: float(np.mean(values)) for key, values in grouped.items()}
+    # Stage 2: mean-of-means across ConditionKeys sharing one perturb_op --
+    # drops perturb_params_hash and regroups the already-reduced
+    # condition-level means (an equal-weight mean of per-condition means,
+    # not a re-weighted mean over raw items).
+    op_means_series = condition_means.reset_index(name="degradation").groupby(
+        ["sample_id", "region_key", "invert_mask", "perturb_op", "metric_name"], sort=False
+    )["degradation"].mean()
+
+    op_means: dict[tuple[AnchorKey, str, str], float] = {}
+    for (
+        sample_id,
+        region_key,
+        invert_mask,
+        perturb_op,
+        metric_name,
+    ), value in op_means_series.items():
+        anchor_key = AnchorKey(
+            sample_id=sample_id, region_key=region_key, invert_mask=bool(invert_mask)
+        )
+        op_means[(anchor_key, perturb_op, metric_name)] = float(value)
+
     return op_means, is_control_by_anchor
 
 
-def _anchor_key(row: Any) -> AnchorKey:
-    """Reconstruct one item row's AnchorKey (same formula as A1's indexer)."""
+def _region_key_column(df: pd.DataFrame) -> pd.Series:
+    """Vectorized form of ``AnchorKey.region_key``'s ``f"{region_id}::{region_instance_id}"`` formula.
 
-    region_key = f"{row.region_id}::{row.region_instance_id}"
-    return AnchorKey(
-        sample_id=row.sample_id, region_key=region_key, invert_mask=bool(row.invert_mask)
-    )
+    Duplicated per module rather than extracted into a shared helper, the
+    same trade-off ``AnchorKey.region_key`` already documents for the
+    scalar formula (``ssat.analysis.types``).
+    """
+
+    return df["region_id"].astype(str) + "::" + df["region_instance_id"].astype(str)
 
 
-def _condition_key(row: Any) -> ConditionKey:
-    """Reconstruct one item row's ConditionKey (same formula as A1's indexer)."""
+def _perturb_params_hash_column(df: pd.DataFrame) -> pd.Series:
+    """Vectorized form of ``ConditionKey.perturb_params_hash``.
 
-    return ConditionKey(
-        perturb_op=row.perturb_op,
-        perturb_params_hash=sha256_bytes(row.perturb_params_json.encode("utf-8")),
-    )
+    ``perturb_params_json`` takes only a handful of distinct values across
+    an entire frame (one per configured (op, params) combination actually
+    run), so this hashes each distinct value once via ``.map()`` instead of
+    calling ``sha256_bytes`` once per row.
+    """
+
+    distinct = df["perturb_params_json"].unique()
+    hash_by_json = {value: sha256_bytes(value.encode("utf-8")) for value in distinct}
+    return df["perturb_params_json"].map(hash_by_json)
