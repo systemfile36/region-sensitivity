@@ -5,7 +5,7 @@ from __future__ import annotations
 import gc
 import json
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 import numpy as np
 from numpy.typing import NDArray
@@ -69,6 +69,81 @@ class TimmPreprocessor(Preprocessor):
         return transform_mask_with_ops(mask, self._geometry_ops)
 
 
+class TimmSquashPreprocessor(Preprocessor):
+    """Apply model-owned normalization after an exact, crop-free resize."""
+
+    def __init__(self, data_config: dict[str, Any]) -> None:
+        input_size = tuple(int(value) for value in data_config["input_size"])
+        if len(input_size) != 3 or input_size[0] != 3:
+            raise ValueError("timm image input_size must be (3, height, width)")
+        self._size = (input_size[1], input_size[2])
+        self._mean = tuple(float(value) for value in data_config["mean"])
+        self._std = tuple(float(value) for value in data_config["std"])
+        self._interpolation = str(data_config.get("interpolation", "bilinear"))
+        payload = {
+            "kind": "timm",
+            "geometry_mode": "squash",
+            "input_size": input_size,
+            "interpolation": self._interpolation,
+            "mean": self._mean,
+            "std": self._std,
+        }
+        self._spec = PreprocessingSpec(
+            kind="timm_squash",
+            deterministic=True,
+            description=json.dumps(payload, sort_keys=True),
+            fingerprint=fingerprint_payload(payload),
+            mask_transform_available=True,
+        )
+
+    def describe(self) -> PreprocessingSpec:
+        return self._spec
+
+    def transform_batch(self, batch: NDArray[np.uint8]) -> Any:
+        import torch
+        from torchvision.transforms import functional as functional
+        from torchvision.transforms.functional import InterpolationMode
+
+        validate_image_classifier_batch(batch)
+        try:
+            interpolation = InterpolationMode(self._interpolation)
+        except ValueError as error:
+            raise AdapterError(
+                f"unsupported timm interpolation {self._interpolation!r}"
+            ) from error
+        mean = torch.tensor(self._mean, dtype=torch.float32)[:, None, None]
+        std = torch.tensor(self._std, dtype=torch.float32)[:, None, None]
+        tensors = []
+        for image in batch[:, 0]:
+            resized = functional.resize(
+                Image.fromarray(np.ascontiguousarray(image)),
+                list(self._size),
+                interpolation=interpolation,
+                antialias=True,
+            )
+            tensor = functional.pil_to_tensor(resized).to(torch.float32).div_(255.0)
+            tensors.append((tensor - mean) / std)
+        return torch.stack(tensors)
+
+    def transform_mask(self, mask: NDArray[np.bool_]) -> NDArray[np.bool_]:
+        import torch
+        from torchvision.transforms import functional as functional
+        from torchvision.transforms.functional import InterpolationMode
+
+        validate_mask(mask)
+        stacked = mask.ndim == 3
+        tensor = torch.from_numpy(mask.astype(np.uint8, copy=False))
+        tensor = tensor[:, None] if stacked else tensor[None, None]
+        resized = functional.resize(
+            tensor,
+            list(self._size),
+            interpolation=InterpolationMode.NEAREST,
+            antialias=False,
+        )
+        result = resized[:, 0].cpu().numpy().astype(np.bool_, copy=False)
+        return result if stacked else result[0]
+
+
 class TimmAdapter(ModelAdapter):
     """Instantiate and run a timm classifier by registered model name."""
 
@@ -88,6 +163,7 @@ class TimmAdapter(ModelAdapter):
         checkpoint_path: str | Path | None = None,
         checkpoint_state_dict_key: str | None = None,
         checkpoint_strict: bool = True,
+        geometry_mode: Literal["model_default", "squash"] = "model_default",
     ) -> None:
         if not model_name:
             raise ValueError("model_name must not be empty")
@@ -95,6 +171,8 @@ class TimmAdapter(ModelAdapter):
             raise ValueError("init_seed must be between 0 and 2**63 - 1")
         if pretrained and checkpoint_path is not None:
             raise ValueError("pretrained and checkpoint_path are mutually exclusive")
+        if geometry_mode not in {"model_default", "squash"}:
+            raise ValueError("geometry_mode must be 'model_default' or 'squash'")
         try:
             import timm
             import torch
@@ -127,7 +205,11 @@ class TimmAdapter(ModelAdapter):
         except Exception as error:
             raise AdapterError(f"failed to move model to device {resolved_device}") from error
         self._device = resolved_device
-        self._preprocessor = TimmPreprocessor(preprocessing, data_config)
+        self._preprocessor = (
+            TimmPreprocessor(preprocessing, data_config)
+            if geometry_mode == "model_default"
+            else TimmSquashPreprocessor(data_config)
+        )
         self._output_decoder = output_decoder or LogitsOutputDecoder()
         if not isinstance(self._output_decoder, OutputDecoder):
             raise TypeError("output_decoder must implement OutputDecoder")

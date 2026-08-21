@@ -11,6 +11,7 @@ from ssat.core.adapter import (
     CallableAdapter,
     ProviderConfig,
     TimmProviderConfig,
+    TorchvisionTSMProviderConfig,
     TorchvisionProviderConfig,
     TorchvisionVideoProviderConfig,
     default_adapter_provider_registry,
@@ -40,7 +41,7 @@ def test_default_registry_is_fresh_and_contains_only_builtins() -> None:
     first = default_adapter_provider_registry()
     second = default_adapter_provider_registry()
     assert first is not second
-    assert first.names == ("torchvision", "torchvision_video", "timm")
+    assert first.names == ("torchvision", "torchvision_video", "timm", "torchvision_tsm")
 
 
 def test_custom_provider_requires_explicit_registration(tmp_path: Path) -> None:
@@ -77,6 +78,14 @@ def test_video_checkpoint_selector_is_mutually_exclusive_with_weights() -> None:
             weights="DEFAULT",
             checkpoint={"path": "model.pt"},
         )
+
+
+def test_tsm_provider_config_is_strict_and_uses_expected_defaults() -> None:
+    config = TorchvisionTSMProviderConfig()
+    assert config.model_name == "tsm_resnet50"
+    assert config.num_segments == 8
+    assert config.num_classes == 60
+    assert config.preprocessing == "mmaction2_val"
 
 
 def test_pipeline_config_and_preprocessing_are_mutually_exclusive() -> None:

@@ -166,11 +166,36 @@ class TimmProviderConfig(ProviderConfig):
     model_kwargs: dict[str, Any] = Field(default_factory=dict)
     init_seed: int = Field(default=0, ge=0, le=2**63 - 1)
     weights_hash: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
+    geometry_mode: Literal["model_default", "squash"] = "model_default"
 
     @model_validator(mode="after")
     def validate_weights(self) -> TimmProviderConfig:
         if self.pretrained and self.checkpoint is not None:
             raise ValueError("pretrained and checkpoint are mutually exclusive")
+        if self.checkpoint is not None and self.weights_hash is not None:
+            raise ValueError("checkpoint hash is computed and cannot be supplied")
+        return self
+
+
+class TorchvisionTSMProviderConfig(ProviderConfig):
+    """Configuration for the native MMAction-compatible TSM adapter."""
+
+    provider: Literal["torchvision_tsm"] = "torchvision_tsm"
+    model_name: Literal["tsm_resnet50"] = "tsm_resnet50"
+    num_segments: int = Field(default=8, gt=0)
+    num_classes: int = Field(default=60, gt=0)
+    shift_div: int = Field(default=8, gt=0)
+    preprocessing: Literal["mmaction2_val", "crop_free"] = "mmaction2_val"
+    checkpoint: CheckpointConfig | None = None
+    device: str = "auto"
+    deterministic: bool = True
+    max_batch_size: int | None = Field(default=None, gt=0)
+    model_id: str | None = None
+    init_seed: int = Field(default=0, ge=0, le=2**63 - 1)
+    weights_hash: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
+
+    @model_validator(mode="after")
+    def validate_checkpoint_hash(self) -> TorchvisionTSMProviderConfig:
         if self.checkpoint is not None and self.weights_hash is not None:
             raise ValueError("checkpoint hash is computed and cannot be supplied")
         return self
@@ -287,6 +312,38 @@ class TimmProvider(AdapterProvider):
             checkpoint_strict=(
                 True if config.checkpoint is None else config.checkpoint.strict
             ),
+            geometry_mode=config.geometry_mode,
+        )
+
+
+class TorchvisionTSMProvider(AdapterProvider):
+    """Build the native TSM-ResNet50 action-recognition adapter."""
+
+    name = "torchvision_tsm"
+    config_model = TorchvisionTSMProviderConfig
+
+    def build(self, config: ProviderConfig, *, base_dir: Path) -> ModelAdapter:
+        from ssat.core.adapter.torchvision_tsm_adapter import TorchvisionTSMAdapter
+
+        if not isinstance(config, TorchvisionTSMProviderConfig):
+            raise TypeError("config must be TorchvisionTSMProviderConfig")
+        checkpoint, checkpoint_hash = _resolve_checkpoint(config.checkpoint, base_dir)
+        return TorchvisionTSMAdapter(
+            num_segments=config.num_segments,
+            num_classes=config.num_classes,
+            shift_div=config.shift_div,
+            preprocessing=config.preprocessing,
+            device=None if config.device == "auto" else config.device,
+            deterministic=config.deterministic,
+            max_batch_size=config.max_batch_size,
+            model_id=config.model_id,
+            init_seed=config.init_seed,
+            weights_hash=checkpoint_hash or config.weights_hash,
+            checkpoint_path=checkpoint,
+            checkpoint_state_dict_key=(
+                None if config.checkpoint is None else config.checkpoint.state_dict_key
+            ),
+            checkpoint_strict=True if config.checkpoint is None else config.checkpoint.strict,
         )
 
 
@@ -357,6 +414,7 @@ def default_adapter_provider_registry() -> AdapterProviderRegistry:
     registry.register(TorchvisionProvider())
     registry.register(TorchvisionVideoProvider())
     registry.register(TimmProvider())
+    registry.register(TorchvisionTSMProvider())
     return registry
 
 

@@ -24,6 +24,7 @@ from ssat.core.adapter.provider import (
     CheckpointConfig,
     ProviderConfig,
     TimmProviderConfig,
+    TorchvisionTSMProviderConfig,
     TorchvisionProviderConfig,
     TorchvisionVideoProviderConfig,
     default_adapter_provider_registry,
@@ -64,9 +65,12 @@ __all__ = [
     "TimmAdapter",
     "TimmProviderConfig",
     "TimmPreprocessor",
+    "TimmSquashPreprocessor",
     "ToFloat",
     "TorchvisionAdapter",
     "TorchvisionProviderConfig",
+    "TorchvisionTSMAdapter",
+    "TorchvisionTSMProviderConfig",
     "TorchvisionPreprocessor",
     "TorchvisionVideoAdapter",
     "TorchvisionVideoProviderConfig",
@@ -135,12 +139,20 @@ def __getattr__(name: str) -> Any:
         from ssat.core.adapter.torchvision_video_adapter import TorchvisionVideoAdapter
 
         return TorchvisionVideoAdapter
+    if name == "TorchvisionTSMAdapter":
+        from ssat.core.adapter.torchvision_tsm_adapter import TorchvisionTSMAdapter
+
+        return TorchvisionTSMAdapter
     if name == "TimmAdapter":
         from ssat.core.adapter.timm_adapter import TimmAdapter
 
         return TimmAdapter
-    if name == "TimmPreprocessor":
+    if name in {"TimmPreprocessor", "TimmSquashPreprocessor"}:
         from ssat.core.adapter.timm_adapter import TimmPreprocessor
+        from ssat.core.adapter.timm_adapter import TimmSquashPreprocessor
 
-        return TimmPreprocessor
+        return {
+            "TimmPreprocessor": TimmPreprocessor,
+            "TimmSquashPreprocessor": TimmSquashPreprocessor,
+        }[name]
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
