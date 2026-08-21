@@ -1,0 +1,10 @@
+{
+  "runs": [
+    {"name": "imagenet_mnv2_050_exact", "config": "configs/imagenet_mnv2_050_exact.yaml", "minimum_accuracy": 0.50},
+    {"name": "imagenet_mnv2_050_crop_free", "config": "configs/imagenet_mnv2_050_crop_free.yaml", "minimum_accuracy": null},
+    {"name": "imagenet_mnv2_100_exact", "config": "configs/imagenet_mnv2_100_exact.yaml", "minimum_accuracy": 0.60},
+    {"name": "imagenet_mnv2_100_crop_free", "config": "configs/imagenet_mnv2_100_crop_free.yaml", "minimum_accuracy": null},
+    {"name": "ntu60_tsm_exact", "config": "configs/ntu60_tsm_exact.yaml", "minimum_accuracy": 0.80},
+    {"name": "ntu60_tsm_crop_free", "config": "configs/ntu60_tsm_crop_free.yaml", "minimum_accuracy": null}
+  ]
+}

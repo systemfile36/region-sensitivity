@@ -1,0 +1,55 @@
+{
+  "dataset": "NTU60 XSub test, hash-selected 20 per class",
+  "source_manifest_sha256": "fb087cbfeb26c9c203b224cd845f988956532ec0f1c227ca2f274e834fb830b0",
+  "checkpoint_sha256": "b7b53db426b6f81cd3ff3f1729dd5a837c3e59018bb76aa34a2e160a7a72371a",
+  "mmaction_raw_logit_parity": {
+    "native_export_shape": [3, 60],
+    "native_logits_finite": true,
+    "reference_status": "pending MMAction2 a5a167df environment export"
+  },
+  "runs": [
+    {
+      "name": "ntu60_tsm_exact",
+      "config_sha256": "b22af2370c7d5cc9a9b3edd6715a92d8a1325800c67eafc73b5da968058aa33a",
+      "clean_accuracy_20_sample": 0.8,
+      "minimum_accuracy": 0.8,
+      "accuracy_gate_passed": true,
+      "area_sanity": {
+        "evaluated_regions": 30,
+        "failed_regions": 30,
+        "maximum_relative_deviation": 1.4748527569872714,
+        "passed": false,
+        "tolerance": 0.05
+      },
+      "profile": {
+        "selected_items": 76,
+        "successful_predictions": 76,
+        "failed_predictions": 0,
+        "max_prepared_chunk_bytes": 265420800,
+        "oom_events": 0
+      }
+    },
+    {
+      "name": "ntu60_tsm_crop_free",
+      "config_sha256": "9576f42c4181aba4be7d3335595835e0b190baee8621d8861f502865f76a1577",
+      "clean_accuracy_20_sample": 0.65,
+      "minimum_accuracy": null,
+      "accuracy_gate_passed": null,
+      "area_sanity": {
+        "evaluated_regions": 30,
+        "failed_regions": 4,
+        "maximum_relative_deviation": 0.14667907979518335,
+        "passed": false,
+        "tolerance": 0.05,
+        "interpretation": "Residual binary-mask quantization for very small hand regions."
+      },
+      "profile": {
+        "selected_items": 76,
+        "successful_predictions": 76,
+        "failed_predictions": 0,
+        "max_prepared_chunk_bytes": 265420800,
+        "oom_events": 0
+      }
+    }
+  ]
+}

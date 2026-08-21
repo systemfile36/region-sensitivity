@@ -1,0 +1,40 @@
+schema_version: 1.0.0
+source:
+  kind: imagenet
+  root: ../../../data/imagenet/ILSVRC/Data/CLS-LOC/val
+  annotation_file: ../../../data/phase3/imagenet/val_10_per_class.txt
+adapter:
+  provider: timm
+  model_name: mobilenetv2_050.lamb_in1k
+  pretrained: true
+  geometry_mode: model_default
+  device: cuda
+  max_batch_size: 128
+regions:
+  - region_id: grid_4x4
+    kind: grid
+    params: {rows: 4, cols: 4}
+perturbations:
+  - op: mean_fill
+    params: {}
+    seed_salts: [0]
+  - op: blur
+    params: {sigma: 3.0}
+    seed_salts: [0]
+  - op: gaussian_noise
+    params: {sigma: 12.5}
+    seed_salts: [0, 1, 2]
+controls:
+  - match_area_of: grid_4x4
+    n_samples: 1
+dataset_stats:
+  channel_mean: [123.675, 116.28, 103.53]
+runtime:
+  global_seed: 20260820
+  variants_per_chunk: 128
+  target_batch_size: 128
+  num_workers: 12
+  retry_failed: true
+dump:
+  flush_every: 2000
+  max_classes_for_full_logits: 1000

@@ -1,0 +1,45 @@
+schema_version: 1.0.0
+source:
+  kind: video_manifest
+  manifest: ../../../data/phase3/ntu60_xsub_test_20/video_manifest.json
+  num_frames: 8
+  sampling: segment_center
+adapter:
+  provider: torchvision_tsm
+  model_name: tsm_resnet50
+  num_segments: 8
+  num_classes: 60
+  shift_div: 8
+  preprocessing: mmaction2_val
+  checkpoint:
+    path: ../../../data/nturgbd_trained_checkpoint/native_tsm_r50_xsub_epoch45.pt
+    state_dict_key: model
+    strict: true
+  device: cuda
+  max_batch_size: 64
+skeleton_source:
+  bbox_data: ../../../data/phase3/ntu60_xsub_test_20/skeleton_bbox.json
+regions:
+  - {region_id: head, kind: skeleton_parts, semantic_group: head, params: {body_part: head, bbox_scale: 1.15}}
+  - {region_id: torso, kind: skeleton_parts, semantic_group: torso, params: {body_part: torso, bbox_scale: 1.15}}
+  - {region_id: left_arm, kind: skeleton_parts, semantic_group: arms, params: {body_part: left_arm, bbox_scale: 1.15}}
+  - {region_id: right_arm, kind: skeleton_parts, semantic_group: arms, params: {body_part: right_arm, bbox_scale: 1.15}}
+  - {region_id: left_hand, kind: skeleton_parts, semantic_group: hands, params: {body_part: left_hand, bbox_scale: 1.15}}
+  - {region_id: right_hand, kind: skeleton_parts, semantic_group: hands, params: {body_part: right_hand, bbox_scale: 1.15}}
+  - {region_id: left_leg, kind: skeleton_parts, semantic_group: legs, params: {body_part: left_leg, bbox_scale: 1.15}}
+  - {region_id: right_leg, kind: skeleton_parts, semantic_group: legs, params: {body_part: right_leg, bbox_scale: 1.15}}
+  - {region_id: upper_body, kind: skeleton_parts, semantic_group: body_halves, params: {body_part: upper_body, bbox_scale: 1.15}}
+  - {region_id: lower_body, kind: skeleton_parts, semantic_group: body_halves, params: {body_part: lower_body, bbox_scale: 1.15}}
+perturbations:
+  - {op: mean_fill, params: {}, seed_salts: [0]}
+  - {op: blur, params: {sigma: 3.0}, seed_salts: [0]}
+  - {op: gaussian_noise, params: {sigma: 12.5}, seed_salts: [0, 1, 2]}
+dataset_stats:
+  channel_mean: [123.675, 116.28, 103.53]
+runtime:
+  global_seed: 20260820
+  variants_per_chunk: 64
+  target_batch_size: 64
+  num_workers: 8
+  retry_failed: true
+dump: {flush_every: 1000, max_classes_for_full_logits: 60}
