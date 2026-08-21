@@ -10,9 +10,9 @@ The command-line interface and Python API share the same `AuditApplication` serv
 
 ## Key capabilities
 
-- Image and uniformly sampled video inputs through JSON manifests.
+- Image and deterministically sampled (`uniform` or `segment_center`) video inputs through manifests.
 - Built-in ImageNet-style file-list and Kinetics-style CSV source providers.
-- Torchvision image, Torchvision video, and timm model adapters, with optional local checkpoints.
+- Torchvision image/video, timm, and native TSM-ResNet50 adapters, with optional local checkpoints.
 - Grid, explicit-mask, and frame-dependent skeleton body-part regions.
 - Constant fill, dataset-mean fill, blur, Gaussian noise, and patch-shuffle perturbations.
 - Deterministic stochastic variants and random area-matched controls.
@@ -20,7 +20,7 @@ The command-line interface and Python API share the same `AuditApplication` serv
 - Built-in item, sample, region, spatial, and class-level metrics.
 - Control/stability analysis, reliability grading, HTML reports, and risk-label export.
 
-SSAT is currently alpha software. The ImageNet and Kinetics providers have been tested with format-compatible synthetic fixtures, not full production-scale dataset distributions.
+SSAT is currently alpha software. The Phase-3 recipe has been exercised on an NTU60 XSub manifest and native TSM checkpoint. The ImageNet and Kinetics providers retain their production-data warning until the corresponding complete audits are recorded.
 
 ## Quick start
 
@@ -135,13 +135,27 @@ Manifest sources expect files to be prepared in advance. For NTU RGB+D, the repo
 python scripts/dataset_prep/ntu_rgb_d.py \
   --rgb-root /path/to/nturgb+d_rgb \
   --skeleton-root /path/to/nturgb+d_skeletons \
-  --split xsub --num-frames 16 \
+  --annotation-file /path/to/ntu60_xsub_test.txt \
+  --samples-per-class 20 --num-frames 8 --sampling segment_center \
   --out /path/to/output_dir
 
 ssat estimate /path/to/output_dir/config.yaml
 ```
 
 The script is a reference implementation, not a stable public API. Dataset-specific parsing remains outside the core package; the reusable skeleton bounding-box builder is in `ssat.core.region.skeleton_bbox_builder`.
+
+For the Kaggle ILSVRC layout, create the class-balanced validation file list with:
+
+```bash
+python scripts/dataset_prep/imagenet_val.py \
+  --val-root /path/to/ILSVRC/Data/CLS-LOC/val \
+  --solution-csv /path/to/LOC_val_solution.csv \
+  --synset-mapping /path/to/LOC_synset_mapping.txt \
+  --samples-per-class 10 \
+  --output-annotation data/phase3/imagenet/val_10_per_class.txt
+```
+
+The complete six-run protocol is documented in [Real Dataset Case Study](docs/REAL_DATASET_CASE_STUDY_v1.md).
 
 ## Python API
 

@@ -55,10 +55,10 @@ print(result.to_dict())
 두 provider의 정확한 입력 포맷은 [설정 레퍼런스](docs/CONFIG_REFERENCE.md)의
 "내장 데이터셋 source provider" 절을 참고하세요.
 
-> **실제 데이터로 검증되지 않았습니다.** 두 provider 모두 문서화된 포맷을
-> 흉내 낸 소규모 합성 fixture로만 테스트되었으며, 실제 대규모 ImageNet/
-> Kinetics 다운로드에 대해서는 아직 검증된 적이 없습니다. 적용 전 자신의
-> 배포본이 문서화된 포맷과 정확히 일치하는지 직접 확인하세요.
+> **검증 상태:** NTU60 XSub의 `video_manifest`와 native TSM 경로는 Phase 3
+> 준비 및 smoke test를 완료했습니다. ImageNet 사례는 다운로드 후 전체 audit
+> summary가 생성되어야 검증 완료로 표시하며, Kinetics는 여전히 포맷 호환 합성
+> fixture에서만 검증되었습니다.
 
 ## 지원 데이터셋 레시피
 
@@ -75,7 +75,8 @@ print(result.to_dict())
   python scripts/dataset_prep/ntu_rgb_d.py \
     --rgb-root /path/to/nturgb+d_rgb \
     --skeleton-root /path/to/nturgb+d_skeletons \
-    --split xsub --num-frames 16 \
+    --annotation-file /path/to/ntu60_xsub_test.txt \
+    --samples-per-class 20 --num-frames 8 --sampling segment_center \
     --out /path/to/output_dir
 
   ssat estimate /path/to/output_dir/config.yaml

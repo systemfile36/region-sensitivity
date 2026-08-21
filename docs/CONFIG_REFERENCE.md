@@ -55,9 +55,10 @@ source:
   kind: video_manifest
   manifest: ../data/video_manifest.json
   num_frames: 16
+  sampling: uniform
 ```
 
-The JSON shape and path rules are the same as for `image_manifest`, but each `path` identifies a video file. `num_frames` is a positive integer (default `16`). Decord samples uniformly spaced frame indices; short clips can repeat indices. A loaded clip has shape `(num_frames, H, W, 3)` and dtype `uint8`.
+The JSON shape and path rules are the same as for `image_manifest`, but each `path` identifies a video file. `num_frames` is a positive integer (default `16`). `sampling` is `uniform` (the backward-compatible default) or `segment_center`. The latter implements the MMAction2 test-time `SampleFrames(clip_len=1, num_clips=num_frames)` centers, `floor((i + 0.5) * frame_count / num_frames)`. Short clips may repeat indices. A loaded clip has shape `(num_frames, H, W, 3)` and dtype `uint8`. Both loader parameters are stored in source provenance and therefore participate in dump/resume identity.
 
 The region, perturbation, and adapter boundary consistently uses `(T, H, W, C)`. A region mask may be `(H, W)`, broadcast over frames, or `(T, H, W)` for frame-dependent selection.
 
@@ -77,7 +78,7 @@ n01440764/image_0001.JPEG 0
 n01443537/image_0002.JPEG 1
 ```
 
-Labels must be non-negative integers and paths must not repeat. The annotation file is source provenance; image paths are resolved under `root`. Raw ImageNet distributions do not necessarily include this normalized file list, so producing it from devkit or validation metadata is the caller's responsibility.
+Labels must be non-negative integers and paths must not repeat. The annotation file is source provenance; image paths are resolved under `root`. Raw ImageNet distributions do not necessarily include this normalized file list. `scripts/dataset_prep/imagenet_val.py` converts Kaggle ILSVRC `LOC_val_solution.csv` plus the synset mapping into a deterministic class-balanced list.
 
 ### Kinetics-style CSV
 
@@ -100,7 +101,7 @@ The CSV must include `label`, `youtube_id`, `time_start`, and `time_end`; `split
 
 When `classes` is omitted, distinct label strings from the selected CSV rows are sorted alphabetically and assigned zero-based indices. Supply an ordered `classes` list when a model checkpoint uses a different class order. Duplicate generated clip IDs and labels absent from an explicit class list are rejected.
 
-The ImageNet and Kinetics providers are covered by format-compatible synthetic unit fixtures, but have not been validated against complete production-scale downloads. Confirm that your local distribution follows these exact conventions.
+The Kinetics provider is covered by format-compatible synthetic fixtures but has not been validated against a complete production-scale download. The ImageNet Phase-3 recipe records its own source hashes and is considered validated only after the generated case-study summaries are committed.
 
 ## Preflight area sanity
 
@@ -162,7 +163,7 @@ application = AuditApplication(source_registry=registry)
 
 ## Model adapters
 
-Three adapter providers are built in.
+Four adapter providers are built in.
 
 ### Torchvision image classification
 
@@ -219,9 +220,30 @@ adapter:
   model_kwargs: {}
   init_seed: 0
   weights_hash: null
+  geometry_mode: model_default
 ```
 
-`pretrained: true` can use the framework cache or network. Use `false` for random initialization without a model-weight download.
+`pretrained: true` can use the framework cache or network. Use `false` for random initialization without a model-weight download. `geometry_mode: model_default` applies the model metadata's official resize/crop transform. `geometry_mode: squash` preserves its input size, interpolation, mean, and standard deviation but directly resizes to the input plane without cropping; the two modes have distinct preprocessing fingerprints and mask transforms.
+
+### Native TSM-ResNet50 action recognition
+
+```yaml
+adapter:
+  provider: torchvision_tsm
+  model_name: tsm_resnet50
+  num_segments: 8
+  num_classes: 60
+  shift_div: 8
+  preprocessing: mmaction2_val  # or crop_free
+  checkpoint:
+    path: ./native_tsm.pt
+    state_dict_key: model
+    strict: true
+  device: cuda
+  max_batch_size: 4
+```
+
+This provider independently implements block-residual temporal shifts around torchvision ResNet50 bottleneck `conv1`, frame-logit average consensus, and the NTU60 validation normalization. `mmaction2_val` uses short-edge 256 plus center crop 224; `crop_free` directly resizes to 224×224. It does not import MMAction2 at runtime. Convert the project's MMEngine checkpoint with `scripts/model_tools/convert_mmaction_tsm.py`; the converter statically rejects unapproved pickle globals and always calls `torch.load(..., weights_only=True)`.
 
 ### Local checkpoints
 
@@ -238,7 +260,7 @@ adapter:
     strict: true
 ```
 
-For Torchvision, `weights` and `checkpoint` are mutually exclusive. For timm, `pretrained: true` and `checkpoint` are mutually exclusive. SSAT computes and records the checkpoint SHA-256; do not load untrusted pickle-based checkpoint files.
+For Torchvision, `weights` and `checkpoint` are mutually exclusive. For timm, `pretrained: true` and `checkpoint` are mutually exclusive. SSAT computes and records the checkpoint SHA-256; do not load untrusted pickle-based checkpoint files. The MMAction converter is narrowly scoped to the inspected project checkpoint and is not a general safe loader for arbitrary files.
 
 ### Declarative preprocessing pipeline
 
