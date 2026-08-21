@@ -21,7 +21,8 @@ Usage:
     python scripts/dataset_prep/ntu_rgb_d.py \\
         --rgb-root /path/to/nturgb+d_rgb \\
         --skeleton-root /path/to/nturgb+d_skeletons \\
-        --split xsub --num-frames 16 \\
+        --annotation-file /path/to/ntu60_xsub_test.txt \\
+        --samples-per-class 20 --num-frames 8 --sampling segment_center \\
         --out /path/to/output_dir
 
 Writes ``video_manifest.json``, ``skeleton_bbox.json``, and an example
@@ -35,6 +36,8 @@ from __future__ import annotations
 
 import argparse
 from dataclasses import dataclass
+import hashlib
+import os
 from pathlib import Path
 import re
 import sys
@@ -47,8 +50,11 @@ from ssat.core.region.skeleton_bbox_builder import (
     joints_to_part_bboxes,
     write_skeleton_bbox_json,
 )
-from ssat.core.source.video_folder import uniform_frame_indices
-from ssat.utils.io import write_json_atomic
+from ssat.core.source.video_folder import (
+    segment_center_frame_indices,
+    uniform_frame_indices,
+)
+from ssat.utils.io import sha256_file, write_json_atomic
 
 # ---------------------------------------------------------------------------
 # Adapted from an existing NTU-RGB+D preprocessing reference
@@ -79,7 +85,6 @@ BODY_PARTS: dict[str, list[int]] = {
     "right_hand": [10, 11, 23, 24],
     "left_leg": [12, 13, 14, 15],
     "right_leg": [16, 17, 18, 19],
-    "both_hands": [6, 7, 10, 11, 21, 22, 23, 24],
     "upper_body": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 20, 21, 22, 23, 24],
     "lower_body": [0, 12, 13, 14, 15, 16, 17, 18, 19],
 }
@@ -268,6 +273,54 @@ def split_ntu_rgb_data(df: pd.DataFrame, strategy: str = "xsub") -> pd.DataFrame
     return df
 
 
+def load_ntu_annotation(annotation_file: Path, rgb_root: Path) -> pd.DataFrame:
+    """Load the exact MMAction2 ``<video> <0-based-label>`` annotation."""
+
+    rows = []
+    for line_number, raw_line in enumerate(
+        annotation_file.read_text(encoding="utf-8").splitlines(), start=1
+    ):
+        line = raw_line.strip()
+        if not line:
+            continue
+        parts = line.rsplit(maxsplit=1)
+        if len(parts) != 2:
+            raise ValueError(f"{annotation_file}:{line_number}: malformed annotation")
+        relative_path, label_text = parts
+        path = (rgb_root / relative_path).resolve()
+        rows.append(
+            {
+                "path": str(path),
+                "video_key": normalize_video_key(relative_path),
+                "label": int(label_text),
+                "action": int(label_text) + 1,
+            }
+        )
+    if not rows:
+        raise ValueError(f"annotation contains no samples: {annotation_file}")
+    return pd.DataFrame(rows)
+
+
+def select_per_class(df: pd.DataFrame, *, count: int, seed: int) -> pd.DataFrame:
+    """Select a class-balanced subset by stable SHA-256 ranking."""
+
+    if count <= 0:
+        raise ValueError("per-class count must be positive")
+    selected = []
+    for label, group in df.groupby("label", sort=True):
+        if len(group) < count:
+            raise ValueError(f"class {label} has {len(group)} samples; need {count}")
+        ranked = group.assign(
+            _rank=group["video_key"].map(
+                lambda key: hashlib.sha256(f"{seed}:{key}".encode()).hexdigest()
+            )
+        ).sort_values(["_rank", "video_key"])
+        selected.append(ranked.head(count).drop(columns=["_rank"]))
+    return pd.concat(selected, ignore_index=True).sort_values(
+        ["label", "video_key"]
+    ).reset_index(drop=True)
+
+
 # ---------------------------------------------------------------------------
 # New: bridge collected samples into SSAT's video_manifest/skeleton_bbox JSON.
 # ---------------------------------------------------------------------------
@@ -295,6 +348,8 @@ def build_outputs(
     skeleton_root: Path,
     out_dir: Path,
     num_frames: int,
+    sampling: str = "uniform",
+    selection_metadata: dict | None = None,
 ) -> tuple[int, list[tuple[str, str]]]:
     """Parse each row's skeleton, write video_manifest.json/skeleton_bbox.json.
 
@@ -303,13 +358,14 @@ def build_outputs(
     data has known-corrupt/missing skeleton entries.
 
     The skeleton file records one joint set per *native* clip frame (e.g. a
-    98-frame clip has 98 skeleton frames), but ``VideoFolderSource`` uniformly
-    subsamples every clip down to ``num_frames`` before a region is ever
-    resolved (see ``ssat.core.region.resolver.RegionResolver.resolve``,
+    98-frame clip has 98 skeleton frames), but ``VideoFolderSource``
+    deterministically subsamples every clip down to ``num_frames`` before a
+    region is ever resolved (see
+    ``ssat.core.region.resolver.RegionResolver.resolve``,
     which requires a ``(T, H, W)`` mask's ``T`` to equal the *loaded* sample's
-    frame count, not the source video's native length). So the same
-    ``uniform_frame_indices`` selection SSAT's own video loader uses is
-    applied here to the skeleton arrays before computing bounding boxes --
+    frame count, not the source video's native length). So the configured
+    frame-index selection SSAT's own video loader uses is applied here to the
+    skeleton arrays before computing bounding boxes --
     otherwise every skeleton_parts region fails at audit time with "mask
     frame count does not match the source sample".
 
@@ -318,6 +374,8 @@ def build_outputs(
         skip records.
     """
 
+    if sampling not in {"uniform", "segment_center"}:
+        raise ValueError("sampling must be 'uniform' or 'segment_center'")
     sample_bboxes: dict[str, dict[str, list]] = {}
     frame_sizes: dict[str, tuple[int, int]] = {}
     manifest_samples: list[dict] = []
@@ -334,8 +392,13 @@ def build_outputs(
             # Skeleton and RGB frames are captured 1:1 by the same Kinect
             # sensor; clamp defensively in case a clip's counts drift by a
             # frame or two.
+            sampler = (
+                segment_center_frame_indices
+                if sampling == "segment_center"
+                else uniform_frame_indices
+            )
             indices = np.minimum(
-                uniform_frame_indices(video_frame_count, num_frames),
+                sampler(video_frame_count, num_frames),
                 parsed.num_frames - 1,
             )
             part_bboxes = joints_to_part_bboxes(
@@ -351,20 +414,59 @@ def build_outputs(
         sample_bboxes[row.video_key] = part_bboxes
         frame_sizes[row.video_key] = frame_size
         manifest_samples.append(
-            {"sample_id": row.video_key, "path": row.path, "gt_label": int(row.label)}
+            {
+                "sample_id": row.video_key,
+                "path": Path(os.path.relpath(row.path, out_dir)).as_posix(),
+                "gt_label": int(row.label),
+            }
         )
 
     if not manifest_samples:
         raise RuntimeError("no sample produced valid skeleton bbox data; nothing to write")
+    requested_per_class = (selection_metadata or {}).get("samples_per_class")
+    if requested_per_class is not None:
+        output_counts: dict[int, int] = {}
+        for sample in manifest_samples:
+            label = int(sample["gt_label"])
+            output_counts[label] = output_counts.get(label, 0) + 1
+        short = {
+            label: count
+            for label, count in output_counts.items()
+            if count != requested_per_class
+        }
+        expected_labels = set(int(label) for label in df["label"].unique())
+        if set(output_counts) != expected_labels or short:
+            raise RuntimeError(
+                "skeleton filtering broke the requested per-class balance; "
+                f"counts={output_counts}"
+            )
 
     out_dir.mkdir(parents=True, exist_ok=True)
     write_json_atomic(out_dir / "video_manifest.json", {"samples": manifest_samples})
     write_skeleton_bbox_json(sample_bboxes, frame_sizes, out_dir / "skeleton_bbox.json")
-    _write_quickstart_config(out_dir, num_frames=num_frames)
+    metadata = {
+        "dataset": "NTU-RGB+D 60",
+        "sampling": sampling,
+        "num_frames": num_frames,
+        "num_samples": len(manifest_samples),
+        "body_parts": sorted(BODY_PARTS),
+        **(selection_metadata or {}),
+    }
+    metadata["manifest_sha256"] = sha256_file(out_dir / "video_manifest.json")
+    metadata["skeleton_bbox_sha256"] = sha256_file(out_dir / "skeleton_bbox.json")
+    write_json_atomic(out_dir / "selection_metadata.json", metadata)
+    _write_quickstart_config(out_dir, num_frames=num_frames, sampling=sampling)
+    for path in (
+        out_dir / "video_manifest.json",
+        out_dir / "skeleton_bbox.json",
+        out_dir / "selection_metadata.json",
+        out_dir / "config.yaml",
+    ):
+        path.chmod(0o644)
     return len(manifest_samples), skipped
 
 
-def _write_quickstart_config(out_dir: Path, *, num_frames: int) -> None:
+def _write_quickstart_config(out_dir: Path, *, num_frames: int, sampling: str) -> None:
     """Write a ready-to-run SSAT config pointing at this run's own outputs."""
 
     body_part = next(iter(BODY_PARTS))
@@ -373,6 +475,7 @@ source:
   kind: video_manifest
   manifest: video_manifest.json
   num_frames: {num_frames}
+  sampling: {sampling}
 adapter:
   provider: torchvision_video
   model_name: r3d_18
@@ -416,6 +519,9 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         "--split", choices=sorted(SPLIT_STRATEGIES), default="xsub", help="xsub or xview"
     )
     parser.add_argument("--num-frames", type=int, default=16, help="frames sampled per clip")
+    parser.add_argument(
+        "--sampling", choices=("uniform", "segment_center"), default="uniform"
+    )
     parser.add_argument("--out", type=Path, required=True, help="output directory")
     parser.add_argument(
         "--actions",
@@ -427,6 +533,17 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         ),
     )
     parser.add_argument(
+        "--annotation-file",
+        type=Path,
+        help="MMAction2 annotation file; when set, use its exact sample set and labels",
+    )
+    parser.add_argument(
+        "--partition", choices=("train", "test"), default="test",
+        help="partition selected when deriving a split without --annotation-file",
+    )
+    parser.add_argument("--samples-per-class", type=int, default=None)
+    parser.add_argument("--seed", type=int, default=20260820)
+    parser.add_argument(
         "--limit",
         type=int,
         default=None,
@@ -437,13 +554,21 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 
 def main(argv: list[str] | None = None) -> None:
     args = parse_args(argv)
-    df = collect_ntu_rgb_data(args.rgb_root)
+    rgb_root = Path(args.rgb_root).expanduser().resolve(strict=True)
+    annotation_file = None
+    if args.annotation_file is not None:
+        annotation_file = args.annotation_file.expanduser().resolve(strict=True)
+        df = load_ntu_annotation(annotation_file, rgb_root)
+    else:
+        df = collect_ntu_rgb_data(rgb_root)
     if df.empty:
         raise SystemExit(f"no *_rgb.avi files matched under {args.rgb_root}")
     # Deterministic order independent of the filesystem's glob() ordering, so
     # --actions/--limit selects the same samples on every run.
     df = df.sort_values("video_key").reset_index(drop=True)
-    df = split_ntu_rgb_data(df, strategy=args.split)
+    if annotation_file is None:
+        df = split_ntu_rgb_data(df, strategy=args.split)
+        df = df[df["split"] == args.partition].reset_index(drop=True)
     if args.actions is not None:
         wanted = {int(action_id) for action_id in args.actions.split(",")}
         df = df[df["action"].astype(int).isin(wanted)].reset_index(drop=True)
@@ -451,10 +576,34 @@ def main(argv: list[str] | None = None) -> None:
             raise SystemExit(f"no samples matched --actions {args.actions!r}")
     if args.limit is not None:
         df = df.head(args.limit)
+    if args.samples_per_class is not None:
+        df = select_per_class(df, count=args.samples_per_class, seed=args.seed)
+    class_counts = {
+        str(int(label)): int(count)
+        for label, count in df.groupby("label").size().items()
+    }
 
     skeleton_root = Path(args.skeleton_root).expanduser().resolve(strict=True)
     written, skipped = build_outputs(
-        df, skeleton_root=skeleton_root, out_dir=args.out, num_frames=args.num_frames
+        df,
+        skeleton_root=skeleton_root,
+        out_dir=args.out.expanduser().resolve(),
+        num_frames=args.num_frames,
+        sampling=args.sampling,
+        selection_metadata={
+            "selection": (
+                "sha256(seed:video_key)" if args.samples_per_class is not None else "all"
+            ),
+            "seed": args.seed,
+            "samples_per_class": args.samples_per_class,
+            "class_counts_before_skeleton_filter": class_counts,
+            "annotation_file": None if annotation_file is None else annotation_file.name,
+            "annotation_sha256": (
+                None if annotation_file is None else sha256_file(annotation_file)
+            ),
+            "split_strategy": None if annotation_file is not None else args.split,
+            "partition": None if annotation_file is not None else args.partition,
+        },
     )
 
     print(f"wrote {written} sample(s) to {args.out}")
