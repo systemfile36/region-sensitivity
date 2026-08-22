@@ -31,3 +31,37 @@ jobs:
       - run: pip install --index-url https://download.pytorch.org/whl/cpu torch==2.8.0 torchvision==0.23.0
       - run: pip install .
       - run: ssat --help
+
+  # Advisory only (continue-on-error): reproduces the Q1-Q5 synthetic-shortcut
+  # verdicts end to end (docs/REPRODUCIBILITY_DEMO_v1.md) using the committed
+  # pretrained checkpoints. Not required to pass because prepare_data.py
+  # depends on an external CIFAR-10 mirror outside this repo's control;
+  # a mirror outage should not block unrelated PRs.
+  reproducibility-demo:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    # Measured locally: a clean-state prepare_data.py (no cache) took ~28
+    # minutes end to end, almost entirely spent downloading the ~170MB
+    # CIFAR-10 tarball from a slow/throttled mirror connection -- PNG
+    # rendering and every audit/evaluate step after that together took well
+    # under a minute. GitHub Actions runners typically have much better
+    # outbound bandwidth than that measurement, but this job is advisory
+    # (continue-on-error) precisely because that external mirror's speed is
+    # outside this repo's control; the cache step below removes the
+    # download cost entirely on repeat runs.
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - run: pip install --index-url https://download.pytorch.org/whl/cpu torch==2.8.0 torchvision==0.23.0
+      - run: pip install -r requirements.txt
+      - run: pip install --no-deps -e .
+      - name: Cache CIFAR-10 / prepared manifests
+        uses: actions/cache@v4
+        with:
+          path: experiments/synthetic_shortcut/data
+          key: synthetic-shortcut-data-v1
+      - run: bash experiments/synthetic_shortcut/reproduce_demo.sh
