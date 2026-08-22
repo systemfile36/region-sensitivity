@@ -20,7 +20,7 @@ The command-line interface and Python API share the same `AuditApplication` serv
 - Built-in item, sample, region, spatial, and class-level metrics.
 - Control/stability analysis, reliability grading, HTML reports, and risk-label export.
 
-SSAT is currently alpha software. The Phase-3 recipe has been exercised on an NTU60 XSub manifest and native TSM checkpoint. The ImageNet and Kinetics providers retain their production-data warning until the corresponding complete audits are recorded.
+SSAT is currently alpha software. The Phase-3 recipe has completed full audits on an NTU60 XSub manifest with a native TSM checkpoint and on ImageNet-1k validation with two `timm` MobileNetV2 variants (official and crop-free preprocessing each) — see [Real dataset case study](docs/REAL_DATASET_CASE_STUDY_v1.md) for the full six-run matrix and results. The Kinetics provider retains its production-data warning until a complete audit is recorded.
 
 ## Quick start
 
@@ -184,12 +184,17 @@ SSAT records the resolved configuration, source-manifest hash, adapter identity,
 
 These controls do not make every third-party model or GPU kernel deterministic. Set `deterministic: true`, keep `runtime.allow_nondeterministic: false`, pin the software environment, and inspect warnings and per-item statuses. A spatial perturbation audit measures model sensitivity under the configured interventions; it does not by itself establish causal feature use, model fairness, robustness to arbitrary distribution shifts, or deployment safety.
 
+The above is about software-level provenance guarantees. For a concrete, third-party-reproducible scientific result built on top of them, see [Reproducibility demo (Q1-Q5)](docs/REPRODUCIBILITY_DEMO_v1.md).
+
 ## Documentation
 
 - [Installation and deployment](docs/INSTALLATION.md)
 - [Configuration reference](docs/CONFIG_REFERENCE.md)
 - [Application API](docs/APPLICATION_API.md)
 - [Logging policy](docs/LOGGING_POLICY.md)
+- [Real dataset case study](docs/REAL_DATASET_CASE_STUDY_v1.md)
+- [Reference comparison (Captum)](docs/REFERENCE_COMPARISON_CAPTUM_v1.md)
+- [Reproducibility demo (Q1-Q5)](docs/REPRODUCIBILITY_DEMO_v1.md)
 - [Contributing](CONTRIBUTING.md)
 
 The previous Korean documentation is retained under `docs/internal/`.
