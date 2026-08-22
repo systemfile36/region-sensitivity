@@ -91,4 +91,40 @@ python experiments/real_dataset_case_study/summarize.py
 
 Official preprocessing is the primary result. Its center crop can legitimately fail the 5% effective-area advisory. ImageNet crop-free runs must pass that advisory and serve as the preprocessing-confound comparison. On NTU, crop-free preprocessing removes the systematic crop effect but the preflight still found 4/30 failures (maximum 14.67%) because very small hand masks quantize to only a few pixels when reduced from 1080p to 224p. This residual advisory is retained rather than tuning part boxes to the three preflight samples. Exact clean-accuracy gates are 50% (`mobilenetv2_050`), 60% (`mobilenetv2_100`), and 80% (NTU TSM); crop-free accuracy is recorded without a hard gate.
 
-A complete run requires finite full logits and zero clean/perturbed item failures. Commit generated files under `experiments/real_dataset_case_study/summary/`; do not commit `data/`, checkpoints, or `outputs/`. ImageNet result tables remain intentionally absent while the dataset download and six full audits are incomplete.
+A complete run requires finite full logits and zero clean/perturbed item failures. Commit generated files under `experiments/real_dataset_case_study/summary/`; do not commit `data/`, checkpoints, or `outputs/`. All six audits in the matrix have completed; see [Results](#results) below.
+
+## Results
+
+All six audits in the matrix have completed (zero clean/perturbed item failures in every `run_manifest.json`). Clean top-1 accuracy below is computed directly from each run's full raw clean dump (`DumpHandle.clean()`, `argmax(logits) == gt_label`, all samples — not a preflight subsample); `mean_region_margin_drop` is the primary-metric average over `experiments/real_dataset_case_study/summary/region_metrics.csv`.
+
+| Run | Clean accuracy | Gate | Gate result | Mean region `margin_drop` |
+| --- | ---: | ---: | --- | ---: |
+| `imagenet_mnv2_050_exact` | 66.06% | ≥50% | PASS | 0.0438 |
+| `imagenet_mnv2_050_crop_free` | 62.20% | none | — | 0.0398 |
+| `imagenet_mnv2_100_exact` | 73.03% | ≥60% | PASS | 0.0404 |
+| `imagenet_mnv2_100_crop_free` | 70.94% | none | — | 0.0376 |
+| `ntu60_tsm_exact` | 89.58% | ≥80% | PASS | 0.7389 |
+| `ntu60_tsm_crop_free` | 80.00% | none | — | 0.5155 |
+
+All three accuracy-gated (exact-preprocessing) runs pass their gate.
+
+**ImageNet.** For every (model, preprocessing) combination, the highest-`margin_drop` grid cell is the same cell, `grid_4x4/r1/c1` (one of the four center cells in the 4×4 grid), at roughly 2-3x the per-run mean (e.g. 0.1246 vs. a 0.0438 mean for `mnv2_050_exact`). This is consistent with ImageNet's well-known object-centric composition bias rather than a model-specific finding, since it holds for both model sizes and both preprocessing modes.
+
+**NTU60.** Region metrics for `skeleton_parts` regions are recorded per (sample, part) rather than pooled by part alone (part identity is only recoverable from the `region_key` prefix, since each sample's part boxes are frame-dependent), so the part-level ranking below aggregates `margin_drop` across all 1,200 samples per part. `upper_body` is the most sensitive region in both preprocessing modes, followed by `right_arm` and `torso`; `head` and the hand regions are the least sensitive:
+
+| Part | `exact` mean `margin_drop` | `crop_free` mean `margin_drop` |
+| --- | ---: | ---: |
+| upper_body | 2.657 | 1.755 |
+| right_arm | 1.129 | 0.734 |
+| torso | 0.943 | 0.700 |
+| left_arm | 0.810 | 0.529 |
+| lower_body | 0.728 | 0.579 |
+| right_leg | 0.344 | 0.291 |
+| left_leg | 0.334 | 0.278 |
+| right_hand | 0.238 | 0.137 |
+| left_hand | 0.145 | 0.082 |
+| head | 0.060 | 0.070 |
+
+The ranking is stable across preprocessing modes, suggesting this native-TSM checkpoint's action classification relies more on upper-body/arm motion than on fine hand or head detail across the NTU60 XSub action set — a plausible, not a surprising, finding, and reproducible re-use is the point rather than the finding itself.
+
+**Known limitation, not staleness:** `experiments/real_dataset_case_study/summary/run_summary.json`'s `mean_region_flip_rate` field is `NaN` for all six runs by construction — it is computed only from `metric_name == "margin_drop"` rows, but `flip_rate` is populated only alongside the flip-style metrics (`pred_changed`, `flip_correct_to_wrong`, `flip_wrong_to_correct`, `topk_exit`), never alongside `margin_drop`. This is a pre-existing `summarize.py` query mismatch (not fixed here, out of this document's scope) rather than a real "zero flips" result; the flip-style metrics themselves are present and non-null in `region_metrics.csv`/`class_metrics.csv` for anyone who wants them.
