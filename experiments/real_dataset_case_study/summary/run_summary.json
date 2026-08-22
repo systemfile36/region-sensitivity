@@ -1,0 +1,46 @@
+{
+  "runs": [
+    {
+      "mean_region_flip_rate": NaN,
+      "mean_region_margin_drop": 0.0438245009447867,
+      "minimum_accuracy": 0.5,
+      "n_regions": 16,
+      "run": "imagenet_mnv2_050_exact"
+    },
+    {
+      "mean_region_flip_rate": NaN,
+      "mean_region_margin_drop": 0.0397751550284028,
+      "minimum_accuracy": null,
+      "n_regions": 16,
+      "run": "imagenet_mnv2_050_crop_free"
+    },
+    {
+      "mean_region_flip_rate": NaN,
+      "mean_region_margin_drop": 0.040392534458339215,
+      "minimum_accuracy": 0.6,
+      "n_regions": 16,
+      "run": "imagenet_mnv2_100_exact"
+    },
+    {
+      "mean_region_flip_rate": NaN,
+      "mean_region_margin_drop": 0.03756847397387028,
+      "minimum_accuracy": null,
+      "n_regions": 16,
+      "run": "imagenet_mnv2_100_crop_free"
+    },
+    {
+      "mean_region_flip_rate": NaN,
+      "mean_region_margin_drop": 0.7389284826129675,
+      "minimum_accuracy": 0.8,
+      "n_regions": 12000,
+      "run": "ntu60_tsm_exact"
+    },
+    {
+      "mean_region_flip_rate": NaN,
+      "mean_region_margin_drop": 0.5155039773792028,
+      "minimum_accuracy": null,
+      "n_regions": 12000,
+      "run": "ntu60_tsm_crop_free"
+    }
+  ]
+}
