@@ -250,6 +250,10 @@ def main() -> int:
     print(report)
     print(f"saved report to {report_path}")
 
+    verdicts_path = args.results_dir / "verdicts.json"
+    verdicts_path.write_text(json.dumps(verdicts, indent=2), encoding="utf-8")
+    print(f"saved verdicts to {verdicts_path}")
+
     # Representative heatmaps, reusing the already-shipped DebugViz V2 view
     # rather than building a second rendering path.
     for run_id in HEATMAP_RUN_IDS:

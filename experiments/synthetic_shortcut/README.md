@@ -23,13 +23,14 @@ bash -lc '...'`), never on the host.
 | `train.py` | canonical | Trains `M_shortcut` (`--dataset shortcut`) or `M_normal` (`--dataset normal`). |
 | `run_audit.py` | canonical | Runs the 7 pre-registered (model, dataset, fill) audit combinations. |
 | `evaluate_accuracy.py` | canonical | Q5's plain top-1 accuracy numbers. |
-| `evaluate.py` | canonical | Judges Q1-Q5 and section 3.5, writes `report.md`. |
+| `evaluate.py` | canonical | Judges Q1-Q5 and section 3.5, writes `report.md` and `verdicts.json` (the same judgement, machine-readable). |
 | `analyze_section35_sensitivity.py` | canonical | Follow-up diagnostic on the fill-strategy rank-correlation anomaly. |
 | `analyze_sign_group_premise.py` | canonical | Compares the fill-strategy sign-group split between the cropped and crop-free runs (Sign-Group Premise Re-examination). |
 | `run_threshold_validation_full.py` | canonical | Crop-free, all-5-fill-strategy audit with controls + multi-seed, for reliability-threshold recalibration. Supports `--model shortcut\|normal`. |
 | `validate_reliability_thresholds_full.py` | canonical | Reports on the above run against `ssat.analysis`'s `z_vs_control`/`seed_cv` defaults. |
 | `generate_report.py` | canonical | C3 real-data validation of the reporting layer (`ssat.report` R0-R4): runs `ssat analyze` then `ssat report` against the run above and produces `report.html`. Supports `--model shortcut\|normal`. |
 | `verify_crop_free_parity.py` | diagnostic | One-off pre-flight check that train-time and audit-time crop-free preprocessing are bit-identical. No results-dir dependency; run once before crop-free training. |
+| `check_demo_verdicts.py` | diagnostic | Asserts every pre-registered Q1-Q5 verdict in a results dir's `verdicts.json` is PASS; exit-code-driven, for scripted/CI verification of the demo path below (and equally usable against `results_crop_free/`). |
 | `analyze_control_stability.py` | diagnostic | Regression check: does `ssat.analysis` (A0-A6) reproduce the *original cropped run's* hand-derived numbers? Expected to report FAIL against `results_crop_free` by design -- see its own module docstring. |
 | `run_threshold_validation.py` | **SUPERSEDED** | Provisional, single-op (`constant_fill`), cropped-preset predecessor of `run_threshold_validation_full.py`. Kept only for historical comparison. |
 | `validate_reliability_thresholds.py` | **SUPERSEDED** | Predecessor of `validate_reliability_thresholds_full.py`, reports on the run above. Kept only for historical comparison. |
@@ -48,7 +49,44 @@ bash -lc '...'`), never on the host.
 
 ## Quick Start
 
-### A. Reproduce `docs/internal/L3_Synthetic-Shortcut Experiment Report.md`
+### A0. Demo: reproduce the Q1-Q5 verdicts without training
+
+Uses the committed `pretrained/m_shortcut.pt` and `pretrained/m_normal.pt`
+checkpoints (5.7MB total) directly -- no `train.py` step at all -- and
+writes to `results_crop_free_demo/`, so it never touches
+`checkpoints_crop_free/` or `results_crop_free/` (sequence A1 below). This
+is the fast path: it proves third-party, inference-level reproducibility of
+the audit/judgment step at near-zero cost (no GPU, no training time, a
+small git payload), whereas sequence A1 additionally verifies that training
+itself reproduces an equivalent checkpoint from scratch. See
+`docs/REPRODUCIBILITY_DEMO_v1.md` for the full write-up.
+
+```bash
+cd experiments/synthetic_shortcut
+
+python3 prepare_data.py                    # one-time; skip if data/ is populated; no overrides
+python3 verify_crop_free_parity.py         # pre-flight sanity check, no args
+
+python3 run_audit.py --preprocessing crop_free --checkpoint-dir pretrained --results-dir results_crop_free_demo
+python3 evaluate_accuracy.py --preprocessing crop_free --checkpoint-dir pretrained --results-dir results_crop_free_demo
+python3 evaluate.py --results-dir results_crop_free_demo
+python3 check_demo_verdicts.py --results-dir results_crop_free_demo
+```
+
+Or run `bash reproduce_demo.sh`, which chains the same steps.
+
+This is a separate, narrower check than
+`tests/integration/test_synthetic_shortcut_regression.py`: that test is an
+analysis-code-only regression check against pre-baked parquet fixtures (no
+model inference, sub-second, part of the main `pytest -q` suite); this demo
+additionally exercises real checkpoint inference through `ssat`'s
+`AuditApplication` end to end.
+
+### A1. Full retrain path: reproduce `docs/internal/L3_Synthetic-Shortcut Experiment Report.md`
+
+Trains `M_shortcut`/`M_normal` from scratch instead of using the shipped
+checkpoints -- for anyone who wants to verify training itself reproduces
+equivalent checkpoints, not just the audit/judgment step covered by A0.
 
 ```bash
 cd experiments/synthetic_shortcut
@@ -70,7 +108,7 @@ Or run `bash reproduce_l3_report.sh`, which chains the same steps.
 
 ### B. Reproduce `docs/internal/RELIABILITY_THRESHOLD_CALIBRATION_v1.md`
 
-Requires sequence A's `checkpoints_crop_free/` to already exist.
+Requires sequence A1's `checkpoints_crop_free/` to already exist.
 
 ```bash
 cd experiments/synthetic_shortcut
