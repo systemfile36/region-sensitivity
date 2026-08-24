@@ -3,7 +3,11 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    image: local/ssat:0.1.0
+    # Tag mirrors [project].version in pyproject.toml (the single source of
+    # truth for the package version, see ssat/__init__.py); override with
+    # SSAT_IMAGE_TAG=<version> docker compose ... when cutting a release so
+    # this file doesn't need editing on every version bump.
+    image: local/ssat:${SSAT_IMAGE_TAG:-0.1.0}
     working_dir: /app
     gpus: all
     shm_size: "32G"

@@ -8,26 +8,29 @@ torch>=2.8.0
 torchvision>=0.23.0
 
 # Data
-numpy
-pandas
-pyarrow
+# Bounds below pin the major/minor line last verified by the full test
+# suite (see docs/internal/SOFTWARE_MATURITY_AUDIT_v1.md SS3.2) and allow
+# patch/minor upgrades within it while blocking untested major bumps.
+numpy~=2.3
+pandas~=3.0
+pyarrow~=25.0
 pydantic>=2,<3
-typer
-pyyaml
-timm
-jinja2
+typer~=0.27
+pyyaml~=6.0
+timm~=1.0
+jinja2~=3.1
 
 # Image
 # Install headless OpenCV for non-GUI envitonment (like Dev container)
-opencv-python-headless
-pillow
+opencv-python-headless~=5.0
+pillow~=11.0
 
 # Video
-decord
+decord~=0.6
 
 # Others
-tqdm
-matplotlib
+tqdm~=4.67
+matplotlib~=3.11
 
 # Dev
 pytest
