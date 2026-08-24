@@ -99,7 +99,7 @@ from __future__ import annotations
 
 import math
 from collections import Counter, defaultdict
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
@@ -162,6 +162,14 @@ _GRADE_SEVERITY_ORDER = (
     ReportGrade.MODERATE,
     ReportGrade.HIGH,
 )
+
+# The one region_kind whose region_key is unique per sample rather than
+# dataset-stable (ssat.core.types.RegionKind.SKELETON_PARTS.value) --
+# _build_region_summary aggregates its rows up to region_id. Compared as a
+# plain string rather than importing the RegionKind enum, matching this
+# module's existing discipline of never depending on ssat.core.types (see
+# module docstring / _dataset_name).
+_SKELETON_PARTS_KIND = "skeleton_parts"
 
 
 @dataclass(frozen=True, slots=True)
@@ -655,7 +663,30 @@ class ReportDataAssembler:
         ``top_region_share``, which lets a region table sort/color by how
         often a region is *the* answer across the dataset, independent of
         the worst-case ``reliability_grade``.
+
+        ``skeleton_parts`` is special-cased: unlike every other region kind,
+        its ``region_key`` is unique *per sample* (``RegionRow.region_key``'s
+        own docstring), so one row per ``region_key`` would mean one row per
+        ``(body_part, sample)`` pair — thousands of rows for a real dataset,
+        each with ``n_valid`` in the single digits, an unreadable table, and
+        a region_bar chart wide enough to be meaningless. Those rows are
+        instead aggregated up to one ``RegionRow`` per ``region_id`` (the
+        stable body-part family) across the whole dataset, mirroring the
+        working one-axis-coarser precedent
+        :func:`_sample_semantic_group_degradation`/:func:`_build_semantic_summary`
+        already sets for ``semantic_group``. Every other region kind's
+        ``region_key`` is already dataset-stable (e.g. one grid cell shared
+        by every sample) — aggregating those by ``region_id`` too would
+        collapse the per-cell breakdown ``_grid_layout`` (html_renderer.py)
+        depends on, so they are left exactly as they were.
         """
+
+        skeleton_rows = [
+            row for row in region_rows if row.region_kind.value == _SKELETON_PARTS_KIND
+        ]
+        other_rows = [
+            row for row in region_rows if row.region_kind.value != _SKELETON_PARTS_KIND
+        ]
 
         grades_by_region = (
             _group_report_grades(
@@ -667,42 +698,126 @@ class ReportDataAssembler:
         top_region_counts = Counter(top_region_by_sample.values())
         n_scored_samples = len(top_region_by_sample)
 
-        rows = []
-        for row in sorted(region_rows, key=lambda row: row.region_key):
-            grades = grades_by_region.get(row.region_key, ())
-            distribution = (
-                dict(Counter(grade.value for grade in grades)) if analysis is not None else {}
+        rows = [
+            self._region_summary_row(
+                row.region_key,
+                _region_id_from_region_key(row.region_key),
+                row.region_kind.value,
+                grades_by_region.get(row.region_key, ()),
+                intended_area_px=row.intended_area_px,
+                effective_area_px=row.effective_area_px,
+                mean_degradation=row.metric_mean,
+                flip_rate=row.flip_rate,
+                n_valid=row.n_valid,
+                top_region_share_count=top_region_counts.get(row.region_key, 0),
+                n_scored_samples=n_scored_samples,
+                analysis_available=analysis is not None,
             )
-            n_graded = sum(distribution.values())
-            rows.append(
-                RegionRow(
-                    region_key=row.region_key,
-                    region_id=_region_id_from_region_key(row.region_key),
-                    region_kind=row.region_kind.value,
-                    intended_area_px=row.intended_area_px,
-                    effective_area_px=row.effective_area_px,
-                    mean_degradation=row.metric_mean,
-                    flip_rate=row.flip_rate,
-                    n_valid=row.n_valid,
-                    reliability_grade=_worst_grade(grades) if analysis is not None else None,
-                    reliability_distribution=distribution,
-                    top_region_share=(
-                        top_region_counts.get(row.region_key, 0) / n_scored_samples
-                        if n_scored_samples
-                        else None
-                    ),
-                    high_rate=(
-                        distribution.get(ReportGrade.HIGH.value, 0) / n_graded
-                        if n_graded
-                        else None
-                    ),
+            for row in other_rows
+        ]
+
+        if skeleton_rows:
+            grades_by_region_id = (
+                _group_report_grades(
+                    analysis.reliability_rows,
+                    primary_metric,
+                    key=lambda row: _region_id_from_region_key(row.anchor_key.region_key),
                 )
+                if analysis is not None
+                else {}
             )
+            # A second, region_id-mapped counter -- top_region_counts above
+            # (keyed by concrete region_key) must stay untouched for
+            # other_rows, since collapsing it there would wrongly merge
+            # every grid cell's vote. Looking a region_id up against
+            # top_region_counts directly would silently return 0 for nearly
+            # every skeleton_parts row (its keys are per-sample region_keys).
+            top_region_id_counts = Counter(
+                _region_id_from_region_key(region_key) for region_key in top_region_by_sample.values()
+            )
+            grouped: dict[str, list[RegionMetrics]] = defaultdict(list)
+            for row in skeleton_rows:
+                grouped[_region_id_from_region_key(row.region_key)].append(row)
+
+            for region_id in sorted(grouped):
+                group = grouped[region_id]
+                rows.append(
+                    self._region_summary_row(
+                        region_id,
+                        region_id,
+                        _SKELETON_PARTS_KIND,
+                        grades_by_region_id.get(region_id, ()),
+                        intended_area_px=_weighted_mean(
+                            (r.intended_area_px, r.n_valid) for r in group
+                        ),
+                        effective_area_px=_weighted_mean(
+                            (r.effective_area_px, r.n_valid) for r in group
+                        ),
+                        mean_degradation=_weighted_mean((r.metric_mean, r.n_valid) for r in group),
+                        flip_rate=_weighted_mean((r.flip_rate, r.n_valid) for r in group),
+                        n_valid=sum(r.n_valid for r in group),
+                        top_region_share_count=top_region_id_counts.get(region_id, 0),
+                        n_scored_samples=n_scored_samples,
+                        analysis_available=analysis is not None,
+                    )
+                )
+
+        rows.sort(key=lambda row: row.region_key)
         dataset_distribution = (
             dict(analysis.manifest.grade_distribution) if analysis is not None else {}
         )
         return RegionSummary(
             rows=tuple(rows), reliability_distribution=dataset_distribution, chart_asset_ref=None
+        )
+
+    @staticmethod
+    def _region_summary_row(
+        region_key: str,
+        region_id: str,
+        region_kind: str,
+        grades: Sequence[ReportGrade],
+        *,
+        intended_area_px: float | None,
+        effective_area_px: float | None,
+        mean_degradation: float | None,
+        flip_rate: float | None,
+        n_valid: int,
+        top_region_share_count: int,
+        n_scored_samples: int,
+        analysis_available: bool,
+    ) -> RegionRow:
+        """Build one ``RegionRow``, shared by both the per-``region_key`` and per-``region_id`` paths.
+
+        ``intended_area_px``/``effective_area_px`` are rounded to ``int``
+        here (a plain per-``region_key`` row already has an exact ``int``
+        area; a ``region_id`` aggregate's weighted-mean area does not, so
+        both paths round through this one shared constructor for a
+        consistent type — ``RegionRow.intended_area_px: int | None``).
+        """
+
+        distribution = dict(Counter(grade.value for grade in grades)) if analysis_available else {}
+        n_graded = sum(distribution.values())
+        return RegionRow(
+            region_key=region_key,
+            region_id=region_id,
+            region_kind=region_kind,
+            intended_area_px=(
+                round(intended_area_px) if intended_area_px is not None else None
+            ),
+            effective_area_px=(
+                round(effective_area_px) if effective_area_px is not None else None
+            ),
+            mean_degradation=mean_degradation,
+            flip_rate=flip_rate,
+            n_valid=n_valid,
+            reliability_grade=_worst_grade(grades) if analysis_available else None,
+            reliability_distribution=distribution,
+            top_region_share=(
+                top_region_share_count / n_scored_samples if n_scored_samples else None
+            ),
+            high_rate=(
+                distribution.get(ReportGrade.HIGH.value, 0) / n_graded if n_graded else None
+            ),
         )
 
     # --- reliability spotlight -----------------------------------------------
@@ -939,6 +1054,31 @@ def _build_spatial_concentration(
         spatial_entropy=spatial_entropy,
         n_scored_samples=n_scored_samples,
     )
+
+
+def _weighted_mean(pairs: Iterable[tuple[float | None, int]]) -> float | None:
+    """Reduce ``(value, weight)`` pairs to one weighted mean.
+
+    Shared by :meth:`ReportDataAssembler._build_region_summary`'s
+    ``skeleton_parts`` aggregation for ``mean_degradation``/``flip_rate``/
+    the two area fields -- ``n_valid`` is the natural weight since it is the
+    only field on ``RegionMetrics`` that measures how many valid items
+    contributed to a row's own mean.
+
+    Args:
+        pairs: ``(value, weight)`` pairs; a pair is skipped when ``value``
+            is ``None`` or ``weight <= 0`` ("unavailable, not zero", the
+            same convention every other reduction in this module follows).
+
+    Returns:
+        The weighted mean, or ``None`` if no pair is usable.
+    """
+
+    usable = [(value, weight) for value, weight in pairs if value is not None and weight > 0]
+    total_weight = sum(weight for _, weight in usable)
+    if total_weight == 0:
+        return None
+    return sum(value * weight for value, weight in usable) / total_weight
 
 
 # --- semantic_group axis ---------------------------------------------------

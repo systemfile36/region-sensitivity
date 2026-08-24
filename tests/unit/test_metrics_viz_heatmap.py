@@ -14,11 +14,14 @@ from synthetic_dump_builder import (
     compute_and_save_metrics,
     image_manifest_source_provenance,
     perturbed_record,
+    skeleton_bbox_source,
+    video_manifest_source_provenance,
     write_dump,
 )
 
 from ssat.core.config.schema import ResolvedRegionConfig, SourceProvenance
-from ssat.core.source import ImageFolderSource
+from ssat.core.region.skeleton_store import load_skeleton_bbox_store
+from ssat.core.source import ImageFolderSource, VideoFolderSource
 from ssat.core.source.types import SampleMeta
 from ssat.core.types import RegionKind
 from ssat.metrics.builtin_metrics.continuous import GtLogitDrop
@@ -26,8 +29,9 @@ from ssat.metrics.errors import DebugVizError
 from ssat.metrics.registry import MetricRegistry
 from ssat.metrics.store import load_metrics
 from ssat.metrics.types import RegionGeometryRef, SpatialProfile
-from ssat.metrics.viz._shared import open_image_source
+from ssat.metrics.viz._shared import open_image_source, open_skeleton_store
 from ssat.metrics.viz.heatmap import (
+    _select_representative_frame,
     resolve_heatmap_view,
     save_heatmap_views,
     select_spatial_profile_rows,
@@ -37,6 +41,11 @@ from ssat.utils.io import sha256_file
 _FIXTURE_ROOT = Path(__file__).resolve().parents[1] / "fixtures" / "synthetic_classification"
 _FIXTURE_MANIFEST = _FIXTURE_ROOT / "manifest.json"
 _METRIC_NAME = "gt_logit_drop"
+
+_VIDEO_FIXTURE_ROOT = Path(__file__).resolve().parents[1] / "fixtures" / "synthetic_video"
+_VIDEO_FIXTURE_MANIFEST = _VIDEO_FIXTURE_ROOT / "manifest.json"
+_VIDEO_FIXTURE_SKELETON_BBOX = _VIDEO_FIXTURE_ROOT / "skeleton_bbox.json"
+_VIDEO_NUM_FRAMES = 8
 _GRID_REGIONS = (
     ResolvedRegionConfig(region_id="grid", kind=RegionKind.GRID, params={"rows": 1, "cols": 3}),
 )
@@ -250,3 +259,178 @@ def test_open_image_source_supports_legacy_imagenet_provenance(tmp_path: Path) -
 
     assert loaded.original_shape == (1, 64, 64, 3)
     assert loaded.gt_label == 0
+
+
+# --- video / skeleton_parts -------------------------------------------------
+
+
+def _video_source() -> VideoFolderSource:
+    """Build a VideoFolderSource over the real, committed video fixture."""
+
+    document = json.loads(_VIDEO_FIXTURE_MANIFEST.read_text())
+    samples = [
+        SampleMeta(entry["sample_id"], _VIDEO_FIXTURE_ROOT / entry["path"], entry.get("gt_label"))
+        for entry in document["samples"]
+        if entry["expected_status"] == "ok"
+    ]
+    return VideoFolderSource(samples, num_frames=_VIDEO_NUM_FRAMES, sampling="uniform")
+
+
+def _skeleton_row(sample_id: str, *, degradation: float = 1.0) -> SpatialProfile:
+    """Build a skeleton_parts SpatialProfile row for the committed video fixture's left_arm part."""
+
+    return SpatialProfile(
+        sample_id=sample_id,
+        region_key=f"occlude_left_arm::occlude_left_arm/{sample_id}",
+        metric_name=_METRIC_NAME,
+        region_geometry_ref=RegionGeometryRef(
+            region_kind=RegionKind.SKELETON_PARTS,
+            region_params_json=json.dumps(
+                {"sample_id": sample_id, "body_part": "left_arm", "bbox_scale": 1.0}
+            ),
+        ),
+        degradation=degradation,
+    )
+
+
+def _build_video_dump(tmp_path: Path, *, with_skeleton_source: bool) -> Path:
+    """Write a dump whose source is the committed video fixture, optionally with skeleton_source."""
+
+    config = build_resolved_config(
+        tmp_path,
+        regions=_GRID_REGIONS,
+        source_provenance=video_manifest_source_provenance(
+            _VIDEO_FIXTURE_MANIFEST, num_frames=_VIDEO_NUM_FRAMES
+        ),
+        skeleton_source=(
+            skeleton_bbox_source(_VIDEO_FIXTURE_SKELETON_BBOX) if with_skeleton_source else None
+        ),
+    )
+    dump_root = tmp_path / "dump"
+    write_dump(
+        dump_root,
+        config,
+        clean_records=(clean_record("synthetic-video-000", logits=_CLEAN_LOGITS),),
+        perturbed_records=(),
+    )
+    return dump_root
+
+
+def test_open_image_source_supports_video_manifest_provenance(tmp_path: Path) -> None:
+    dump_root = _build_video_dump(tmp_path, with_skeleton_source=False)
+
+    source = open_image_source(dump_root)
+    loaded = source.load("synthetic-video-000")
+
+    assert isinstance(source, VideoFolderSource)
+    assert loaded.original_shape == (_VIDEO_NUM_FRAMES, 64, 64, 3)
+
+
+def test_open_image_source_raises_for_kinetics400_provenance(tmp_path: Path) -> None:
+    provenance = SourceProvenance(
+        kind="kinetics400",
+        manifest=_VIDEO_FIXTURE_MANIFEST.resolve(),
+        manifest_hash=sha256_file(_VIDEO_FIXTURE_MANIFEST),
+    )
+    config = build_resolved_config(tmp_path, regions=_GRID_REGIONS, source_provenance=provenance)
+    dump_root = tmp_path / "dump"
+    write_dump(
+        dump_root,
+        config,
+        clean_records=(clean_record("synthetic-video-000", logits=_CLEAN_LOGITS),),
+        perturbed_records=(),
+    )
+
+    with pytest.raises(DebugVizError, match="kinetics400"):
+        open_image_source(dump_root)
+
+
+def test_open_skeleton_store_loads_configured_bbox_data(tmp_path: Path) -> None:
+    dump_root = _build_video_dump(tmp_path, with_skeleton_source=True)
+
+    store = open_skeleton_store(dump_root)
+
+    assert store is not None
+    assert store.frame_size("synthetic-video-000") == (64, 64)
+    assert len(store.get("synthetic-video-000", "left_arm")) == _VIDEO_NUM_FRAMES
+
+
+def test_open_skeleton_store_returns_none_when_unconfigured(tmp_path: Path) -> None:
+    dump_root, _ = _build_grid_metrics(tmp_path)
+
+    assert open_skeleton_store(dump_root) is None
+
+
+def test_resolve_heatmap_view_selects_middle_frame_and_slices_mask(tmp_path: Path) -> None:
+    del tmp_path
+    store = load_skeleton_bbox_store(_VIDEO_FIXTURE_SKELETON_BBOX)
+    row = _skeleton_row("synthetic-video-000", degradation=2.5)
+
+    view = resolve_heatmap_view(
+        "synthetic-video-000", [row], source=_video_source(), skeleton_store=store
+    )
+
+    assert view.num_frames == _VIDEO_NUM_FRAMES
+    assert view.frame_index == _VIDEO_NUM_FRAMES // 2
+    assert view.original.shape == (64, 64, 3)
+    assert view.intensity.shape == (64, 64)
+    # The committed fixture's left_arm box is tracked on every frame, so the
+    # painted region is exactly the frame_index-th box, not frame 0's.
+    boxes = store.get("synthetic-video-000", "left_arm")
+    x1, y1, x2, y2 = boxes[view.frame_index]
+    assert np.all(view.intensity[int(y1) : int(y2), int(x1) : int(x2)] == 2.5)
+    assert np.isnan(view.intensity[0, 0])
+
+
+def test_resolve_heatmap_view_without_skeleton_store_raises_debug_viz_error(tmp_path: Path) -> None:
+    del tmp_path
+    row = _skeleton_row("synthetic-video-000")
+
+    with pytest.raises(DebugVizError, match="synthetic-video-000"):
+        resolve_heatmap_view("synthetic-video-000", [row], source=_video_source())
+
+
+def test_resolve_heatmap_view_preserves_frame_zero_for_image_sources(tmp_path: Path) -> None:
+    dump_root, metrics_dir = _build_grid_metrics(tmp_path)
+    _, result, _ = load_metrics(metrics_dir)
+    rows_by_sample = select_spatial_profile_rows(
+        result.spatial_profile, metric_name=_METRIC_NAME, n_samples=1
+    )
+
+    view = resolve_heatmap_view(
+        "synthetic-000", rows_by_sample["synthetic-000"], source=_fixture_source()
+    )
+
+    assert view.frame_index == 0
+    assert view.num_frames == 1
+
+
+# --- _select_representative_frame (unit-level, direct) ---------------------
+
+
+def test_select_representative_frame_returns_zero_for_a_single_frame() -> None:
+    mask = np.zeros((2, 2), dtype=np.bool_)
+    assert _select_representative_frame(1, [mask]) == 0
+
+
+def test_select_representative_frame_prefers_the_middle_frame_when_valid() -> None:
+    mask = np.ones((5, 2, 2), dtype=np.bool_)
+    assert _select_representative_frame(5, [mask]) == 2
+
+
+def test_select_representative_frame_falls_back_to_nearest_valid_frame() -> None:
+    mask = np.zeros((5, 2, 2), dtype=np.bool_)
+    mask[3] = True  # middle=2 is empty; nearest valid frame is 3 (|3-2|=1)
+    assert _select_representative_frame(5, [mask]) == 3
+
+
+def test_select_representative_frame_ties_toward_the_lower_index() -> None:
+    mask = np.zeros((5, 2, 2), dtype=np.bool_)
+    mask[1] = True
+    mask[3] = True  # both equidistant from middle=2; tie goes to the lower index
+    assert _select_representative_frame(5, [mask]) == 1
+
+
+def test_select_representative_frame_falls_back_to_middle_when_nothing_is_tracked() -> None:
+    mask = np.zeros((5, 2, 2), dtype=np.bool_)
+    assert _select_representative_frame(5, [mask]) == 2

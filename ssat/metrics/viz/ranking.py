@@ -25,13 +25,14 @@ from typing import Sequence
 from matplotlib.backends.backend_agg import FigureCanvasAgg
 from matplotlib.figure import Figure
 
-from ssat.core.source import ImageFolderSource
+from ssat.core.region.skeleton_store import SkeletonBBoxStore
+from ssat.core.source import SampleSource
 from ssat.metrics.aggregate import DEFAULT_PRIMARY_METRIC
 from ssat.metrics.dump_reader import DumpHandle
 from ssat.metrics.errors import DebugVizError
 from ssat.metrics.store import load_metrics, verify_source_dump
 from ssat.metrics.types import SampleMetrics, SpatialProfile
-from ssat.metrics.viz._shared import open_image_source
+from ssat.metrics.viz._shared import open_image_source, open_skeleton_store
 from ssat.metrics.viz.heatmap import (
     render_heatmap_panel,
     resolve_heatmap_view,
@@ -135,6 +136,7 @@ def save_ranking_views(
     """
 
     source = open_image_source(dump_root)
+    skeleton_store = open_skeleton_store(dump_root)
     _, result, manifest = load_metrics(Path(metrics_dir))
     verify_source_dump(manifest, DumpHandle(dump_root).manifest_path)
 
@@ -149,11 +151,11 @@ def save_ranking_views(
     output_path.mkdir(parents=True, exist_ok=True)
 
     top_paths = tuple(
-        _save_ranked_png(ranked, rank, "top", rows_by_sample, source, output_path)
+        _save_ranked_png(ranked, rank, "top", rows_by_sample, source, skeleton_store, output_path)
         for rank, ranked in enumerate(top, start=1)
     )
     bottom_paths = tuple(
-        _save_ranked_png(ranked, rank, "bottom", rows_by_sample, source, output_path)
+        _save_ranked_png(ranked, rank, "bottom", rows_by_sample, source, skeleton_store, output_path)
         for rank, ranked in enumerate(bottom, start=1)
     )
     return top_paths, bottom_paths
@@ -164,7 +166,8 @@ def _save_ranked_png(
     rank: int,
     prefix: str,
     rows_by_sample: dict[str, list[SpatialProfile]],
-    source: ImageFolderSource,
+    source: SampleSource,
+    skeleton_store: SkeletonBBoxStore | None,
     output_path: Path,
 ) -> Path:
     """Render and save one ranked sample's panel.
@@ -174,14 +177,18 @@ def _save_ranked_png(
         rank: 1-based position within its top/bottom list.
         prefix: ``"top"`` or ``"bottom"``, used in the filename.
         rows_by_sample: This run's eligible spatial_profile rows by sample_id.
-        source: Image source to load the original image from.
+        source: Sample source to load the original image/video from.
+        skeleton_store: Pre-computed per-frame body-part bounding boxes, or
+            ``None`` when this run has none configured.
         output_path: Destination directory.
 
     Returns:
         The saved PNG path.
     """
 
-    view = resolve_heatmap_view(ranked.sample_id, rows_by_sample[ranked.sample_id], source=source)
+    view = resolve_heatmap_view(
+        ranked.sample_id, rows_by_sample[ranked.sample_id], source=source, skeleton_store=skeleton_store
+    )
     path = output_path / f"{prefix}_{rank:02d}_{ranked.sample_id}.png"
 
     figure = Figure(figsize=(8, 4))

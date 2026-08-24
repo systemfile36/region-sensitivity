@@ -42,14 +42,15 @@ from numpy.typing import NDArray
 
 from ssat.core.perturb import Perturbator
 from ssat.core.region import RegionResolver
+from ssat.core.region.skeleton_store import SkeletonBBoxStore
 from ssat.core.region.types import RegionSpec
-from ssat.core.source import ImageFolderSource
+from ssat.core.source import SampleSource
 from ssat.core.source.types import LoadError
 from ssat.core.types import ItemStatus, PerturbationOp, RegionKind
 from ssat.metrics.dump_reader import DumpHandle, JoinedFrame
 from ssat.metrics.errors import DebugVizError
 from ssat.metrics.types import region_key
-from ssat.metrics.viz._shared import decanonicalize, open_image_source
+from ssat.metrics.viz._shared import decanonicalize, open_image_source, open_skeleton_store
 
 __all__ = [
     "MaskCheckView",
@@ -67,9 +68,13 @@ class MaskCheckView:
         sample_id: Owning clean sample identifier.
         item_id: Perturbed item identifier this view reconstructs.
         region_key: ``f"{region_id}::{region_instance_id}"``.
-        original: Source pixels in ``(H, W, C)`` uint8 layout.
-        mask: Boolean selection in ``(H, W)`` layout, after ``invert_mask``.
-        perturbed: Reconstructed perturbed pixels in ``(H, W, C)`` layout.
+        original: Source pixels in ``(H, W, C)`` uint8 layout -- frame 0 of a
+            video source, or the sole frame of an image source.
+        mask: Boolean selection in ``(H, W)`` layout, after ``invert_mask`` --
+            frame 0 of a per-frame ``(T, H, W)`` mask (e.g. ``skeleton_parts``),
+            matching ``original``/``perturbed``'s fixed frame 0.
+        perturbed: Reconstructed perturbed pixels in ``(H, W, C)`` layout --
+            frame 0, matching ``original``.
     """
 
     sample_id: str
@@ -123,22 +128,26 @@ def select_mask_check_rows(
 def resolve_mask_check_view(
     row: Mapping[str, object],
     *,
-    source: ImageFolderSource,
+    source: SampleSource,
+    skeleton_store: SkeletonBBoxStore | None = None,
 ) -> MaskCheckView:
     """Reconstruct one view: load the image, resolve the mask, reproduce the perturbation.
 
     Args:
         row: One row of a ``JoinedFrame`` (or an equivalent mapping) with the
             columns documented in ``ssat.metrics.dump_reader.JoinedFrame``.
-        source: Image source already built from the dump's
+        source: Sample source already built from the dump's
             ``source_provenance`` (see ``save_mask_check_views``).
+        skeleton_store: Pre-computed per-frame body-part bounding boxes,
+            required only when the row's region is ``skeleton_parts``.
 
     Returns:
         The reconstructed view.
 
     Raises:
         DebugVizError: If the row's region is ``explicit``, the source image
-            fails to load, or region/perturbation reproduction fails.
+            fails to load, or region/perturbation reproduction fails (e.g. a
+            ``skeleton_parts`` region without ``skeleton_store``).
     """
 
     region_kind = RegionKind(row["region_kind"])
@@ -165,7 +174,7 @@ def resolve_mask_check_view(
     # seed_used is persisted as a fixed-width hex string (ssat.core.dump.types.seed_to_hex),
     # not a decimal string, so it must be parsed with base 16.
     rng = np.random.default_rng(int(row["seed_used"], 16))
-    mask, _ = RegionResolver().resolve(loaded.original_shape, spec, rng)
+    mask, _ = RegionResolver(skeleton_store=skeleton_store).resolve(loaded.original_shape, spec, rng)
     if bool(row["invert_mask"]):
         mask = np.logical_not(mask)
 
@@ -183,7 +192,7 @@ def resolve_mask_check_view(
         item_id=str(row["item_id"]),
         region_key=region_key(str(row["region_id"]), str(row["region_instance_id"])),
         original=loaded.array[0],
-        mask=mask,
+        mask=mask[0] if mask.ndim == 3 else mask,
         perturbed=perturbed[0],
     )
 
@@ -217,6 +226,7 @@ def save_mask_check_views(
 
     handle = DumpHandle(dump_root)
     source = open_image_source(dump_root)
+    skeleton_store = open_skeleton_store(dump_root)
 
     rows = select_mask_check_rows(handle.joined(), n_samples=n_samples, sample_ids=sample_ids)
 
@@ -225,7 +235,7 @@ def save_mask_check_views(
 
     saved: list[Path] = []
     for _, row in rows.iterrows():
-        view = resolve_mask_check_view(row, source=source)
+        view = resolve_mask_check_view(row, source=source, skeleton_store=skeleton_store)
         png_path = output_path / f"sample_{view.sample_id}.png"
         _save_panel_png(view, png_path)
         saved.append(png_path)

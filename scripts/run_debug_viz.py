@@ -21,6 +21,14 @@ Examples:
     python3 scripts/run_debug_viz.py ranking \\
         --dump-root /path/to/dump --metrics-dir /path/to/metrics \\
         --output-dir /tmp/debug_viz/ranking --n-top 5 --n-bottom 5
+
+To reproduce a video + ``skeleton_parts`` (Action Recognition) dump/metrics
+pair to run any of the above against, use
+``configs/examples/skeleton_quickstart.yaml`` (backed by the committed
+``tests/fixtures/synthetic_video`` fixture, no external data required):
+
+    ssat run --config configs/examples/skeleton_quickstart.yaml --output /tmp/skeleton_debug_run
+    ssat metrics /tmp/skeleton_debug_run --output /tmp/skeleton_debug_metrics
 """
 
 from __future__ import annotations

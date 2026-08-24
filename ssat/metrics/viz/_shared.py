@@ -13,18 +13,21 @@ import re
 from pathlib import Path
 from typing import Any
 
+from ssat.core.region.skeleton_store import SkeletonBBoxStore, SkeletonDataError, load_skeleton_bbox_store
 from ssat.core.source import (
     ImageFolderSource,
     ImageNetSourceConfig,
     ImageNetSourceProvider,
+    SampleSource,
     SourceProviderError,
+    VideoFolderSource,
 )
 from ssat.core.source.types import SampleMeta
 from ssat.metrics.dump_reader import DumpHandle
 from ssat.metrics.errors import DebugVizError
 from ssat.utils.io import load_json, load_yaml
 
-__all__ = ["decanonicalize", "open_image_source"]
+__all__ = ["decanonicalize", "open_image_source", "open_skeleton_store"]
 
 _CANONICAL_FLOAT_RE = re.compile(r"^-?\d+\.\d{12}$")
 
@@ -57,18 +60,25 @@ def decanonicalize(value: object) -> object:
     return value
 
 
-def open_image_source(dump_root: Path | str) -> ImageFolderSource:
-    """Open a dump and build the ``ImageFolderSource`` it points at.
+def open_image_source(dump_root: Path | str) -> SampleSource:
+    """Open a dump and build the sample source it points at.
+
+    Despite the name (kept for call-site/test stability — every ``kind`` this
+    function has ever supported loads an image or a video, never anything
+    else), this returns an :class:`ImageFolderSource` *or* a
+    :class:`VideoFolderSource`, depending on the dump's recorded
+    ``source_provenance.kind``.
 
     Args:
         dump_root: Root directory of a raw audit dump.
 
     Returns:
-        A source ready to load the run's original images by sample_id.
+        A source ready to load the run's original samples by sample_id.
 
     Raises:
-        DebugVizError: If the dump has no ``source_provenance``, or its
-            manifest cannot be loaded.
+        DebugVizError: If the dump has no ``source_provenance``, its
+            ``kind`` cannot be reproduced from provenance alone (currently
+            ``"kinetics400"`` — see below), or its manifest cannot be loaded.
     """
 
     handle = DumpHandle(dump_root)
@@ -100,26 +110,130 @@ def open_image_source(dump_root: Path | str) -> ImageFolderSource:
             ) from error
         return source
 
+    if source_provenance.kind == "kinetics400":
+        # Unlike "video_manifest" (whose num_frames/sampling are recorded in
+        # loader_parameters by VideoManifestProvider.build), KineticsSource
+        # Provider.build records no loader_parameters at all (ssat/core/
+        # source/kinetics.py) -- there is nothing here to rebuild a
+        # VideoFolderSource from. Raise clearly rather than silently falling
+        # through to the manifest-JSON branch below, which would misread the
+        # Kinetics annotation CSV as a sample manifest.
+        raise DebugVizError(
+            f"dump at {handle.root} uses a kinetics400 source, which records no "
+            "loader_parameters (num_frames/sampling) in its provenance; DebugViz "
+            "cannot rebuild a VideoFolderSource from a kinetics400 dump alone"
+        )
+
     manifest_path = source_provenance.manifest
     try:
         document = load_json(manifest_path)
     except (OSError, ValueError) as error:
         raise DebugVizError(f"cannot read source manifest: {manifest_path}") from error
 
-    manifest_dir = manifest_path.parent
+    samples = _load_manifest_samples(document, manifest_path.parent)
+
+    if source_provenance.kind == "video_manifest":
+        num_frames, sampling = _video_loader_parameters(source_provenance.loader_parameters)
+        return VideoFolderSource(samples, num_frames=num_frames, sampling=sampling)
+
+    return ImageFolderSource(samples)
+
+
+def open_skeleton_store(dump_root: Path | str) -> SkeletonBBoxStore | None:
+    """Open a dump and, if configured, build the ``SkeletonBBoxStore`` it points at.
+
+    Near-duplicates ``ssat.application._session_service.load_skeleton_store``
+    rather than importing it: ``ssat.metrics.viz`` cannot depend on
+    ``ssat.application`` (wrong dependency direction), the same constraint
+    that already keeps ``assets.py::_save_heatmap_png`` a duplicate of
+    ``heatmap.py::_save_view_png`` rather than a shared import.
+
+    Args:
+        dump_root: Root directory of a raw audit dump.
+
+    Returns:
+        A store ready to look up per-frame body-part bounding boxes, or
+        ``None`` if the dump's run was never configured with a
+        ``skeleton_source`` (e.g. every non-``skeleton_parts`` run).
+
+    Raises:
+        DebugVizError: If ``skeleton_source`` is configured but its bbox
+            data file cannot be read or fails hash verification.
+    """
+
+    handle = DumpHandle(dump_root)
+    skeleton_source = handle.manifest.resolved_config.skeleton_source
+    if skeleton_source is None:
+        return None
+    try:
+        return load_skeleton_bbox_store(
+            skeleton_source.bbox_data, expected_hash=skeleton_source.bbox_data_hash
+        )
+    except SkeletonDataError as error:
+        raise DebugVizError(
+            f"cannot load skeleton_source data for dump at {handle.root}: {error}"
+        ) from error
+
+
+def _load_manifest_samples(document: dict, manifest_dir: Path) -> list[SampleMeta]:
+    """Parse a manifest JSON document's ``samples`` list into ``SampleMeta`` values.
+
+    Shared by the image-manifest and video-manifest branches of
+    :func:`open_image_source` -- both manifest formats share this exact
+    shape (``ssat.core.source.provider._SampleManifest``).
+
+    Args:
+        document: Parsed manifest JSON (``{"samples": [...]}``).
+        manifest_dir: Directory relative paths in the document resolve against.
+
+    Returns:
+        One ``SampleMeta`` per manifest entry, in document order.
+    """
+
     samples = []
     for entry in document["samples"]:
-        image_path = Path(entry["path"])
-        if not image_path.is_absolute():
-            image_path = manifest_dir / image_path
+        path = Path(entry["path"])
+        if not path.is_absolute():
+            path = manifest_dir / path
         samples.append(
             SampleMeta(
                 sample_id=entry["sample_id"],
-                path=image_path,
+                path=path,
                 gt_label=entry.get("gt_label"),
             )
         )
-    return ImageFolderSource(samples)
+    return samples
+
+
+def _video_loader_parameters(loader_parameters: dict[str, Any]) -> tuple[int, str]:
+    """Validate and extract ``num_frames``/``sampling`` from video provenance.
+
+    Args:
+        loader_parameters: ``SourceProvenance.loader_parameters`` recorded by
+            ``VideoManifestProvider.build``.
+
+    Returns:
+        ``(num_frames, sampling)``.
+
+    Raises:
+        DebugVizError: If either value is missing or has an invalid type.
+    """
+
+    num_frames = loader_parameters.get("num_frames")
+    sampling = loader_parameters.get("sampling")
+    if (
+        isinstance(num_frames, bool)
+        or not isinstance(num_frames, int)
+        or num_frames <= 0
+    ):
+        raise DebugVizError(
+            "video_manifest source loader_parameters.num_frames must be a positive integer"
+        )
+    if not isinstance(sampling, str) or not sampling:
+        raise DebugVizError(
+            "video_manifest source loader_parameters.sampling must be a non-empty string"
+        )
+    return num_frames, sampling
 
 
 def _resolve_imagenet_root(

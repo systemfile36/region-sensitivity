@@ -93,7 +93,7 @@ from PIL import Image
 from ssat.metrics.dump_reader import DumpHandle
 from ssat.metrics.errors import DebugVizError
 from ssat.metrics.store import load_metrics, verify_source_dump
-from ssat.metrics.viz._shared import open_image_source
+from ssat.metrics.viz._shared import open_image_source, open_skeleton_store
 from ssat.metrics.viz.heatmap import (
     HeatmapView,
     render_heatmap_panel,
@@ -239,6 +239,7 @@ def link_assets(
         row for row in aggregation.spatial_profile if row.metric_name == primary_metric
     ]
     source = open_image_source(dump_dir)
+    skeleton_store = open_skeleton_store(dump_dir)
 
     heatmap_dir = output_dir / _HEATMAP_SUBDIR
     thumbnail_dir = output_dir / _THUMBNAIL_SUBDIR
@@ -252,7 +253,9 @@ def link_assets(
             rows_by_sample = select_spatial_profile_rows(
                 spatial_rows, metric_name=primary_metric, sample_ids=[sample_id]
             )
-            view = resolve_heatmap_view(sample_id, rows_by_sample[sample_id], source=source)
+            view = resolve_heatmap_view(
+                sample_id, rows_by_sample[sample_id], source=source, skeleton_store=skeleton_store
+            )
         except DebugVizError:
             continue
 
@@ -336,7 +339,10 @@ def _save_heatmap_png(view: HeatmapView, path: Path) -> None:
     FigureCanvasAgg(figure)
     axes = figure.subplots(1, 2)
     render_heatmap_panel((axes[0], axes[1]), view)
-    figure.suptitle(f"sample_id={view.sample_id}")
+    caption = f"sample_id={view.sample_id}"
+    if view.num_frames > 1:
+        caption += f" frame={view.frame_index}/{view.num_frames}"
+    figure.suptitle(caption)
     figure.savefig(path)
 
 

@@ -39,6 +39,7 @@ from ssat.core.config.schema import (
     PerturbationConfig,
     ResolvedConfig,
     ResolvedRegionConfig,
+    ResolvedSkeletonSourceConfig,
     RuntimeConfig,
     SourceProvenance,
 )
@@ -64,6 +65,7 @@ def build_resolved_config(
     ),
     mask_transform_available: bool = True,
     source_provenance: SourceProvenance | None = None,
+    skeleton_source: ResolvedSkeletonSourceConfig | None = None,
 ) -> ResolvedConfig:
     """Build a minimal, valid ResolvedConfig for a synthetic dump."""
 
@@ -83,6 +85,7 @@ def build_resolved_config(
             mask_transform_available=mask_transform_available,
         ),
         source_provenance=source_provenance,
+        skeleton_source=skeleton_source,
     )
 
 
@@ -98,6 +101,35 @@ def image_manifest_source_provenance(manifest_path: Path) -> SourceProvenance:
         kind="image_manifest",
         manifest=manifest_path.resolve(),
         manifest_hash=sha256_file(manifest_path),
+    )
+
+
+def video_manifest_source_provenance(
+    manifest_path: Path, *, num_frames: int, sampling: str = "uniform"
+) -> SourceProvenance:
+    """Build a SourceProvenance pointing at a real, committed video manifest.
+
+    Mirrors ``image_manifest_source_provenance``, recording ``num_frames``/
+    ``sampling`` in ``loader_parameters`` the same way
+    ``VideoManifestProvider.build`` does (``ssat/core/source/provider.py``)
+    -- this is exactly what ``open_image_source``'s ``video_manifest`` branch
+    (``ssat/metrics/viz/_shared.py``) reads to rebuild a ``VideoFolderSource``.
+    """
+
+    return SourceProvenance(
+        kind="video_manifest",
+        manifest=manifest_path.resolve(),
+        manifest_hash=sha256_file(manifest_path),
+        loader_parameters={"num_frames": num_frames, "sampling": sampling},
+    )
+
+
+def skeleton_bbox_source(bbox_data_path: Path) -> ResolvedSkeletonSourceConfig:
+    """Build a ResolvedSkeletonSourceConfig pointing at a real, committed bbox JSON file."""
+
+    return ResolvedSkeletonSourceConfig(
+        bbox_data=bbox_data_path.resolve(),
+        bbox_data_hash=sha256_file(bbox_data_path),
     )
 
 

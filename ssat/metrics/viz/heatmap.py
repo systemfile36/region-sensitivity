@@ -48,8 +48,9 @@ from matplotlib.figure import Figure
 from numpy.typing import NDArray
 
 from ssat.core.region import RegionResolutionError, RegionResolver
+from ssat.core.region.skeleton_store import SkeletonBBoxStore
 from ssat.core.region.types import RegionSpec
-from ssat.core.source import ImageFolderSource
+from ssat.core.source import SampleSource
 from ssat.core.source.types import LoadError
 from ssat.core.types import RegionKind
 from ssat.metrics.aggregate import DEFAULT_PRIMARY_METRIC
@@ -57,7 +58,7 @@ from ssat.metrics.dump_reader import DumpHandle
 from ssat.metrics.errors import DebugVizError
 from ssat.metrics.store import load_metrics, verify_source_dump
 from ssat.metrics.types import SpatialProfile
-from ssat.metrics.viz._shared import decanonicalize, open_image_source
+from ssat.metrics.viz._shared import decanonicalize, open_image_source, open_skeleton_store
 
 __all__ = [
     "HeatmapView",
@@ -75,12 +76,20 @@ class HeatmapView:
     Attributes:
         sample_id: Sample this view belongs to.
         metric_name: Registered Metric name the intensity values come from.
-        original: Source pixels in ``(H, W, C)`` uint8 layout.
+        original: Source pixels in ``(H, W, C)`` uint8 layout -- the
+            ``frame_index``-th frame of a video source, or the sole frame of
+            an image source.
         intensity: Degradation per pixel in ``(H, W)`` layout; ``NaN`` where
-            no reconstructed region covers that pixel.
+            no reconstructed region covers that pixel. For a per-frame
+            ``(T, H, W)`` region mask, only its ``frame_index``-th slice is
+            painted in.
         region_keys: Region keys actually painted into ``intensity``, in the
             order they were applied (``select_spatial_profile_rows``' sort
             order).
+        frame_index: Which frame of the source clip ``original``/``intensity``
+            were reconstructed from. Always ``0`` for an image source.
+        num_frames: Total frames in the source clip ``frame_index`` was
+            chosen from. Always ``1`` for an image source.
     """
 
     sample_id: str
@@ -88,6 +97,8 @@ class HeatmapView:
     original: NDArray[np.uint8]
     intensity: NDArray[np.float64]
     region_keys: tuple[str, ...]
+    frame_index: int = 0
+    num_frames: int = 1
 
 
 def select_spatial_profile_rows(
@@ -150,25 +161,38 @@ def resolve_heatmap_view(
     sample_id: str,
     rows: Sequence[SpatialProfile],
     *,
-    source: ImageFolderSource,
+    source: SampleSource,
+    skeleton_store: SkeletonBBoxStore | None = None,
 ) -> HeatmapView:
     """Reconstruct one sample's per-pixel degradation heatmap.
+
+    For a video source, the representative frame is the clip's middle frame
+    (``num_frames // 2``), falling back to the nearest frame (by ascending
+    ``|i - middle|``, ties toward the lower index) that has at least one
+    tracked pixel in one of ``rows``' resolved masks -- this keeps the
+    rendered overlay from landing on a frame where every evaluated region
+    happens to be untracked. An image source (``num_frames == 1``) always
+    uses frame 0, exactly as before this parameter existed.
 
     Args:
         sample_id: Sample the rows belong to.
         rows: This sample's ``SpatialProfile`` rows (see
             ``select_spatial_profile_rows``), all sharing one metric_name.
-        source: Image source already built from the dump's
-            ``source_provenance`` (see ``save_heatmap_views``).
+        source: Sample source already built from the dump's
+            ``source_provenance`` (see ``save_heatmap_views``) -- an image or
+            video source.
+        skeleton_store: Pre-computed per-frame body-part bounding boxes,
+            required only when ``rows`` includes a ``skeleton_parts`` region.
 
     Returns:
         The reconstructed view.
 
     Raises:
         DebugVizError: If ``rows`` is empty or mixes metric_name values, the
-            source image fails to load, a region is ``random_area_match``
-            (not reproducible without an item-level seed), or region
-            resolution otherwise fails.
+            source sample fails to load, a region is ``random_area_match``
+            (not reproducible without an item-level seed), a
+            ``skeleton_parts`` region is present without ``skeleton_store``,
+            or region resolution otherwise fails.
     """
 
     if not rows:
@@ -187,33 +211,86 @@ def resolve_heatmap_view(
             f"{loaded.error_type}: {loaded.message}"
         )
 
-    height, width = loaded.original_shape[1], loaded.original_shape[2]
+    num_frames, height, width = loaded.original_shape[0], loaded.original_shape[1], loaded.original_shape[2]
+    resolved = [
+        (row, _resolve_region_mask(row, loaded.original_shape, skeleton_store=skeleton_store))
+        for row in rows
+    ]
+    frame_index = _select_representative_frame(num_frames, [mask for _, mask in resolved])
+
     intensity = np.full((height, width), np.nan, dtype=np.float64)
     painted: list[str] = []
-
-    for row in rows:
-        mask = _resolve_region_mask(row, loaded.original_shape)
-        intensity[mask] = row.degradation
+    for row, mask in resolved:
+        frame_mask = mask[frame_index] if mask.ndim == 3 else mask
+        intensity[frame_mask] = row.degradation
         painted.append(row.region_key)
 
     return HeatmapView(
         sample_id=sample_id,
         metric_name=rows[0].metric_name,
-        original=loaded.array[0],
+        original=loaded.array[frame_index],
         intensity=intensity,
         region_keys=tuple(painted),
+        frame_index=frame_index,
+        num_frames=num_frames,
     )
+
+
+def _select_representative_frame(
+    num_frames: int, masks: Sequence[NDArray[np.bool_]]
+) -> int:
+    """Pick the frame a video sample's heatmap overlay/thumbnail should show.
+
+    Middle frame by default, falling back to the nearest frame (ascending
+    ``|i - middle|``, ties toward the lower index) that has at least one
+    ``True`` pixel in some per-frame ``(T, H, W)`` mask in ``masks`` --
+    avoids landing on a frame where every evaluated region is untracked.
+    Falls back to the middle frame itself if no per-frame mask has a
+    tracked pixel on any frame (e.g. every mask is 2D, or the sample is
+    untracked throughout).
+
+    Args:
+        num_frames: Total frames in the source clip.
+        masks: Every row's resolved mask for this sample, ``(H, W)`` or
+            ``(T, H, W)``.
+
+    Returns:
+        A frame index in ``[0, num_frames)``.
+    """
+
+    middle = num_frames // 2
+    if num_frames <= 1:
+        return 0
+
+    per_frame_masks = [mask for mask in masks if mask.ndim == 3]
+    if not per_frame_masks:
+        return middle
+
+    candidates = sorted(range(num_frames), key=lambda i: (abs(i - middle), i))
+    for candidate in candidates:
+        if any(mask[candidate].any() for mask in per_frame_masks):
+            return candidate
+    return middle
 
 
 def _resolve_region_mask(
     row: SpatialProfile,
     shape: tuple[int, int, int, int],
+    *,
+    skeleton_store: SkeletonBBoxStore | None = None,
 ) -> NDArray[np.bool_]:
     """Re-resolve one SpatialProfile row's mask via RegionResolver.
 
+    Args:
+        row: The row whose mask to re-resolve.
+        shape: Source sample shape in ``(T, H, W, C)`` layout.
+        skeleton_store: Pre-computed per-frame body-part bounding boxes,
+            required only for a ``skeleton_parts`` region.
+
     Raises:
         DebugVizError: If the region is ``random_area_match``, or resolution
-            otherwise fails (e.g. an unimplemented reserved kind).
+            otherwise fails (e.g. a ``skeleton_parts`` region without
+            ``skeleton_store``).
     """
 
     geometry = row.region_geometry_ref
@@ -241,7 +318,7 @@ def _resolve_region_mask(
         )
 
     try:
-        mask, _ = RegionResolver().resolve(shape, spec)
+        mask, _ = RegionResolver(skeleton_store=skeleton_store).resolve(shape, spec)
     except RegionResolutionError as error:
         raise DebugVizError(
             f"failed to resolve region_key={row.region_key!r}: {error}"
@@ -319,6 +396,7 @@ def save_heatmap_views(
     """
 
     source = open_image_source(dump_root)
+    skeleton_store = open_skeleton_store(dump_root)
     _, result, manifest = load_metrics(Path(metrics_dir))
     verify_source_dump(manifest, DumpHandle(dump_root).manifest_path)
 
@@ -334,7 +412,7 @@ def save_heatmap_views(
 
     saved: list[Path] = []
     for sample_id, rows in rows_by_sample.items():
-        view = resolve_heatmap_view(sample_id, rows, source=source)
+        view = resolve_heatmap_view(sample_id, rows, source=source, skeleton_store=skeleton_store)
         png_path = output_path / f"sample_{sample_id}.png"
         _save_view_png(view, png_path)
         saved.append(png_path)
@@ -353,5 +431,14 @@ def _save_view_png(view: HeatmapView, path: Path) -> None:
     FigureCanvasAgg(figure)
     axes = figure.subplots(1, 2)
     render_heatmap_panel((axes[0], axes[1]), view)
-    figure.suptitle(f"sample_id={view.sample_id}")
+    figure.suptitle(_view_caption(view))
     figure.savefig(path)
+
+
+def _view_caption(view: HeatmapView) -> str:
+    """Build a figure caption, noting the selected frame for a video sample."""
+
+    caption = f"sample_id={view.sample_id}"
+    if view.num_frames > 1:
+        caption += f" frame={view.frame_index}/{view.num_frames}"
+    return caption

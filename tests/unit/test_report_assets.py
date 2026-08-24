@@ -23,6 +23,8 @@ from synthetic_dump_builder import (
     compute_and_save_metrics,
     image_manifest_source_provenance,
     perturbed_record,
+    skeleton_bbox_source,
+    video_manifest_source_provenance,
     write_dump,
 )
 
@@ -56,6 +58,11 @@ _GOOD_SAMPLES = {
 # the most vulnerable sample, so it lands in top_k for any top_k >= 1.
 _BAD_SAMPLE = "synthetic-003"
 _BAD_DEGRADATION = 20.0
+
+_VIDEO_FIXTURE_ROOT = Path(__file__).resolve().parents[1] / "fixtures" / "synthetic_video"
+_VIDEO_FIXTURE_MANIFEST = _VIDEO_FIXTURE_ROOT / "manifest.json"
+_VIDEO_FIXTURE_SKELETON_BBOX = _VIDEO_FIXTURE_ROOT / "skeleton_bbox.json"
+_VIDEO_SAMPLES = {"synthetic-video-000": 1.0, "synthetic-video-001": 5.0}
 
 
 def _registry() -> MetricRegistry:
@@ -258,6 +265,70 @@ def test_asset_refs_survive_moving_the_report_folder(tmp_path: Path) -> None:
 
     for ref in (*manifest.heatmap_refs.values(), *manifest.thumbnail_refs.values()):
         assert (moved_dir / ref).is_file()
+
+
+def _build_video_skeleton_dump_and_metrics(tmp_path: Path) -> tuple[Path, Path]:
+    """Write a video_manifest + skeleton_source dump with a skeleton_parts region.
+
+    The direct end-to-end reproduction of "gallery is completely empty" for
+    Action Recognition (NTU/skeleton_parts) runs: two real video samples,
+    each perturbed by occluding their tracked ``left_arm`` box.
+    """
+
+    config = build_resolved_config(
+        tmp_path,
+        regions=(
+            ResolvedRegionConfig(region_id="occlude_left_arm", kind=RegionKind.SKELETON_PARTS, params={}),
+        ),
+        source_provenance=video_manifest_source_provenance(_VIDEO_FIXTURE_MANIFEST, num_frames=8),
+        skeleton_source=skeleton_bbox_source(_VIDEO_FIXTURE_SKELETON_BBOX),
+    )
+
+    clean_records = tuple(
+        clean_record(sample_id, logits=np.array([_CLEAN_GT_LOGIT, 0.0]), gt_label=0)
+        for sample_id in _VIDEO_SAMPLES
+    )
+    perturbed_records = tuple(
+        perturbed_record(
+            index,
+            sample_id=sample_id,
+            region_id="occlude_left_arm",
+            region_instance_id=f"occlude_left_arm/{sample_id}",
+            logits=np.array([_CLEAN_GT_LOGIT - degradation, 0.0]),
+            region_kind=RegionKind.SKELETON_PARTS,
+            region_params={"sample_id": sample_id, "body_part": "left_arm", "bbox_scale": 1.0},
+        )
+        for index, (sample_id, degradation) in enumerate(_VIDEO_SAMPLES.items())
+    )
+
+    dump_root = tmp_path / "dump"
+    write_dump(dump_root, config, clean_records=clean_records, perturbed_records=perturbed_records)
+
+    metrics_dir = tmp_path / "metrics"
+    compute_and_save_metrics(
+        dump_root, config, metrics_dir, registry=_registry(), primary_metric=_METRIC_NAME
+    )
+    return dump_root, metrics_dir
+
+
+def test_link_assets_populates_gallery_for_video_skeleton_parts_source(tmp_path: Path) -> None:
+    """Regression test for the reported bug: NTU/skeleton_parts gallery cards were always empty."""
+
+    dump_root, metrics_dir = _build_video_skeleton_dump_and_metrics(tmp_path)
+    assembled = _assemble(dump_root, metrics_dir, top_k=2, bottom_k=2)
+    output_dir = tmp_path / "report"
+
+    manifest = link_assets(assembled, dump_root, metrics_dir, output_dir, primary_metric=_METRIC_NAME)
+
+    gallery_ids = _gallery_ids(assembled)
+    assert gallery_ids == set(_VIDEO_SAMPLES)
+    assert manifest.assets_available is True
+    assert set(manifest.heatmap_refs) == gallery_ids
+    assert set(manifest.thumbnail_refs) == gallery_ids
+    for ref in (*manifest.heatmap_refs.values(), *manifest.thumbnail_refs.values()):
+        path = output_dir / ref
+        assert path.is_file()
+        assert path.stat().st_size > 0
 
 
 # --- apply_asset_manifest ------------------------------------------------------

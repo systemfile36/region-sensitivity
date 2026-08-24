@@ -10,6 +10,7 @@ dump/metrics/analysis triple at all.
 from __future__ import annotations
 
 from pathlib import Path
+from types import SimpleNamespace
 
 import numpy as np
 import pytest
@@ -232,18 +233,25 @@ class _FakeResolvedConfigWithRegions:
 
 
 def _region_metrics_row(
-    *, region_key: str, flip_rate: float | None, n_valid: int = 10
+    *,
+    region_key: str,
+    flip_rate: float | None,
+    n_valid: int = 10,
+    region_kind: RegionKind = RegionKind.SKELETON_PARTS,
+    metric_mean: float | None = 0.5,
+    intended_area_px: int | None = 64,
+    effective_area_px: int | None = 60,
 ) -> RegionMetrics:
     return RegionMetrics(
         region_key=region_key,
         metric_name=_METRIC_NAME,
-        region_kind=RegionKind.SKELETON_PARTS,
-        intended_area_px=64,
-        effective_area_px=60,
+        region_kind=region_kind,
+        intended_area_px=intended_area_px,
+        effective_area_px=effective_area_px,
         n_samples=n_valid,
         n_valid=n_valid,
         flip_rate=flip_rate,
-        metric_mean=0.5,
+        metric_mean=metric_mean,
     )
 
 
@@ -564,6 +572,128 @@ def test_failure_rate_computes_fraction() -> None:
 def test_failure_rate_none_when_no_perturbed_items() -> None:
     summary = {"total_perturbed_items": 0, "items_excluded_perturbed_failed": 0}
     assert _failure_rate(summary) is None
+
+
+# --- _build_region_summary (skeleton_parts region_id aggregation) -----------
+
+
+def _summary_assembler() -> ReportDataAssembler:
+    """A ReportDataAssembler whose paths are never touched by ``_build_region_summary``.
+
+    Mirrors this file's own framing (module docstring): the constructor
+    stores paths without opening them, so ``_build_region_summary`` -- a
+    pure function of its arguments -- can be exercised directly without a
+    real dump/metrics/analysis triple on disk.
+    """
+
+    return ReportDataAssembler(
+        Path("unused-dump"), Path("unused-metrics"), adapter=ClassificationAdapter(primary_metric=_METRIC_NAME)
+    )
+
+
+class _FakeAnalysisContext:
+    """Duck-typed stand-in for ``_AnalysisContext`` (only ``.reliability_rows``/``.manifest.grade_distribution`` are read)."""
+
+    def __init__(self, reliability_rows: list[ReliabilityRow]) -> None:
+        self.reliability_rows = reliability_rows
+        self.manifest = SimpleNamespace(grade_distribution={})
+
+
+def test_build_region_summary_leaves_grid_rows_unaggregated() -> None:
+    """Regression guard: grid's region_key is already dataset-stable and must stay per-cell."""
+
+    region_rows = [
+        _region_metrics_row(region_key="grid::r0/c0", region_kind=RegionKind.GRID, flip_rate=0.2),
+        _region_metrics_row(region_key="grid::r0/c1", region_kind=RegionKind.GRID, flip_rate=0.4),
+    ]
+
+    summary = _summary_assembler()._build_region_summary(region_rows, None, _METRIC_NAME, {})
+
+    assert [row.region_key for row in summary.rows] == ["grid::r0/c0", "grid::r0/c1"]
+    assert [row.region_id for row in summary.rows] == ["grid", "grid"]
+
+
+def test_build_region_summary_aggregates_skeleton_parts_rows_by_region_id() -> None:
+    region_rows = [
+        _region_metrics_row(
+            region_key="left_arm::left_arm/s_a", n_valid=3, metric_mean=0.2, flip_rate=0.0,
+            intended_area_px=100, effective_area_px=90,
+        ),
+        _region_metrics_row(
+            region_key="left_arm::left_arm/s_b", n_valid=1, metric_mean=1.0, flip_rate=1.0,
+            intended_area_px=50, effective_area_px=40,
+        ),
+        _region_metrics_row(
+            region_key="right_arm::right_arm/s_a", n_valid=5, metric_mean=0.5, flip_rate=0.4,
+            intended_area_px=80, effective_area_px=70,
+        ),
+    ]
+
+    summary = _summary_assembler()._build_region_summary(region_rows, None, _METRIC_NAME, {})
+
+    by_region_id = {row.region_id: row for row in summary.rows}
+    assert set(by_region_id) == {"left_arm", "right_arm"}
+
+    left_arm = by_region_id["left_arm"]
+    # region_key must equal region_id for an aggregated row (no single
+    # concrete region_key spans many samples) -- this is also what fixes
+    # render_region_bar's x-axis labels.
+    assert left_arm.region_key == "left_arm"
+    assert left_arm.region_kind == "skeleton_parts"
+    assert left_arm.n_valid == 4  # 3 + 1, summed (a count), not averaged
+    # weighted by n_valid: (0.2*3 + 1.0*1) / 4
+    assert left_arm.mean_degradation == pytest.approx((0.2 * 3 + 1.0 * 1) / 4)
+    assert left_arm.flip_rate == pytest.approx((0.0 * 3 + 1.0 * 1) / 4)
+    assert left_arm.intended_area_px == round((100 * 3 + 50 * 1) / 4)
+    assert left_arm.effective_area_px == round((90 * 3 + 40 * 1) / 4)
+
+    right_arm = by_region_id["right_arm"]
+    assert right_arm.n_valid == 5
+    assert right_arm.mean_degradation == pytest.approx(0.5)
+
+
+def test_build_region_summary_skeleton_parts_top_region_share_uses_region_id_mapping() -> None:
+    """The subtle bug: top_region_by_sample is keyed by concrete region_key, not region_id."""
+
+    region_rows = [
+        _region_metrics_row(region_key="left_arm::left_arm/s_a", n_valid=1, flip_rate=None),
+        _region_metrics_row(region_key="left_arm::left_arm/s_b", n_valid=1, flip_rate=None),
+        _region_metrics_row(region_key="left_arm::left_arm/s_c", n_valid=1, flip_rate=None),
+    ]
+    top_region_by_sample = {
+        "s_a": "left_arm::left_arm/s_a",
+        "s_b": "left_arm::left_arm/s_b",
+        "s_c": "grid::r0/c0",  # a different sample's top region is unrelated
+    }
+
+    summary = _summary_assembler()._build_region_summary(
+        region_rows, None, _METRIC_NAME, top_region_by_sample
+    )
+
+    left_arm = next(row for row in summary.rows if row.region_id == "left_arm")
+    # 2 of 3 scored samples' top region reduces to region_id "left_arm".
+    assert left_arm.top_region_share == pytest.approx(2 / 3)
+
+
+def test_build_region_summary_skeleton_parts_merges_reliability_distribution() -> None:
+    region_rows = [
+        _region_metrics_row(region_key="left_arm::left_arm/s_a", n_valid=1, flip_rate=None),
+        _region_metrics_row(region_key="left_arm::left_arm/s_b", n_valid=1, flip_rate=None),
+    ]
+    analysis = _FakeAnalysisContext(
+        [
+            _reliability_row(sample_id="s_a", region_key="left_arm::left_arm/s_a", grade=ReliabilityGrade.HIGH),
+            _reliability_row(
+                sample_id="s_b", region_key="left_arm::left_arm/s_b", grade=ReliabilityGrade.UNRELIABLE
+            ),
+        ]
+    )
+
+    summary = _summary_assembler()._build_region_summary(region_rows, analysis, _METRIC_NAME, {})
+
+    left_arm = next(row for row in summary.rows if row.region_id == "left_arm")
+    assert left_arm.reliability_distribution == {"high": 1, "unreliable": 1}
+    assert left_arm.reliability_grade is ReportGrade.UNRELIABLE  # worst-case rollup
 
 
 # --- constructor / assemble() validation -------------------------------------
