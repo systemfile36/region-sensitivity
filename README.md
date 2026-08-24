@@ -195,6 +195,7 @@ The above is about software-level provenance guarantees. For a concrete, third-p
 - [Real dataset case study](docs/REAL_DATASET_CASE_STUDY_v1.md)
 - [Reference comparison (Captum)](docs/REFERENCE_COMPARISON_CAPTUM_v1.md)
 - [Reproducibility demo (Q1-Q5)](docs/REPRODUCIBILITY_DEMO_v1.md)
+- [Runtime/storage performance benchmark](docs/BENCHMARK_v1.md)
 - [Contributing](CONTRIBUTING.md)
 
 The previous Korean documentation is retained under `docs/internal/`.

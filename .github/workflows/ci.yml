@@ -65,3 +65,26 @@ jobs:
           path: experiments/synthetic_shortcut/data
           key: synthetic-shortcut-data-v1
       - run: bash experiments/synthetic_shortcut/reproduce_demo.sh
+
+  # Advisory only (continue-on-error): re-measures the quickstart-scale
+  # runtime/throughput/memory/dump-size numbers in docs/BENCHMARK_v1.md
+  # (experiments/benchmark_runtime_storage/). Not required to pass because
+  # wall-clock/memory numbers vary by runner load and are informational, not
+  # a correctness gate -- a slower-than-usual runner should not block
+  # unrelated PRs. The real-dataset scale in the same doc needs a local GPU
+  # and ~161GB of local ImageNet-1k data, so it is measured locally only and
+  # is intentionally not part of this job.
+  benchmark-quickstart:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - run: pip install --index-url https://download.pytorch.org/whl/cpu torch==2.8.0 torchvision==0.23.0
+      - run: pip install -r requirements.txt
+      - run: pip install --no-deps -e .
+      - run: python3 experiments/benchmark_runtime_storage/run_benchmark.py quickstart

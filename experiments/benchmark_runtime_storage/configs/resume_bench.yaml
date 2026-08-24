@@ -1,0 +1,26 @@
+schema_version: 1.0.0
+source:
+  kind: image_manifest
+  manifest: ../data/resume_fixture/manifest.json
+adapter:
+  provider: torchvision
+  model_name: squeezenet1_0
+  weights: null
+  device: cpu
+  max_batch_size: 4
+regions:
+  - region_id: grid2x2
+    kind: grid
+    params:
+      rows: 2
+      cols: 2
+perturbations:
+  - op: constant_fill
+    params:
+      value: [0, 0, 0]
+runtime:
+  variants_per_chunk: 2
+  target_batch_size: 4
+  num_workers: 0
+dump:
+  flush_every: 20
