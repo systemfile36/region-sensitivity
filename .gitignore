@@ -34,4 +34,4 @@ temp/
 *.log
 temp_*
 deprecated*
-docs/internal/reference
+docs/internal
