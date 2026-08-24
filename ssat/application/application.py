@@ -78,6 +78,7 @@ from ssat.metrics.aggregate import aggregate_item_metrics
 from ssat.metrics.builtin_metrics import default_metric_registry
 from ssat.metrics.dump_reader import DumpHandle
 from ssat.metrics.errors import MetricsRegistryError
+from ssat.metrics.registry import MetricRegistry
 from ssat.metrics.store import save_metrics
 from ssat.report import (
     ClassificationAdapter,
@@ -176,12 +177,14 @@ class AuditApplication:
         adapter_registry: AdapterProviderRegistry | None = None,
         *,
         source_registry: SourceProviderRegistry | None = None,
+        metric_registry: MetricRegistry | None = None,
         code_version: str = CODE_VERSION,
     ) -> None:
         if not code_version:
             raise ValueError("code_version must not be empty")
         self._registry = adapter_registry or default_adapter_provider_registry()
         self._source_registry = source_registry or default_source_provider_registry()
+        self._metric_registry = metric_registry or default_metric_registry()
         self._code_version = code_version
         self._logger = get_logger(__name__)
 
@@ -415,14 +418,16 @@ class AuditApplication:
             ) from error
 
     def compute_metrics(self, request: ComputeMetricsRequest) -> ComputeMetricsResult:
-        """Compute and persist every built-in metric for an existing dump.
+        """Compute and persist every registered metric for an existing dump.
 
         This is the Application-layer counterpart of what experiment scripts
         (e.g. experiments/synthetic_shortcut/run_audit.py) and test fixtures
         previously had to hand-roll themselves by opening a DumpHandle
-        directly: it always registers every built-in metric via
-        default_metric_registry() (v1 scope intentionally has no per-metric
-        selection flag), and stores the result under metrics_dir (default:
+        directly: it registers every metric in this application's metric
+        registry — every v1 built-in metric by default, or a caller-supplied
+        registry passed as ``metric_registry`` to ``AuditApplication.__init__``
+        (v1 scope intentionally has no per-metric selection flag within one
+        registry) — and stores the result under metrics_dir (default:
         <dump>/metrics).
         """
 
@@ -433,7 +438,7 @@ class AuditApplication:
             joined = handle.joined()
             resolved_config = handle.manifest.resolved_config
 
-            registry = default_metric_registry()
+            registry = self._metric_registry
             if request.primary_metric not in registry.names:
                 # Fail before the (potentially expensive, whole-dump)
                 # compute_item_metrics call below rather than only inside

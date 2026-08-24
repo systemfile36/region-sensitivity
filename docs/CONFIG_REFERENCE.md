@@ -318,6 +318,44 @@ Built-in deterministic transforms are:
 
 Random crop, random flip, and color-jitter transforms are intentionally absent. Custom transforms can be registered through `BaseTransform`, `TransformRegistry`, and `default_transform_registry()` when directly constructing a Python adapter; the stock CLI uses only the default registry.
 
+### Callable adapter
+
+The lowest-friction way to connect a model that is not one of the four built-in providers is `CallableAdapter`. It wraps a plain Python prediction function — an arbitrary PyTorch, ONNX, or HuggingFace model call — and already implements the full `ModelAdapter` contract (batch validation, output decoding, optional mask transform, OOM cleanup), so the provider wrapper that makes it reachable from `AuditApplication`/the CLI is just a few lines instead of a hand-written `ModelAdapter` subclass:
+
+```python
+from typing import Literal
+
+import numpy as np
+from ssat.core.adapter import AdapterProvider, CallableAdapter, ProviderConfig, default_adapter_provider_registry
+
+
+class MyModelConfig(ProviderConfig):
+    provider: Literal["my_model"] = "my_model"
+
+
+class MyModelProvider(AdapterProvider):
+    name = "my_model"
+    config_model = MyModelConfig
+
+    def build(self, config, *, base_dir) -> CallableAdapter:
+        def predict(batch: np.ndarray) -> np.ndarray:
+            # batch is (N, T, H, W, C) uint8; return (N, num_classes) logits/probs.
+            return my_model(batch)
+
+        return CallableAdapter(
+            predict,
+            model_id="my-model-v1",
+            class_names=("cat", "dog"),
+            transform_mask_fn=my_mask_transform,  # optional; enables the area sanity check
+        )
+
+
+registry = default_adapter_provider_registry()
+registry.register(MyModelProvider())
+```
+
+Registering `MyModelProvider()` on an `AdapterProviderRegistry` and passing that registry to `AuditApplication` (or `ssat.cli.create_app`, see [Application API](APPLICATION_API.md#extension-points)) makes `adapter: {provider: my_model}` a normal, YAML-selectable adapter — this is the same pattern the integration test suite uses for its fixture adapters. `transform_mask_fn` is optional; omitting it makes `AdapterSpec.mask_transform_available` false, so the [preflight area sanity check](#preflight-area-sanity) reports `UNAVAILABLE` rather than `PASS`/`FAIL` for this adapter.
+
 ## Regions
 
 ### Grid
@@ -413,6 +451,10 @@ perturbations:
 
 Only the documented keys are accepted for each operation.
 
+### Custom perturbation operators
+
+A new operator class (implementing `PerturbationOperator`'s `supports`/`validate_config`/`apply` contract) can be registered on an `OperatorFactory` and passed to `Perturbator(operators=factory.build_operators())`. Unlike adapter/source providers, this is not yet exposed through `AuditApplication` or the CLI — `AuditApplication.execute_run` always drives the built-in operator set (`ssat.core.perturb.factory.build_operators()`). Using a custom operator today means calling `ssat.core.runtime.run_audit(..., perturbator=Perturbator(operators=...))` directly instead of `AuditApplication.prepare_run`/`execute_run`, which forgoes the Application layer's output locking, resume-fingerprint checks, and event/cancellation plumbing unless the caller reimplements them. Threading a `perturbator`/`operator_factory` parameter through `AuditApplication` the way `metric_registry` is threaded through `compute_metrics` is tracked as follow-up work, not yet done.
+
 ## Area-matched controls
 
 ```yaml
@@ -464,6 +506,26 @@ dataset_stats:
 ```
 
 Values are finite source-space channel means in `[0, 255]`. `mean_fill` requires them. If omitted when needed, configuration resolution scans successfully loaded source samples and computes the means before planning the run. Providing reviewed statistics avoids that scan and fixes the exact fill value in the configuration.
+
+## Metrics
+
+`ssat metrics DUMP` (`AuditApplication.compute_metrics`) computes one item-level row per `(perturbed item, metric)` pair from an existing dump. The nine v1 built-in metrics are `flip_correct_to_wrong`, `flip_wrong_to_correct`, `pred_changed`, `topk_exit`, `gt_prob_drop`, `gt_logit_drop`, `margin_drop`, `loss_increase`, and `gt_rank_worsening`; `--primary-metric NAME` (default `margin_drop`) selects the one downstream aggregation, control/stability analysis, and reporting treat as the headline degradation signal. A metric is skipped for a run when its `available_when(adapter_spec)` returns false. In schema 1.0.0, `AdapterSpec.output_kind` only ever takes the value `logits`, so every built-in metric is available for every adapter today; the check exists for a future output kind to make some metrics inapplicable without a schema change.
+
+### Custom metrics
+
+A new metric (implementing the `Metric` protocol's `name`/`requires`/`higher_is_better`/`kind`/`available_when`/`compute`) can be registered on a `MetricRegistry` and passed to `AuditApplication`, mirroring the `source_registry` pattern:
+
+```python
+from ssat.application import AuditApplication
+from ssat.metrics.builtin_metrics import default_metric_registry
+
+registry = default_metric_registry()
+registry.register(MyMetric())
+
+application = AuditApplication(metric_registry=registry)
+```
+
+`compute_metrics` always computes every metric currently registered on the application (v1 scope intentionally has no per-request subset selection); pass `primary_metric="my_metric"` on `ComputeMetricsRequest`/`--primary-metric` to make it the headline metric. There is no YAML-level metric selection — metrics are a code-level extension point only, like custom source providers.
 
 ## Complete examples
 

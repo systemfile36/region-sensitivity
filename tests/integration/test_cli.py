@@ -15,6 +15,15 @@ from ssat.core.adapter import (
     CallableAdapter,
     ProviderConfig,
 )
+from ssat.core.config import SourceProvenance
+from ssat.core.source import (
+    ImageFolderSource,
+    SampleMeta,
+    SourceProvider,
+    SourceProviderConfig,
+    SourceProviderRegistry,
+)
+from ssat.utils.io import sha256_file
 
 
 FIXTURE = Path(__file__).parents[1] / "fixtures" / "synthetic_classification"
@@ -62,6 +71,48 @@ def _app():
     registry.register(_CliProvider())
     registry.register(_AreaFailProvider())
     return create_app(registry)
+
+
+class _CliEchoSourceConfig(SourceProviderConfig):
+    kind: Literal["cli_echo"] = "cli_echo"
+    manifest: Path
+
+
+class _CliEchoSourceProvider(SourceProvider):
+    """Minimal custom SourceProvider used only to prove create_app's
+    source_registry parameter reaches the CLI, mirroring
+    tests/integration/test_application_api.py's _EchoSourceProvider.
+    """
+
+    name = "cli_echo"
+    config_model = _CliEchoSourceConfig
+
+    def build(self, config: SourceProviderConfig, *, base_dir: Path):
+        assert isinstance(config, _CliEchoSourceConfig)
+        manifest_path = config.manifest
+        if not manifest_path.is_absolute():
+            manifest_path = base_dir / manifest_path
+        manifest_path = manifest_path.resolve(strict=True)
+
+        fixture_manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        samples = [
+            SampleMeta(sample["sample_id"], Path(sample["path"]), sample["gt_label"])
+            for sample in fixture_manifest["samples"]
+        ]
+        provenance = SourceProvenance(
+            kind=config.kind,
+            manifest=manifest_path,
+            manifest_hash=sha256_file(manifest_path),
+        )
+        return ImageFolderSource(samples), provenance
+
+
+def _app_with_echo_source():
+    adapter_registry = AdapterProviderRegistry()
+    adapter_registry.register(_CliProvider())
+    source_registry = SourceProviderRegistry()
+    source_registry.register(_CliEchoSourceProvider())
+    return create_app(adapter_registry, source_registry=source_registry)
 
 
 def _write_two_class_manifest(path: Path) -> None:
@@ -359,6 +410,55 @@ def test_cli_json_run_inspect_and_rebuild(tmp_path: Path) -> None:
     rebuild = runner.invoke(app, ["rebuild-index", str(output)])
     assert rebuild.exit_code == 0, rebuild.output
     assert "indexed items: 20" in rebuild.stdout
+
+
+def test_cli_create_app_exposes_custom_source_registry(tmp_path: Path) -> None:
+    """create_app's source_registry parameter must be reachable end to end.
+
+    Without this test the parameter could regress into an unused shell --
+    accepted by create_app but never actually passed through to the
+    AuditApplication the CLI commands run against.
+    """
+
+    config = tmp_path / "audit.yaml"
+    output = tmp_path / "dump"
+    manifest = tmp_path / "two_class_manifest.json"
+    _write_two_class_manifest(manifest)
+    config.write_text(
+        "\n".join(
+            [
+                "source:",
+                "  kind: cli_echo",
+                f"  manifest: {manifest}",
+                "adapter:",
+                "  provider: cli_fixture",
+                "regions:",
+                "  - region_id: whole",
+                "    kind: grid",
+                "    params: {rows: 1, cols: 1}",
+                "perturbations:",
+                "  - op: constant_fill",
+                "    params: {value: 0}",
+                "runtime:",
+                "  variants_per_chunk: 1",
+                "  target_batch_size: 8",
+                "  num_workers: 0",
+                "dump:",
+                "  flush_every: 8",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    runner = CliRunner()
+    app = _app_with_echo_source()
+
+    run = runner.invoke(app, ["run", str(config), "--output", str(output), "--yes"])
+    assert run.exit_code == 0, run.output
+
+    inspect = runner.invoke(app, ["inspect", str(output), "--json"])
+    assert inspect.exit_code == 0, inspect.output
+    summary = json.loads(inspect.stdout)
+    assert summary["clean"]["rows"] > 0
 
 
 def test_cli_area_sanity_output_threshold_and_confirmation(tmp_path: Path) -> None:

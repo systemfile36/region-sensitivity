@@ -22,6 +22,7 @@ from ssat.application import (
 )
 from ssat.core.adapter import AdapterProviderRegistry
 from ssat.core.estimate import EstimateOptions
+from ssat.core.source import SourceProviderRegistry
 from ssat.metrics.aggregate import DEFAULT_PRIMARY_METRIC
 from ssat.presentation import (
     format_analysis,
@@ -40,9 +41,17 @@ from ssat.utils.logger_factory import configure_logging, get_logger
 def create_app(
     adapter_registry: AdapterProviderRegistry | None = None,
     *,
+    source_registry: SourceProviderRegistry | None = None,
     application_factory: Callable[[], AuditApplication] | None = None,
 ) -> typer.Typer:
-    """Create an injectable CLI app for built-in or explicitly registered providers."""
+    """Create an injectable CLI app for built-in or explicitly registered providers.
+
+    ``adapter_registry`` and ``source_registry`` mirror the two registry
+    parameters ``AuditApplication`` itself accepts, so a custom source
+    provider (previously reachable only through the Python API) can be
+    exposed through this CLI the same way a custom adapter provider already
+    was.
+    """
 
     app = typer.Typer(
         name="ssat",
@@ -53,7 +62,7 @@ def create_app(
     service = (
         application_factory()
         if application_factory is not None
-        else AuditApplication(adapter_registry)
+        else AuditApplication(adapter_registry, source_registry=source_registry)
     )
 
     @app.callback()

@@ -107,9 +107,19 @@ Application-boundary failures are raised as `ApplicationError` with a stable `Ap
 
 Per-sample load, preparation, prediction, and out-of-memory failures are normally persisted as item statuses rather than raised as application errors, subject to runtime policy such as `fail_fast`.
 
-## Custom adapter and source providers
+## Extension points
 
-Providers are registered explicitly; SSAT does not scan modules or entry points.
+Providers and registries are registered explicitly; SSAT does not scan modules or entry points. The four extension points below differ in how far they reach — this reflects the current implementation, not just a documentation gap, so read the caveats on each one before relying on it.
+
+| Extension point | Reaches `AuditApplication` | Reaches the stock `ssat` CLI |
+| --- | --- | --- |
+| Adapter provider | Yes (`adapter_registry`) | Yes (`create_app(adapter_registry, ...)`) |
+| Source provider | Yes (`source_registry`) | Yes (`create_app(..., source_registry=...)`) |
+| Metric | Yes (`metric_registry`) | No — construct an `application_factory` (below) |
+| Perturbation operator | No | No |
+| Reporter / report section | No | No |
+
+### Custom adapter and source providers
 
 ```python
 from ssat.application import AuditApplication
@@ -128,9 +138,9 @@ application = AuditApplication(
 )
 ```
 
-A custom source provider must return both a `SampleSource` and file-backed `SourceProvenance` containing the resolved provenance path and its SHA-256 hash. See [Configuration Reference](CONFIG_REFERENCE.md#custom-source-providers) for an example.
+A custom source provider must return both a `SampleSource` and file-backed `SourceProvenance` containing the resolved provenance path and its SHA-256 hash. See [Configuration Reference](CONFIG_REFERENCE.md#custom-source-providers) for an example, and [CONFIG_REFERENCE.md#callable-adapter](CONFIG_REFERENCE.md#callable-adapter) for the lowest-friction way to connect a new model.
 
-The stock `ssat` executable always creates the default registries. To expose custom providers through a CLI, construct an application factory and pass it to `ssat.cli.create_app`:
+The stock `ssat` executable creates the default registries unless overridden: `create_app(adapter_registry=..., source_registry=...)` accepts both symmetrically. To expose a custom `metric_registry` (which `create_app`'s positional/keyword parameters do not cover) or any other constructor option through a CLI, construct an application factory instead:
 
 ```python
 from ssat.cli import create_app
@@ -138,5 +148,17 @@ from ssat.cli import create_app
 cli = create_app(application_factory=lambda: application)
 cli()
 ```
+
+### Custom metrics
+
+`AuditApplication(metric_registry=...)` makes `compute_metrics` compute every metric in the supplied `MetricRegistry` instead of the nine v1 built-ins. See [Configuration Reference](CONFIG_REFERENCE.md#custom-metrics) for an example and for what `available_when` gates.
+
+### Custom perturbation operators (not yet supported here)
+
+`PerturbationOperator` and `OperatorFactory` (`ssat.core.perturb`) support registering new operator classes, but — unlike the three extension points above — `AuditApplication` has no `operator_factory`/`perturbator` constructor parameter, so `execute_run` always uses the built-in operator set. A custom operator is currently reachable only by calling `ssat.core.runtime.run_audit(..., perturbator=Perturbator(operators=...))` directly, which forgoes `AuditApplication`'s output locking, resume-fingerprint checks, and event/cancellation handling unless the caller reimplements them. See [Configuration Reference](CONFIG_REFERENCE.md#custom-perturbation-operators).
+
+### Reports (no extension point)
+
+Report generation (`ssat report` / `generate_report`) is a fixed HTML/CSV/JSON pipeline with no `Reporter` protocol or registry — there is currently no supported way to register a new report section or output format. A workflow that needs a different report should read `<report_dir>/data/report_model.json` and the accompanying CSVs (the same data the built-in HTML/CSV/JSON exporters consume) and render its own output from them, rather than extending `ssat report` itself.
 
 Registry extension points are Python APIs and should be version-pinned while SSAT remains alpha.

@@ -33,6 +33,7 @@ from ssat.core.adapter import (
     CallableAdapter,
     ProviderConfig,
 )
+from ssat.core.adapter.types import AdapterSpec
 from ssat.core.config import SourceProvenance
 from ssat.core.estimate import EstimateOptions, EstimationLimits
 from ssat.core.source import (
@@ -42,6 +43,8 @@ from ssat.core.source import (
     SourceProviderConfig,
     SourceProviderRegistry,
 )
+from ssat.metrics.normalize import NormalizedOutput
+from ssat.metrics.registry import MetricRegistry, MetricResult
 from ssat.metrics.store import load_metrics
 from ssat.utils.io import sha256_file
 
@@ -200,6 +203,64 @@ def test_custom_source_provider_runs_estimate_and_run_end_to_end(tmp_path: Path)
     assert result.status == "completed"
     assert result.summary is not None
     assert result.summary.records_written > 0
+
+
+class _AlwaysFlaggedMetric:
+    """Minimal custom Metric that always reports maximal degradation.
+
+    Exists only to prove a caller-supplied metric_registry is reachable
+    through compute_metrics, not to measure anything meaningful.
+    """
+
+    name = "always_flagged"
+    requires: tuple[str, ...] = ()
+    higher_is_better = False
+    kind: str = "binary"
+
+    def available_when(self, adapter_spec: AdapterSpec) -> bool:
+        return True
+
+    def compute(self, clean: NormalizedOutput, perturbed: NormalizedOutput) -> MetricResult:
+        return MetricResult(value_clean=0.0, value_perturbed=1.0, degradation=1.0)
+
+
+def test_custom_metric_registry_is_used_end_to_end(tmp_path: Path) -> None:
+    """A caller-supplied MetricRegistry must be reachable through the public API.
+
+    Without this test the metric_registry extension point could regress
+    into an unused shell -- the constructor accepting an override without
+    compute_metrics ever consulting it (default_metric_registry() silently
+    winning instead).
+    """
+
+    adapter_registry = AdapterProviderRegistry()
+    adapter_registry.register(_FixtureProvider())
+    metric_registry = MetricRegistry()
+    metric_registry.register(_AlwaysFlaggedMetric())
+    application = AuditApplication(
+        adapter_registry,
+        metric_registry=metric_registry,
+        code_version="application-test",
+    )
+
+    manifest = tmp_path / "two_class_manifest.json"
+    _write_two_class_manifest(manifest)
+    output = tmp_path / "dump"
+    with application.prepare_run(
+        RunRequest(_config(manifest), output, base_dir=tmp_path)
+    ) as prepared:
+        application.execute_run(prepared)
+
+    result = application.compute_metrics(
+        ComputeMetricsRequest(output, primary_metric="always_flagged")
+    )
+
+    assert tuple(result.metric_names) == ("always_flagged",)
+    item_metrics, _aggregation, manifest_out = load_metrics(result.metrics_dir)
+    assert {row.metric_name for row in item_metrics} == {"always_flagged"}
+    assert {metric.name for metric in manifest_out.registered_metrics} == {
+        "always_flagged"
+    }
 
 
 def test_application_prepare_execute_resume_inspect_and_rebuild(tmp_path: Path) -> None:

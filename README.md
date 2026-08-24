@@ -44,6 +44,8 @@ ssat report /tmp/ssat-quickstart
 
 Open `/tmp/ssat-quickstart/report/report.html` after the final command. The quickstart manifest intentionally contains two missing image paths to exercise failure recording. Its bounded area check can therefore report a partial-check FAIL; `--yes` explicitly accepts that expected fixture warning. A complete run writes 20 clean rows and 80 perturbed rows, of which 18 and 72 respectively have status `ok`.
 
+For a walkthrough of this same sequence with expected output and an explanation of every number at each step, see the [tutorial](docs/TUTORIAL.md).
+
 The randomly initialized model is useful for exercising the software only; its metrics are not scientifically meaningful. Use pretrained weights or a trusted local checkpoint and a representative dataset for an actual audit.
 
 The minimal quickstart has one fill strategy, one seed, and no control regions. `ssat analyze` consequently records those comparison families as unavailable/insufficient; use repeated seeds, multiple fill strategies, jittered regions, or `controls` when the corresponding stability evidence is part of the study design.
@@ -189,8 +191,9 @@ The above is about software-level provenance guarantees. For a concrete, third-p
 ## Documentation
 
 - [Installation and deployment](docs/INSTALLATION.md)
+- [Tutorial](docs/TUTORIAL.md)
 - [Configuration reference](docs/CONFIG_REFERENCE.md)
-- [Application API](docs/APPLICATION_API.md)
+- [Application API](docs/APPLICATION_API.md) — including [extension points](docs/APPLICATION_API.md#extension-points) for custom models, datasets, and metrics
 - [Logging policy](docs/LOGGING_POLICY.md)
 - [Real dataset case study](docs/REAL_DATASET_CASE_STUDY_v1.md)
 - [Reference comparison (Captum)](docs/REFERENCE_COMPARISON_CAPTUM_v1.md)
