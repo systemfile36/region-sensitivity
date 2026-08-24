@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
+from ssat.core._strategy_registry import StrategyRegistry
 from ssat.core.region.mask_base import MaskResolutionContext, RegionMaskGenerator
 from ssat.core.region.mask_generators import (
     ExplicitMaskGenerator,
@@ -30,9 +31,12 @@ class RegionMaskGeneratorFactory:
     """
 
     def __init__(self, generator_types: Sequence[MaskGeneratorType] = ()) -> None:
-        self._generator_types: list[MaskGeneratorType] = []
-        for generator_type in generator_types:
-            self.register(generator_type)
+        self._registry: StrategyRegistry[RegionMaskGenerator] = StrategyRegistry(
+            RegionMaskGenerator,
+            type_label="generator_type",
+            item_label="mask generator type",
+            strategy_types=generator_types,
+        )
 
     def register(self, generator_type: MaskGeneratorType) -> None:
         """Append one mask generator class to the factory.
@@ -45,15 +49,7 @@ class RegionMaskGeneratorFactory:
             ValueError: If the same class is already registered.
         """
 
-        if not isinstance(generator_type, type) or not issubclass(
-            generator_type, RegionMaskGenerator
-        ):
-            raise TypeError("generator_type must be a RegionMaskGenerator subclass")
-        if generator_type in self._generator_types:
-            raise ValueError(
-                f"mask generator type already registered: {generator_type.__name__}"
-            )
-        self._generator_types.append(generator_type)
+        self._registry.register(generator_type)
 
     def build(
         self,
@@ -68,7 +64,10 @@ class RegionMaskGeneratorFactory:
             Fresh generators in deterministic dispatch order.
         """
 
-        return [generator_type(context) for generator_type in self._generator_types]
+        return [
+            generator_type(context)
+            for generator_type in self._registry.registered_types
+        ]
 
 
 def build_mask_generators(

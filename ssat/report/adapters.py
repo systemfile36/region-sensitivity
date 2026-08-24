@@ -123,7 +123,7 @@ class ClassificationAdapter:
                 value=None,
                 unit="%",
                 higher_is_better=True,
-                note="해당 없음: ground-truth 라벨이 없는 실행입니다.",
+                note="N/A: this run has no ground-truth labels.",
             )
         return MetricCard(
             key="accuracy",
@@ -144,7 +144,7 @@ class ClassificationAdapter:
                 value=None,
                 unit="",
                 higher_is_better=False,
-                note="해당 없음: 유효한 항목이 없습니다.",
+                note="N/A: no valid items.",
             )
         # metric_mean is already sign-normalized (positive == worse), so a
         # higher mean degradation is always the undesired direction —
@@ -167,8 +167,8 @@ class ClassificationAdapter:
                 unit="%",
                 higher_is_better=False,
                 note=(
-                    f"해당 없음: {self._primary_metric}는 continuous 지표라 "
-                    "flip 개념이 없습니다."
+                    f"N/A: {self._primary_metric} is a continuous metric, so "
+                    "flip has no meaning for it."
                 ),
             )
         return MetricCard(

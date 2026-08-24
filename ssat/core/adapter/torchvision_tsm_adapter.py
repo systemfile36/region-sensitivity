@@ -2,14 +2,14 @@
 
 from __future__ import annotations
 
-import gc
 from pathlib import Path
 from typing import Any, Literal
 
 import numpy as np
 from numpy.typing import NDArray
 
-from ssat.core.adapter.base import AdapterError, AdapterOutOfMemoryError, ModelAdapter
+from ssat.core.adapter._torch_adapter_mixin import _TorchAdapterMixin
+from ssat.core.adapter.base import AdapterError, ModelAdapter
 from ssat.core.adapter.checkpoint import load_state_dict_checkpoint
 from ssat.core.adapter.output_decoder import LogitsOutputDecoder, OutputDecoder
 from ssat.core.adapter.preprocessing import (
@@ -113,7 +113,7 @@ class TSMResNet50Model:
         return _Model()
 
 
-class TorchvisionTSMAdapter(ModelAdapter):
+class TorchvisionTSMAdapter(_TorchAdapterMixin, ModelAdapter):
     """Run an NTU60 TSM checkpoint without a runtime MMAction2 dependency."""
 
     def __init__(
@@ -138,18 +138,16 @@ class TorchvisionTSMAdapter(ModelAdapter):
             raise ValueError("num_segments, num_classes, and shift_div must be positive")
         if preprocessing not in {"mmaction2_val", "crop_free"}:
             raise ValueError("preprocessing must be 'mmaction2_val' or 'crop_free'")
-        if isinstance(init_seed, bool) or not 0 <= init_seed <= 2**63 - 1:
-            raise ValueError("init_seed must be between 0 and 2**63 - 1")
+        self._validate_init_seed(init_seed)
         try:
-            import torch
-
-            with torch.random.fork_rng(devices=[]):
-                torch.manual_seed(init_seed)
-                model = TSMResNet50Model.create(
+            model = self._seeded_model_init(
+                init_seed,
+                lambda: TSMResNet50Model.create(
                     num_segments=num_segments,
                     num_classes=num_classes,
                     shift_div=shift_div,
-                )
+                ),
+            )
             if checkpoint_path is not None:
                 load_state_dict_checkpoint(
                     model,
@@ -160,14 +158,7 @@ class TorchvisionTSMAdapter(ModelAdapter):
         except Exception as error:
             raise AdapterError("failed to initialize torchvision TSM-ResNet50") from error
 
-        resolved_device = torch.device(
-            device if device is not None else ("cuda" if torch.cuda.is_available() else "cpu")
-        )
-        try:
-            self._model = model.eval().to(resolved_device)
-        except Exception as error:
-            raise AdapterError(f"failed to move model to device {resolved_device}") from error
-        self._device = resolved_device
+        self._place_on_device(model, device)
         self._num_segments = num_segments
         geometry = (
             [Resize(256), CenterCrop(224)]
@@ -182,9 +173,9 @@ class TorchvisionTSMAdapter(ModelAdapter):
                 ChannelsFirst(),
             ]
         )
-        self._output_decoder = output_decoder or LogitsOutputDecoder()
-        if not isinstance(self._output_decoder, OutputDecoder):
-            raise TypeError("output_decoder must implement OutputDecoder")
+        self._output_decoder = self._finalize_output_decoder(
+            output_decoder, LogitsOutputDecoder()
+        )
         preprocessing_spec = self._preprocessor.describe()
         checkpoint_name = None if checkpoint_path is None else Path(checkpoint_path).name
         weights_id = (
@@ -224,16 +215,22 @@ class TorchvisionTSMAdapter(ModelAdapter):
             raise AdapterError("TSM requires three RGB channels")
         if batch.shape[0] == 0:
             return []
-        try:
+
+        def _preprocess_and_infer() -> Any:
             prepared = torch.from_numpy(self._preprocessor.transform_batch(batch))
             with torch.inference_mode():
-                logits = self._model(prepared.to(self._device))
-        except torch.cuda.OutOfMemoryError as error:
-            raise AdapterOutOfMemoryError("TSM prediction ran out of memory") from error
-        except Exception as error:
-            if isinstance(error, AdapterError):
-                raise
-            raise AdapterError("TSM prediction failed") from error
+                return self._model(prepared.to(self._device))
+
+        # Unlike the other three adapters, preprocessing and inference are
+        # wrapped together (not separately) and decode is left unwrapped
+        # below -- a pre-existing divergence, preserved here rather than
+        # normalized to match the other adapters' shape.
+        logits = self._wrap_inference(
+            _preprocess_and_infer,
+            oom_message="TSM prediction ran out of memory",
+            error_message="TSM prediction failed",
+            passthrough_adapter_error=True,
+        )
         return self._output_decoder.decode(logits, batch_size=batch.shape[0])
 
     def transform_mask(self, mask: NDArray[np.bool_]) -> NDArray[np.bool_]:
@@ -242,10 +239,3 @@ class TorchvisionTSMAdapter(ModelAdapter):
         if transformed is None:  # pragma: no cover
             raise AdapterError("TSM mask transform is unavailable")
         return transformed
-
-    def cleanup_after_oom(self) -> None:
-        import torch
-
-        gc.collect()
-        if self._device.type == "cuda":
-            torch.cuda.empty_cache()

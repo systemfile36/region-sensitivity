@@ -286,7 +286,7 @@ def test_report_model_serializes_to_json_via_dataclasses_asdict() -> None:
 
 
 def test_report_model_with_no_analysis_serializes_with_none_markers() -> None:
-    """"해당 없음" must round-trip as JSON null, not vanish or become false."""
+    """"N/A" fields must round-trip as JSON null, not vanish or become false."""
 
     model = _report_model(
         meta=_report_meta(
@@ -330,7 +330,7 @@ def test_report_model_from_dict_round_trips_full_model() -> None:
 
 
 def test_report_model_from_dict_round_trips_none_markers() -> None:
-    """The "해당 없음" path must reconstruct with the same None markers, not defaults."""
+    """The "N/A" path must reconstruct with the same None markers, not defaults."""
 
     model = _report_model(
         meta=_report_meta(

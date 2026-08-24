@@ -8,16 +8,54 @@ seed cannot be part of a key that must compare equal across different
 AnchorKeys — it becomes a repeat-count axis instead).
 
 Every row type below maps to a parquet table produced by A7 AnalysisStore.
-This module has zero dependencies, including on ``ssat.core.types`` —
-string-typed fields such as ``perturb_op`` are kept as plain ``str`` rather
-than ``PerturbationOp`` so that later modules can depend on this one
-without pulling in the core package too.
+Aside from ``pandas`` (used only by ``region_key_column``, already a hard
+dependency of every caller), this module has zero dependencies, including on
+``ssat.core.types`` — string-typed fields such as ``perturb_op`` are kept as
+plain ``str`` rather than ``PerturbationOp`` so that later modules can depend
+on this one without pulling in the core package too.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import Enum
+
+import pandas as pd
+
+
+def region_key(region_id: str, region_instance_id: str) -> str:
+    """Format the stable concrete-region identity used across ``ssat.analysis``.
+
+    Shared by ``analysis.indexer``, ``analysis.interval``, ``analysis.control``,
+    ``analysis.stability``, and ``analysis.reader``, which previously each
+    hand-wrote this same ``"{region_id}::{region_instance_id}"`` format. The
+    analogous ``ssat.metrics`` side keeps its own independent copy
+    (``ssat.metrics.types.region_key``) rather than importing this one: that
+    package boundary is intentional, not an oversight — see
+    ``analysis.indexer``'s module docstring.
+
+    Args:
+        region_id: Region family identity.
+        region_instance_id: Concrete instance identity within the family.
+
+    Returns:
+        The joined region key.
+    """
+
+    return f"{region_id}::{region_instance_id}"
+
+
+def region_key_column(df: pd.DataFrame) -> pd.Series:
+    """Vectorized form of :func:`region_key`.
+
+    Args:
+        df: Frame with ``region_id``/``region_instance_id`` columns.
+
+    Returns:
+        One joined region key per row.
+    """
+
+    return df["region_id"].astype(str) + "::" + df["region_instance_id"].astype(str)
 
 
 # --- Keys --------------------------------------------------------------
@@ -29,11 +67,14 @@ class AnchorKey:
 
     Attributes:
         sample_id: Owning sample identity.
-        region_key: Stable concrete-region identity, formatted as
-            ``f"{region_id}::{region_instance_id}"`` — the same convention
-            used by ``ssat.metrics.aggregate`` and
-            ``ssat.metrics.viz.mask_check`` (intentionally duplicated here
-            rather than extracted into a shared helper).
+        region_key: Stable concrete-region identity, produced by this
+            module's own :func:`region_key` — the same
+            ``f"{region_id}::{region_instance_id}"`` convention used by
+            ``ssat.metrics.aggregate`` and ``ssat.metrics.viz.mask_check``,
+            which keep an independent copy of the same formula
+            (:func:`ssat.metrics.types.region_key`) rather than importing
+            this one, since ``ssat.analysis`` intentionally does not depend
+            on ``ssat.metrics`` or ``ssat.core``.
         invert_mask: Whether the region was preserved (True) or removed
             (False) by the perturbation.
     """

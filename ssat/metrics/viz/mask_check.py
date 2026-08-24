@@ -48,6 +48,7 @@ from ssat.core.source.types import LoadError
 from ssat.core.types import ItemStatus, PerturbationOp, RegionKind
 from ssat.metrics.dump_reader import DumpHandle, JoinedFrame
 from ssat.metrics.errors import DebugVizError
+from ssat.metrics.types import region_key
 from ssat.metrics.viz._shared import decanonicalize, open_image_source
 
 __all__ = [
@@ -180,7 +181,7 @@ def resolve_mask_check_view(
     return MaskCheckView(
         sample_id=str(row["sample_id"]),
         item_id=str(row["item_id"]),
-        region_key=f"{row['region_id']}::{row['region_instance_id']}",
+        region_key=region_key(str(row["region_id"]), str(row["region_instance_id"])),
         original=loaded.array[0],
         mask=mask,
         perturbed=perturbed[0],

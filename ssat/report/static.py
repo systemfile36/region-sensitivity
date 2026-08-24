@@ -78,6 +78,7 @@ a { color: var(--accent); }
 .run-meta > div {
   display: flex;
   flex-direction: column;
+  min-width: 0;
 }
 
 .run-meta dt {
@@ -90,6 +91,7 @@ a { color: var(--accent); }
 .run-meta dd {
   margin: 0.15rem 0 0;
   font-weight: 600;
+  overflow-wrap: break-word;
 }
 
 /* --- section shell ------------------------------------------------------ */

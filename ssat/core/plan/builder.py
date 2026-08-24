@@ -9,7 +9,12 @@ from typing import Any
 from ssat.core.config.schema import ResolvedConfig
 from ssat.core.plan.hashing import compute_chunk_id, compute_item_id
 from ssat.core.plan.region_expander import RegionExpander, RegionExpansionError
-from ssat.core.plan.types import WorkChunk, WorkChunkMeta, WorkItem
+from ssat.core.plan.types import (
+    WorkChunk,
+    WorkChunkMeta,
+    WorkItem,
+    _item_identity_payload,
+)
 from ssat.core.region.types import RegionSpec
 from ssat.core.source.base import SampleSource
 from ssat.core.source.types import SampleMeta
@@ -307,15 +312,15 @@ class PlanBuilder:
     ) -> WorkItem:
         """Create a WorkItem and derive its identity from the complete payload."""
 
-        payload = {
-            "sample_id": sample_id,
-            "region_spec": region_spec,
-            "perturb_op": perturb_op,
-            "perturb_params": perturb_params,
-            "invert_mask": invert_mask,
-            "seed_salt": seed_salt,
-            "is_control": is_control,
-        }
+        payload = _item_identity_payload(
+            sample_id=sample_id,
+            region_spec=region_spec,
+            perturb_op=perturb_op,
+            perturb_params=perturb_params,
+            invert_mask=invert_mask,
+            seed_salt=seed_salt,
+            is_control=is_control,
+        )
         return WorkItem(
             item_id=compute_item_id(
                 payload,

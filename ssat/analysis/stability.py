@@ -29,8 +29,8 @@ identity columns joined with one row per (item, metric_name)
 row type here, it is scoped to a single primary metric, matching
 ``ssat.metrics.aggregate.DEFAULT_PRIMARY_METRIC`` and the fact that L3's
 Check2 only ever analyzed ``margin_drop``. ``DEFAULT_PRIMARY_METRIC`` is
-redefined locally rather than imported, extending the same duplication this
-module already accepts for ``region_key``/``ConditionKey`` formulas.
+redefined locally rather than imported, the same trade-off this module
+already accepts for the ``ConditionKey`` formula.
 """
 
 from __future__ import annotations
@@ -48,6 +48,7 @@ from ssat.analysis.types import (
     RankCorrelationRow,
     SeedStabilityRow,
     StrategyStabilityRow,
+    region_key_column,
 )
 from ssat.utils.io import sha256_bytes
 
@@ -409,7 +410,7 @@ def _condition_level_stats(
     """
 
     df = item_values.assign(
-        region_key=_region_key_column(item_values),
+        region_key=region_key_column(item_values),
         perturb_params_hash=_perturb_params_hash_column(item_values),
     )
 
@@ -475,7 +476,7 @@ def _op_level_anchor_means(
     """
 
     df = item_values.assign(
-        region_key=_region_key_column(item_values),
+        region_key=region_key_column(item_values),
         perturb_params_hash=_perturb_params_hash_column(item_values),
     )
 
@@ -524,17 +525,6 @@ def _op_level_anchor_means(
         op_means[(anchor_key, perturb_op, metric_name)] = float(value)
 
     return op_means, is_control_by_anchor
-
-
-def _region_key_column(df: pd.DataFrame) -> pd.Series:
-    """Vectorized form of ``AnchorKey.region_key``'s ``f"{region_id}::{region_instance_id}"`` formula.
-
-    Duplicated per module rather than extracted into a shared helper, the
-    same trade-off ``AnchorKey.region_key`` already documents for the
-    scalar formula (``ssat.analysis.types``).
-    """
-
-    return df["region_id"].astype(str) + "::" + df["region_instance_id"].astype(str)
 
 
 def _perturb_params_hash_column(df: pd.DataFrame) -> pd.Series:

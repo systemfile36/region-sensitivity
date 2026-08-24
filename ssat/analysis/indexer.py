@@ -9,10 +9,14 @@ This module intentionally does not import ``ssat.metrics.aggregate`` even
 though ``_check_region_geometry`` below reproduces that module's policy for
 detecting inconsistent per-region geometry: this package's dependency
 direction restricts ``analysis.indexer`` to ``analysis.types`` and
-``analysis.reader``'s output (a plain DataFrame), and this package already
-accepts the smaller duplication of the ``region_key`` format string for the
-same reason. Everything here consumes only ``AnalysisReader.item_context()``
-column values.
+``analysis.reader``'s output (a plain DataFrame). The ``region_key`` format
+string itself is no longer duplicated *within* this package -- every
+``ssat.analysis`` module sharing it now imports ``analysis.types.region_key``/
+``region_key_column`` -- but the duplication against ``ssat.metrics.aggregate``'s
+and ``ssat.metrics.viz.mask_check``'s independent copies remains, for the
+same cross-package reason ``_check_region_geometry`` stays unshared.
+Everything here consumes only ``AnalysisReader.item_context()`` column
+values.
 """
 
 from __future__ import annotations
@@ -32,6 +36,8 @@ from ssat.analysis.types import (
     ControlPairRow,
     CoverageReport,
     MatchMethod,
+    region_key,
+    region_key_column,
 )
 from ssat.utils.io import sha256_bytes
 
@@ -135,17 +141,6 @@ class ComparisonIndexer:
         return self._index
 
 
-def _region_key_column(df: pd.DataFrame) -> pd.Series:
-    """Vectorized form of ``AnchorKey.region_key``'s ``f"{region_id}::{region_instance_id}"`` formula.
-
-    Duplicated per module rather than extracted into a shared helper, the
-    same trade-off ``AnchorKey.region_key`` already documents for the
-    scalar formula (``ssat.analysis.types``).
-    """
-
-    return df["region_id"].astype(str) + "::" + df["region_instance_id"].astype(str)
-
-
 def _perturb_params_hash_column(df: pd.DataFrame) -> pd.Series:
     """Vectorized form of ``ConditionKey.perturb_params_hash``.
 
@@ -182,7 +177,7 @@ def _build_anchor_table(
     # on the first conflicting row it sees, with a message naming that
     # row's own values), so that sequencing is deliberately left alone.
     context = context.assign(
-        region_key_col=_region_key_column(context),
+        region_key_col=region_key_column(context),
         perturb_params_hash_col=_perturb_params_hash_column(context),
     )
 
@@ -382,8 +377,8 @@ def _match_controls(
             match_method: MatchMethod | None = None
 
             if target_ref is not None:
-                target_region_key = (
-                    f"{target_ref['region_id']}::{target_ref['region_instance_id']}"
+                target_region_key = region_key(
+                    target_ref["region_id"], target_ref["region_instance_id"]
                 )
                 candidate = anchor_by_key.get(
                     AnchorKey(

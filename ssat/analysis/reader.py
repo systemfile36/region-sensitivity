@@ -30,7 +30,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from ssat.analysis.types import AvailableAnalyses
+from ssat.analysis.types import AvailableAnalyses, region_key_column
 from ssat.metrics.aggregate import AggregationResult
 from ssat.metrics.dump_reader import DumpHandle
 from ssat.metrics.store import MetricsManifest, load_metrics, verify_source_dump
@@ -159,13 +159,13 @@ class AnalysisReader:
 def _has_repeated_condition_group(context: pd.DataFrame) -> bool:
     """Return True if any (AnchorKey, ConditionKey) pair covers >= 2 items.
 
-    Reuses AnchorKey/ConditionKey's own key format (``region_key =
-    f"{region_id}::{region_instance_id}"``, ``perturb_params_hash =
+    Reuses AnchorKey/ConditionKey's own key format (``region_key`` via
+    ``analysis.types.region_key_column``, ``perturb_params_hash =
     sha256(perturb_params_json)``) rather than reinventing it. Deliberately
     not exposed as a column on ``item_context()`` — its column list is
     fixed; ``analysis.indexer`` will compute the same values again for its
-    own AnchorTable/ConditionKey construction, matching the intentional
-    ``region_key``-format duplication already documented on ``AnchorKey``.
+    own AnchorTable/ConditionKey construction, since this reader intentionally
+    does not import ``analysis.indexer``.
 
     Grouped with pandas rather than a per-row Python loop: the only
     observable output is a single bool, so no ``AnchorKey``/``ConditionKey``
@@ -176,7 +176,7 @@ def _has_repeated_condition_group(context: pd.DataFrame) -> bool:
     keyed = pd.DataFrame(
         {
             "sample_id": context["sample_id"],
-            "region_key": _region_key_column(context),
+            "region_key": region_key_column(context),
             "invert_mask": context["invert_mask"],
             "perturb_op": context["perturb_op"],
             "perturb_params_hash": _perturb_params_hash_column(context),
@@ -187,17 +187,6 @@ def _has_repeated_condition_group(context: pd.DataFrame) -> bool:
         sort=False,
     ).size()
     return bool((counts >= 2).any())
-
-
-def _region_key_column(df: pd.DataFrame) -> pd.Series:
-    """Vectorized form of ``AnchorKey.region_key``'s ``f"{region_id}::{region_instance_id}"`` formula.
-
-    Duplicated per module rather than extracted into a shared helper, the
-    same trade-off ``AnchorKey.region_key`` already documents for the
-    scalar formula (``ssat.analysis.types``).
-    """
-
-    return df["region_id"].astype(str) + "::" + df["region_instance_id"].astype(str)
 
 
 def _perturb_params_hash_column(df: pd.DataFrame) -> pd.Series:

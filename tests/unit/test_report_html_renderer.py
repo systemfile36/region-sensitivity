@@ -120,7 +120,7 @@ def _no_semantic_groups() -> SemanticConcentration:
 
     The default fixture used by every non-semantic-focused test, so those
     tests exercise (and pin) the ``#semantic-profile`` section's collapsed
-    "해당 없음" branch by default.
+    "no semantic grouping configured" branch by default.
     """
 
     return SemanticConcentration(
@@ -192,7 +192,7 @@ def _report_model(**overrides: object) -> ReportModel:
                 value=None,
                 unit="%",
                 higher_is_better=False,
-                note="해당 없음: continuous 지표라 flip 개념이 없습니다.",
+                note="N/A: continuous metric, flip has no meaning for it.",
             ),
             MetricCard(
                 key="control_comparison",
@@ -261,7 +261,7 @@ def _no_analysis_model() -> ReportModel:
                 value=None,
                 unit="",
                 higher_is_better=False,
-                note="분석 미실행: 대조군 비교가 실행되지 않았습니다.",
+                note="Analysis not run: control comparison was not executed.",
             ),
         ),
         sample_rankings=SampleRankings(
@@ -404,19 +404,19 @@ def test_render_report_full_model_renders_every_section(tmp_path: Path) -> None:
 
 
 def test_render_report_no_analysis_model_shows_explicit_markers_not_silence(tmp_path: Path) -> None:
-    """Missing analysis must render "해당 없음"/badges, never vanish."""
+    """Missing analysis must render explicit "N/A"/badges, never vanish."""
 
     paths = render_report(_no_analysis_model(), tmp_path, top_k=20, bottom_k=20)
     html = paths.report_html.read_text(encoding="utf-8")
 
-    assert "해당 없음" in html  # note on the control_comparison scorecard entry
-    assert "플래그된 항목 없음" in html  # empty reliability spotlight, explicitly labeled
+    assert "Analysis not run" in html  # note on the control_comparison scorecard entry
+    assert "No flagged items" in html  # empty reliability spotlight, explicitly labeled
     # a sample with reliability_grade=None still gets a "no grade" badge,
     # not an omitted badge:
-    assert "해당 없음</span>" in html
+    assert "N/A</span>" in html
     # a region with an empty reliability_distribution shows the composition
     # bar's own explicit "not evaluated" marker, not a blank cell:
-    assert "평가 없음" in html
+    assert "No grade" in html
     # spatial_concentration is unaffected by analysis_dir=None (assembler.py:
     # derived from spatial_profile alone) -- the Executive Interpretation
     # sentence must still use its real dominant_region_key.
@@ -477,7 +477,7 @@ def test_executive_interpretation_concentrated_wording_above_half_share(tmp_path
     paths = render_report(model, tmp_path, top_k=20, bottom_k=20)
     html = paths.report_html.read_text(encoding="utf-8")
 
-    assert "집중되어 있습니다" in html
+    assert "relatively concentrated at" in html
     assert "grid::grid/r0/c0" in html
     assert "82.00%" in html
 
@@ -491,7 +491,7 @@ def test_executive_interpretation_distributed_wording_below_half_share(tmp_path:
     paths = render_report(model, tmp_path, top_k=20, bottom_k=20)
     html = paths.report_html.read_text(encoding="utf-8")
 
-    assert "집중되지 않습니다" in html
+    assert "not concentrated at one fixed location" in html
     assert "18.00%" in html
 
 
@@ -504,14 +504,14 @@ def test_executive_interpretation_handles_no_determinable_top_region(tmp_path: P
     paths = render_report(model, tmp_path, top_k=20, bottom_k=20)
     html = paths.report_html.read_text(encoding="utf-8")
 
-    assert "공간 집중도를 판단할 데이터가 없습니다." in html
+    assert "No data available to judge spatial concentration." in html
 
 
 def test_executive_interpretation_always_includes_non_causal_caveat(tmp_path: Path) -> None:
     paths = render_report(_report_model(), tmp_path, top_k=20, bottom_k=20)
     html = paths.report_html.read_text(encoding="utf-8")
 
-    assert "자동으로 판정하지" in html
+    assert "does not automatically judge" in html
 
 
 # --- behavioral fingerprint ----------------------------------------------------
@@ -560,7 +560,7 @@ def test_spatial_pattern_falls_back_to_message_for_non_grid_regions(tmp_path: Pa
     paths = render_report(_report_model(), tmp_path, top_k=20, bottom_k=20)
     html = paths.report_html.read_text(encoding="utf-8")
 
-    assert "히트그리드를 생략합니다" in html
+    assert "heat-grid is skipped" in html
     assert 'class="heat"' not in html
 
 
@@ -597,7 +597,7 @@ def test_region_summary_legend_and_worst_case_scope_note_present(tmp_path: Path)
     assert 'class="grade-legend"' in html
     for grade_label in ("HIGH", "MODERATE", "LOW", "UNRELIABLE"):
         assert f'class="grade-legend-label">{grade_label}<' in html
-    assert "sample/anchor 단위" in html
+    assert "sample/anchor level" in html
 
 
 def test_render_report_gallery_points_to_region_summary(tmp_path: Path) -> None:
@@ -611,9 +611,9 @@ def test_render_report_empty_gallery_and_region_summary_shows_no_data_markers(tm
     paths = render_report(_empty_gallery_model(), tmp_path, top_k=20, bottom_k=20)
     html = paths.report_html.read_text(encoding="utf-8")
 
-    assert html.count('<p class="no-data">데이터 없음</p>') >= 2  # both galleries
-    assert '<td colspan="5" class="no-data">데이터 없음</td>' in html
-    assert '<p class="no-data">히스토그램 자산 없음</p>' in html
+    assert html.count('<p class="no-data">No data</p>') >= 2  # both galleries
+    assert '<td colspan="5" class="no-data">No data</td>' in html
+    assert '<p class="no-data">No histogram asset</p>' in html
 
 
 def test_render_report_missing_optional_asset_refs_omit_only_that_element(tmp_path: Path) -> None:
@@ -641,7 +641,7 @@ def test_stability_controls_section_reports_flagged_count(tmp_path: Path) -> Non
     paths = render_report(_report_model(), tmp_path, top_k=20, bottom_k=20)
     html = paths.report_html.read_text(encoding="utf-8")
 
-    assert "1개</strong> anchor" in html
+    assert "1</strong> anchor" in html
 
 
 def test_flagged_anchors_section_lists_spotlight_items(tmp_path: Path) -> None:
@@ -661,8 +661,8 @@ def test_semantic_profile_gate_collapses_to_not_applicable_notice(tmp_path: Path
     paths = render_report(_report_model(), tmp_path, top_k=20, bottom_k=20)
     html = paths.report_html.read_text(encoding="utf-8")
 
-    assert "regions[].semantic_group</code> 미설정" in html
-    assert "gt_label × semantic_group 교차표" not in html
+    assert "regions[].semantic_group</code> is unset" in html
+    assert "gt_label × semantic_group cross-tab" not in html
 
 
 def test_semantic_profile_renders_class_semantic_table_for_multiple_groups(tmp_path: Path) -> None:
@@ -678,7 +678,7 @@ def test_semantic_profile_renders_class_semantic_table_for_multiple_groups(tmp_p
     paths = render_report(model, tmp_path, top_k=20, bottom_k=20)
     html = paths.report_html.read_text(encoding="utf-8")
 
-    assert "gt_label × semantic_group 교차표" in html
+    assert "gt_label × semantic_group cross-tab" in html
     assert "<th>lower_limb</th>" in html
     assert "<th>upper_limb</th>" in html
     assert 'title="n_samples=12"' in html
@@ -721,7 +721,7 @@ def test_semantic_profile_dominant_group_wording_above_half_share(tmp_path: Path
     paths = render_report(model, tmp_path, top_k=20, bottom_k=20)
     html = paths.report_html.read_text(encoding="utf-8")
 
-    assert "집중되어 있습니다" in html
+    assert "relatively concentrated at" in html
     assert "lower_limb" in html
     assert "75.00%" in html
 
@@ -736,7 +736,7 @@ def test_semantic_profile_dominant_group_wording_below_half_share(tmp_path: Path
     paths = render_report(model, tmp_path, top_k=20, bottom_k=20)
     html = paths.report_html.read_text(encoding="utf-8")
 
-    assert "집중되지 않습니다" in html
+    assert "not concentrated at one fixed region" in html
     assert "20.00%" in html
 
 
@@ -862,11 +862,11 @@ def test_render_secondary_report_covers_five_questions(tmp_path: Path) -> None:
     path = render_secondary_report(_report_model(), tmp_path, top_k=20, bottom_k=20)
     html = path.read_text(encoding="utf-8")
 
-    assert "이 모델은 교란 전에는 얼마나 잘 작동하는가?" in html
-    assert "영역을 가리면 전반적으로 얼마나 흔들리는가?" in html
-    assert '모든 샘플이 반복적으로 의존하는 "고정 위치"가 있는가?' in html
-    assert "보이는 효과는 우연한 마스크 효과보다 강하고 반복 가능한가?" in html
-    assert "그렇다면 실제로 어떤 샘플을 먼저 조사해야 하는가?" in html
+    assert "How well does this model perform before any perturbation?" in html
+    assert "How much does masking a region shake things up overall?" in html
+    assert 'Is there one "fixed location" that every sample repeatedly depends on?' in html
+    assert "Is the observed effect stronger than a chance masking effect, and reproducible?" in html
+    assert "So which samples should actually be investigated first?" in html
     assert "90.00%" in html  # accuracy card, same underlying data as the main report
 
 
@@ -895,8 +895,8 @@ def test_render_secondary_report_does_not_claim_no_high_region_from_low_share(tm
     path = render_secondary_report(model, tmp_path, top_k=20, bottom_k=20)
     html = path.read_text(encoding="utf-8")
 
-    assert "HIGH region이 없다" in html  # the caveat names the misreading it forbids
-    assert "결론짓지 않습니다" in html
+    assert "there is no HIGH region" in html  # the caveat names the misreading it forbids
+    assert "does not conclude" in html
 
 
 def test_render_secondary_report_no_script_content_survives(tmp_path: Path) -> None:
@@ -905,7 +905,7 @@ def test_render_secondary_report_no_script_content_survives(tmp_path: Path) -> N
     html = path.read_text(encoding="utf-8")
 
     stripped = _SCRIPT_TAG_PATTERN.sub("", html)
-    assert "이 모델은 교란 전에는 얼마나 잘 작동하는가?" in stripped
+    assert "How well does this model perform before any perturbation?" in stripped
 
 
 def test_render_secondary_report_has_no_external_references(tmp_path: Path) -> None:

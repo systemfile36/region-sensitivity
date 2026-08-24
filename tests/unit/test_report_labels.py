@@ -41,7 +41,7 @@ _CONTINUOUS_SCORECARD = (
         value=None,
         unit="%",
         higher_is_better=False,
-        note="해당 없음: continuous 지표",
+        note="N/A: continuous metric",
     ),
 )
 

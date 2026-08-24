@@ -9,6 +9,7 @@ from typing import Any, ClassVar, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from ssat.core._provider_registry_support import validate_config_literal
 from ssat.core.adapter.base import ModelAdapter
 from ssat.utils.io import sha256_file
 
@@ -367,6 +368,9 @@ class AdapterProviderRegistry:
             raise AdapterProviderError(f"adapter provider already registered: {name}")
         if not issubclass(provider.config_model, ProviderConfig):
             raise AdapterProviderError("provider config_model must extend ProviderConfig")
+        validate_config_literal(
+            provider.config_model, "provider", name, error=AdapterProviderError
+        )
         self._providers[name] = provider
 
     def parse(self, value: Any) -> ProviderConfig:

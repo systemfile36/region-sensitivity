@@ -43,6 +43,7 @@ from ssat.metrics.types import (
     SampleMetrics,
     SpatialProfile,
 )
+from ssat.metrics.types import region_key as format_region_key
 
 DEFAULT_PRIMARY_METRIC = "margin_drop"
 
@@ -171,7 +172,7 @@ def _build_context(
     area_by_region: dict[tuple[str, str], tuple[int | None, int | None]] = {}
 
     for row in joined.itertuples(index=False):
-        region_key = f"{row.region_id}::{row.region_instance_id}"
+        region_key = format_region_key(row.region_id, row.region_instance_id)
         region_kind = RegionKind(row.region_kind)
         # A missing area arrives from parquet as float NaN, not None, and
         # NaN != NaN would read as a genuine conflict below. Normalize once

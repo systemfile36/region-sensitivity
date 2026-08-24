@@ -11,6 +11,27 @@ from numpy.typing import NDArray
 from ssat.core.adapter.base import AdapterError
 
 
+def resolve_torchvision_weights(weights_enum: Any, weights: Any) -> Any:
+    """Resolve a convenient string weight selector against one enum.
+
+    Shared by ``TorchvisionAdapter`` and ``TorchvisionVideoAdapter``, the
+    only two adapters with a torchvision weights-enum concept.
+    """
+
+    if weights is None:
+        return None
+    if isinstance(weights, str):
+        if weights == "DEFAULT":
+            return weights_enum.DEFAULT
+        try:
+            return weights_enum[weights]
+        except KeyError as error:
+            raise ValueError(f"unknown torchvision weights {weights!r}") from error
+    if not isinstance(weights, weights_enum):
+        raise TypeError(f"weights must be None, a string, or {weights_enum.__name__}")
+    return weights
+
+
 def validate_image_classifier_batch(batch: NDArray[np.uint8]) -> None:
     """Require the v1 image classification specialization of THWC."""
 

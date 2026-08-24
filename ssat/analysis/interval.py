@@ -29,7 +29,7 @@ from collections.abc import Sequence
 import numpy as np
 import pandas as pd
 
-from ssat.analysis.types import IntervalRow
+from ssat.analysis.types import IntervalRow, region_key_column
 
 DEFAULT_N_BOOTSTRAP = 1000
 DEFAULT_CI_LOW_PCT = 2.5
@@ -123,20 +123,9 @@ def _per_sample_region_metric_means(
     if available.empty:
         return {}
 
-    region_key = _region_key_column(available)
+    region_key = region_key_column(available)
     grouped = available.assign(region_key=region_key).groupby(
         ["sample_id", "region_key", "metric_name"], sort=False
     )["degradation"].mean()
 
     return {key: float(value) for key, value in grouped.items()}
-
-
-def _region_key_column(df: pd.DataFrame) -> pd.Series:
-    """Vectorized form of ``AnchorKey.region_key``'s ``f"{region_id}::{region_instance_id}"`` formula.
-
-    Duplicated per module rather than extracted into a shared helper, the
-    same trade-off ``AnchorKey.region_key`` already documents for the
-    scalar formula (``ssat.analysis.types``).
-    """
-
-    return df["region_id"].astype(str) + "::" + df["region_instance_id"].astype(str)

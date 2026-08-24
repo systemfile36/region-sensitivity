@@ -107,7 +107,7 @@ def test_summarize_performance_omits_flip_rate_value_for_continuous_metric() -> 
 
     flip_rate = _card(cards, "flip_rate")
     assert flip_rate.value is None
-    assert flip_rate.note is not None and "해당 없음" in flip_rate.note
+    assert flip_rate.note is not None and "N/A" in flip_rate.note
     # The card is still present — unavailable is expressed via note, not omission.
     assert len(cards) == 3
 
@@ -122,7 +122,7 @@ def test_summarize_performance_marks_accuracy_unavailable_without_gt_labels() ->
     accuracy = _card(adapter.summarize_performance(rows), "accuracy")
 
     assert accuracy.value is None
-    assert accuracy.note is not None and "해당 없음" in accuracy.note
+    assert accuracy.note is not None and "N/A" in accuracy.note
 
 
 def test_summarize_performance_handles_empty_sample_metrics() -> None:

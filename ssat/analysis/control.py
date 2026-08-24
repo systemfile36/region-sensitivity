@@ -7,9 +7,11 @@ region-specific, or just because something was occluded?"
 This module deliberately re-derives ``AnchorKey``/``ConditionKey`` from raw
 item rows rather than importing ``analysis.indexer``/``analysis.reader`` --
 the same pattern A3(c) already follows (recomputing directly from A1's
-AnchorTable plus item context rather than importing it), extending the
-already-accepted ``region_key`` formula duplication to ``ConditionKey`` as
-well. ``compare_to_controls`` therefore depends only on
+AnchorTable plus item context rather than importing it), accepting the same
+``ConditionKey`` formula duplication A3(c) already does (``region_key`` no
+longer needs to be duplicated for this: both modules share
+``analysis.types.region_key_column``). ``compare_to_controls`` therefore
+depends only on
 ``analysis.types`` plus ``pandas``/``numpy``/stdlib, consuming a plain
 ``item_values`` frame the caller assembles from
 ``AnalysisReader.item_context()`` + ``AnalysisReader.item_metrics`` -- never
@@ -30,6 +32,7 @@ from ssat.analysis.types import (
     ControlComparisonRow,
     ControlPairRow,
     FlagValue,
+    region_key_column,
 )
 from ssat.utils.io import sha256_bytes
 
@@ -227,7 +230,7 @@ def _anchor_level_means(
     """
 
     df = item_values.assign(
-        region_key=_region_key_column(item_values),
+        region_key=region_key_column(item_values),
         perturb_params_hash=_perturb_params_hash_column(item_values),
     )
 
@@ -274,17 +277,6 @@ def _anchor_level_means(
         means[(anchor_key, condition_key, metric_name)] = float(value)
 
     return means, is_control_by_anchor
-
-
-def _region_key_column(df: pd.DataFrame) -> pd.Series:
-    """Vectorized form of ``AnchorKey.region_key``'s ``f"{region_id}::{region_instance_id}"`` formula.
-
-    Duplicated per module rather than extracted into a shared helper, the
-    same trade-off ``AnchorKey.region_key`` already documents for the
-    scalar formula (``ssat.analysis.types``).
-    """
-
-    return df["region_id"].astype(str) + "::" + df["region_instance_id"].astype(str)
 
 
 def _perturb_params_hash_column(df: pd.DataFrame) -> pd.Series:

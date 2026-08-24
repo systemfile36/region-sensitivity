@@ -298,7 +298,7 @@ def test_is_binary_primary_metric_false_when_flip_rate_card_value_is_none() -> N
             value=None,
             unit="%",
             higher_is_better=False,
-            note="해당 없음: continuous 지표라 flip 개념이 없습니다.",
+            note="N/A: continuous metric, flip has no meaning for it.",
         ),
     )
     assert _is_binary_primary_metric(scorecard) is False

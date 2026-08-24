@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import gc
 import json
 from pathlib import Path
 from typing import Any, Literal
@@ -11,6 +10,7 @@ import numpy as np
 from numpy.typing import NDArray
 from PIL import Image
 
+from ssat.core.adapter._torch_adapter_mixin import _TorchAdapterMixin
 from ssat.core.adapter._torch_helpers import (
     transform_mask_with_ops,
     validate_image_classifier_batch,
@@ -18,7 +18,6 @@ from ssat.core.adapter._torch_helpers import (
 from ssat.core.adapter.checkpoint import load_state_dict_checkpoint
 from ssat.core.adapter.base import (
     AdapterError,
-    AdapterOutOfMemoryError,
     ModelAdapter,
 )
 from ssat.core.adapter.output_decoder import LogitsOutputDecoder, OutputDecoder
@@ -144,7 +143,7 @@ class TimmSquashPreprocessor(Preprocessor):
         return result if stacked else result[0]
 
 
-class TimmAdapter(ModelAdapter):
+class TimmAdapter(_TorchAdapterMixin, ModelAdapter):
     """Instantiate and run a timm classifier by registered model name."""
 
     def __init__(
@@ -167,24 +166,23 @@ class TimmAdapter(ModelAdapter):
     ) -> None:
         if not model_name:
             raise ValueError("model_name must not be empty")
-        if isinstance(init_seed, bool) or not 0 <= init_seed <= 2**63 - 1:
-            raise ValueError("init_seed must be between 0 and 2**63 - 1")
+        self._validate_init_seed(init_seed)
         if pretrained and checkpoint_path is not None:
             raise ValueError("pretrained and checkpoint_path are mutually exclusive")
         if geometry_mode not in {"model_default", "squash"}:
             raise ValueError("geometry_mode must be 'model_default' or 'squash'")
         try:
             import timm
-            import torch
             from timm.data import create_transform, resolve_model_data_config
 
-            with torch.random.fork_rng(devices=[]):
-                torch.manual_seed(init_seed)
-                model = timm.create_model(
+            model = self._seeded_model_init(
+                init_seed,
+                lambda: timm.create_model(
                     model_name,
                     pretrained=pretrained,
                     **(model_kwargs or {}),
-                )
+                ),
+            )
             if checkpoint_path is not None:
                 load_state_dict_checkpoint(
                     model,
@@ -197,22 +195,15 @@ class TimmAdapter(ModelAdapter):
         except Exception as error:
             raise AdapterError(f"failed to initialize timm model {model_name!r}") from error
 
-        resolved_device = torch.device(
-            device if device is not None else ("cuda" if torch.cuda.is_available() else "cpu")
-        )
-        try:
-            self._model = model.eval().to(resolved_device)
-        except Exception as error:
-            raise AdapterError(f"failed to move model to device {resolved_device}") from error
-        self._device = resolved_device
+        self._place_on_device(model, device)
         self._preprocessor = (
             TimmPreprocessor(preprocessing, data_config)
             if geometry_mode == "model_default"
             else TimmSquashPreprocessor(data_config)
         )
-        self._output_decoder = output_decoder or LogitsOutputDecoder()
-        if not isinstance(self._output_decoder, OutputDecoder):
-            raise TypeError("output_decoder must implement OutputDecoder")
+        self._output_decoder = self._finalize_output_decoder(
+            output_decoder, LogitsOutputDecoder()
+        )
         preprocessing_spec = self._preprocessor.describe()
         checkpoint_name = None if checkpoint_path is None else Path(checkpoint_path).name
         default_model_id = (
@@ -272,29 +263,29 @@ class TimmAdapter(ModelAdapter):
         validate_image_classifier_batch(batch)
         if batch.shape[0] == 0:
             return []
-        try:
-            prepared = self._preprocessor.transform_batch(batch)
-        except Exception as error:
-            if isinstance(error, AdapterError):
-                raise
-            raise AdapterError("timm preprocessing failed") from error
-        try:
+
+        prepared = self._wrap_stage(
+            lambda: self._preprocessor.transform_batch(batch), "timm preprocessing failed"
+        )
+
+        def _infer() -> Any:
             with torch.inference_mode():
-                logits = self._model(prepared.to(self._device))
-        except torch.cuda.OutOfMemoryError as error:
-            raise AdapterOutOfMemoryError("timm prediction ran out of memory") from error
-        except Exception as error:
-            raise AdapterError("timm prediction failed") from error
-        try:
+                return self._model(prepared.to(self._device))
+
+        logits = self._wrap_inference(
+            _infer,
+            oom_message="timm prediction ran out of memory",
+            error_message="timm prediction failed",
+        )
+
+        def _decode() -> list[RawOutput]:
             return self._output_decoder.decode(
                 logits,
                 batch_size=batch.shape[0],
                 class_names=self._spec.class_names,
             )
-        except Exception as error:
-            if isinstance(error, AdapterError):
-                raise
-            raise AdapterError("timm output decoding failed") from error
+
+        return self._wrap_stage(_decode, "timm output decoding failed")
 
     def transform_mask(self, mask: NDArray[np.bool_]) -> NDArray[np.bool_]:
         """Apply timm evaluation geometry while ignoring photometric ops."""
@@ -304,12 +295,3 @@ class TimmAdapter(ModelAdapter):
         if transformed is None:  # pragma: no cover - contract is always available
             raise AdapterError("timm mask transform is unavailable")
         return transformed
-
-    def cleanup_after_oom(self) -> None:
-        """Release Python and CUDA allocations before a smaller retry."""
-
-        import torch
-
-        gc.collect()
-        if self._device.type == "cuda":
-            torch.cuda.empty_cache()

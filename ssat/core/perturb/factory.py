@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
+from ssat.core._strategy_registry import StrategyRegistry
 from ssat.core.perturb.base import PerturbationOperator
 from ssat.core.perturb.operators import (
     BlurOperator,
@@ -32,9 +33,12 @@ class OperatorFactory:
     """
 
     def __init__(self, operator_types: Sequence[OperatorType] = ()) -> None:
-        self._operator_types: list[OperatorType] = []
-        for operator_type in operator_types:
-            self.register(operator_type)
+        self._registry: StrategyRegistry[PerturbationOperator] = StrategyRegistry(
+            PerturbationOperator,
+            type_label="operator_type",
+            item_label="operator type",
+            strategy_types=operator_types,
+        )
 
     def register(self, operator_type: OperatorType) -> None:
         """Append one concrete operator class to the factory.
@@ -48,13 +52,7 @@ class OperatorFactory:
             ValueError: If the same class is already registered.
         """
 
-        if not isinstance(operator_type, type) or not issubclass(
-            operator_type, PerturbationOperator
-        ):
-            raise TypeError("operator_type must be a PerturbationOperator subclass")
-        if operator_type in self._operator_types:
-            raise ValueError(f"operator type already registered: {operator_type.__name__}")
-        self._operator_types.append(operator_type)
+        self._registry.register(operator_type)
 
     def build_operators(self) -> list[PerturbationOperator]:
         """Construct all registered operators in registration order.
@@ -63,7 +61,7 @@ class OperatorFactory:
             Fresh operator instances in deterministic dispatch order.
         """
 
-        return [operator_type() for operator_type in self._operator_types]
+        return [operator_type() for operator_type in self._registry.registered_types]
 
 
 def build_operators() -> list[PerturbationOperator]:

@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import gc
 from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any
@@ -10,7 +9,9 @@ from typing import Any
 import numpy as np
 from numpy.typing import NDArray
 
-from ssat.core.adapter.base import AdapterError, AdapterOutOfMemoryError, ModelAdapter
+from ssat.core.adapter._torch_adapter_mixin import _TorchAdapterMixin
+from ssat.core.adapter._torch_helpers import resolve_torchvision_weights
+from ssat.core.adapter.base import AdapterError, ModelAdapter
 from ssat.core.adapter.checkpoint import load_state_dict_checkpoint
 from ssat.core.adapter.output_decoder import LogitsOutputDecoder, OutputDecoder
 from ssat.core.adapter.preprocessing import (
@@ -33,7 +34,7 @@ DEFAULT_MEAN = (0.43216, 0.394666, 0.37645)
 DEFAULT_STD = (0.22803, 0.22145, 0.216989)
 
 
-class TorchvisionVideoAdapter(ModelAdapter):
+class TorchvisionVideoAdapter(_TorchAdapterMixin, ModelAdapter):
     """Instantiate and run a ``torchvision.models.video`` classifier.
 
     Unlike :class:`TorchvisionAdapter`, clips with ``T > 1`` are accepted.
@@ -69,23 +70,22 @@ class TorchvisionVideoAdapter(ModelAdapter):
     ) -> None:
         if not model_name:
             raise ValueError("model_name must not be empty")
-        if isinstance(init_seed, bool) or not 0 <= init_seed <= 2**63 - 1:
-            raise ValueError("init_seed must be between 0 and 2**63 - 1")
+        self._validate_init_seed(init_seed)
         if weights is not None and checkpoint_path is not None:
             raise ValueError("weights and checkpoint_path are mutually exclusive")
         try:
-            import torch
             from torchvision import models
 
             weights_enum = models.get_model_weights(model_name)
-            resolved_weights = self._resolve_weights(weights_enum, weights)
-            with torch.random.fork_rng(devices=[]):
-                torch.manual_seed(init_seed)
-                model = models.get_model(
+            resolved_weights = resolve_torchvision_weights(weights_enum, weights)
+            model = self._seeded_model_init(
+                init_seed,
+                lambda: models.get_model(
                     model_name,
                     weights=resolved_weights,
                     **(model_kwargs or {}),
-                )
+                ),
+            )
             if checkpoint_path is not None:
                 load_state_dict_checkpoint(
                     model,
@@ -98,14 +98,7 @@ class TorchvisionVideoAdapter(ModelAdapter):
                 f"failed to initialize torchvision video model {model_name!r}"
             ) from error
 
-        resolved_device = torch.device(
-            device if device is not None else ("cuda" if torch.cuda.is_available() else "cpu")
-        )
-        try:
-            self._model = model.eval().to(resolved_device)
-        except Exception as error:
-            raise AdapterError(f"failed to move model to device {resolved_device}") from error
-        self._device = resolved_device
+        self._place_on_device(model, device)
         # pipeline_config replaces the fixed resize/crop/normalize entirely
         # (resize_size/crop_size/mean/std are then unused, mirroring how
         # TorchvisionAdapter's preprocessing_ops overrides its weight
@@ -126,9 +119,9 @@ class TorchvisionVideoAdapter(ModelAdapter):
                 ]
             )
         )
-        self._output_decoder = output_decoder or LogitsOutputDecoder()
-        if not isinstance(self._output_decoder, OutputDecoder):
-            raise TypeError("output_decoder must implement OutputDecoder")
+        self._output_decoder = self._finalize_output_decoder(
+            output_decoder, LogitsOutputDecoder()
+        )
         preprocessing_spec = self._preprocessor.describe()
 
         checkpoint_name = None if checkpoint_path is None else Path(checkpoint_path).name
@@ -165,23 +158,6 @@ class TorchvisionVideoAdapter(ModelAdapter):
             mask_transform_available=preprocessing_spec.mask_transform_available,
         )
 
-    @staticmethod
-    def _resolve_weights(weights_enum: Any, weights: Any) -> Any:
-        """Resolve a convenient string weight selector against one enum."""
-
-        if weights is None:
-            return None
-        if isinstance(weights, str):
-            if weights == "DEFAULT":
-                return weights_enum.DEFAULT
-            try:
-                return weights_enum[weights]
-            except KeyError as error:
-                raise ValueError(f"unknown torchvision weights {weights!r}") from error
-        if not isinstance(weights, weights_enum):
-            raise TypeError(f"weights must be None, a string, or {weights_enum.__name__}")
-        return weights
-
     def describe(self) -> AdapterSpec:
         """Return model, determinism, class, and preprocessing metadata."""
 
@@ -195,32 +171,31 @@ class TorchvisionVideoAdapter(ModelAdapter):
         self._validate_batch(batch, self._spec)
         if batch.shape[0] == 0:
             return []
-        try:
+
+        def _preprocess() -> Any:
             prepared = self._preprocessor.transform_batch(batch)
-            clip = torch.from_numpy(prepared).permute(0, 2, 1, 3, 4).contiguous()
-        except Exception as error:
-            if isinstance(error, AdapterError):
-                raise
-            raise AdapterError("torchvision video preprocessing failed") from error
-        try:
+            return torch.from_numpy(prepared).permute(0, 2, 1, 3, 4).contiguous()
+
+        clip = self._wrap_stage(_preprocess, "torchvision video preprocessing failed")
+
+        def _infer() -> Any:
             with torch.inference_mode():
-                logits = self._model(clip.to(self._device))
-        except torch.cuda.OutOfMemoryError as error:
-            raise AdapterOutOfMemoryError(
-                "torchvision video prediction ran out of memory"
-            ) from error
-        except Exception as error:
-            raise AdapterError("torchvision video prediction failed") from error
-        try:
+                return self._model(clip.to(self._device))
+
+        logits = self._wrap_inference(
+            _infer,
+            oom_message="torchvision video prediction ran out of memory",
+            error_message="torchvision video prediction failed",
+        )
+
+        def _decode() -> list[RawOutput]:
             return self._output_decoder.decode(
                 logits,
                 batch_size=batch.shape[0],
                 class_names=self._spec.class_names,
             )
-        except Exception as error:
-            if isinstance(error, AdapterError):
-                raise
-            raise AdapterError("torchvision video output decoding failed") from error
+
+        return self._wrap_stage(_decode, "torchvision video output decoding failed")
 
     def transform_mask(self, mask: NDArray[np.bool_]) -> NDArray[np.bool_]:
         """Apply the shared resize/crop geometry with nearest interpolation."""
@@ -230,12 +205,3 @@ class TorchvisionVideoAdapter(ModelAdapter):
         if transformed is None:  # pragma: no cover - contract is always available
             raise AdapterError("torchvision video mask transform is unavailable")
         return transformed
-
-    def cleanup_after_oom(self) -> None:
-        """Release Python and CUDA allocations before a smaller retry."""
-
-        import torch
-
-        gc.collect()
-        if self._device.type == "cuda":
-            torch.cuda.empty_cache()

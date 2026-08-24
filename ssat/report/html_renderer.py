@@ -495,7 +495,7 @@ def _format_number(value: object, digits: int = 4) -> str:
     if value is None:
         return "—"
     if isinstance(value, bool):
-        return "예" if value else "아니오"
+        return "Yes" if value else "No"
     if isinstance(value, float):
         return f"{value:.{digits}g}"
     return str(value)
@@ -527,7 +527,7 @@ def _format_distribution(distribution: Mapping[str, int]) -> str:
     """Render a grade-count mapping as one title-attribute-friendly string."""
 
     if not distribution:
-        return "분포 없음"
+        return "No distribution"
     return ", ".join(f"{key}:{count}" for key, count in sorted(distribution.items()))
 
 
@@ -537,8 +537,8 @@ def _format_distribution(distribution: Mapping[str, int]) -> str:
 _MACROS_TEMPLATE = """
 {% macro grade_badge(grade, title=none) %}
 <span class="badge" style="background-color: {{ grade_color(grade) }};"
-      title="{{ title if title else (grade.value if grade else '평가 없음') }}">{{
-  grade.value | upper if grade else '해당 없음' }}</span>
+      title="{{ title if title else (grade.value if grade else 'No grade') }}">{{
+  grade.value | upper if grade else 'N/A' }}</span>
 {%- endmacro %}
 
 {% macro grade_legend_item(grade, meaning) %}
@@ -563,7 +563,7 @@ _MACROS_TEMPLATE = """
   </span>
 </div>
 {% else %}
-<span class="no-data">평가 없음</span>
+<span class="no-data">No grade</span>
 {% endif %}
 {% endmacro %}
 
@@ -571,14 +571,14 @@ _MACROS_TEMPLATE = """
 <article class="sample-card">
   <div class="sample-card-images">
     {% if card.thumbnail_asset_ref %}
-    <img src="{{ card.thumbnail_asset_ref }}" alt="{{ card.sample_id }} 원본 썸네일">
+    <img src="{{ card.thumbnail_asset_ref }}" alt="{{ card.sample_id }} original thumbnail">
     {% else %}
-    <div class="no-image">원본 없음</div>
+    <div class="no-image">No original</div>
     {% endif %}
     {% if card.heatmap_asset_ref %}
-    <img src="{{ card.heatmap_asset_ref }}" alt="{{ card.sample_id }} 공간 히트맵 오버레이">
+    <img src="{{ card.heatmap_asset_ref }}" alt="{{ card.sample_id }} spatial heatmap overlay">
     {% else %}
-    <div class="no-image">히트맵 없음</div>
+    <div class="no-image">No heatmap</div>
     {% endif %}
   </div>
   <div class="sample-card-body">
@@ -590,7 +590,7 @@ _MACROS_TEMPLATE = """
     {% if card.top_regions %}
     {% set top = card.top_regions[0] %}
     <div class="sample-card-top-region">
-      최다 취약 region: {{ top.region_key }} ({{ top.degradation | fmt }})
+      Most vulnerable region: {{ top.region_key }} ({{ top.degradation | fmt }})
       {{ grade_badge(top.reliability_grade) }}
     </div>
     {% endif %}
@@ -603,7 +603,7 @@ _MACROS_TEMPLATE = """
 _REPORT_TEMPLATE = """
 {% import "macros.html" as macros %}
 <!doctype html>
-<html lang="ko">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -615,52 +615,52 @@ _REPORT_TEMPLATE = """
 <header class="run-header">
   <h1>{{ model.run_summary.dataset_name }} — Spatial Sensitivity Audit Report</h1>
   <dl class="run-meta">
-    <div><dt>모델</dt><dd>{{ model.run_summary.model_id }}</dd></div>
-    <div><dt>전처리</dt><dd>{{ model.run_summary.preprocessing_desc }}</dd></div>
-    <div><dt>샘플 수</dt><dd>{{ model.run_summary.n_samples }}</dd></div>
-    <div><dt>영역 수(샘플당)</dt><dd>{{ model.run_summary.n_regions_per_sample }}</dd></div>
-    <div><dt>조건 수</dt><dd>{{ model.run_summary.n_conditions }}</dd></div>
-    <div><dt>소요 시간</dt><dd>{{ model.run_summary.duration_seconds | fmt_duration }}</dd></div>
-    <div><dt>실패율</dt><dd>{{ model.run_summary.failure_rate | fmt_pct }}</dd></div>
-    <div><dt>생성 시각</dt><dd>{{ model.meta.generated_at }}</dd></div>
+    <div><dt>Model</dt><dd>{{ model.run_summary.model_id }}</dd></div>
+    <div><dt>Preprocessing</dt><dd>{{ model.run_summary.preprocessing_desc }}</dd></div>
+    <div><dt>Sample count</dt><dd>{{ model.run_summary.n_samples }}</dd></div>
+    <div><dt>Regions per sample</dt><dd>{{ model.run_summary.n_regions_per_sample }}</dd></div>
+    <div><dt>Condition count</dt><dd>{{ model.run_summary.n_conditions }}</dd></div>
+    <div><dt>Duration</dt><dd>{{ model.run_summary.duration_seconds | fmt_duration }}</dd></div>
+    <div><dt>Failure rate</dt><dd>{{ model.run_summary.failure_rate | fmt_pct }}</dd></div>
+    <div><dt>Generated at</dt><dd>{{ model.meta.generated_at }}</dd></div>
     <div><dt>run_id</dt><dd>{{ model.meta.run_id }}</dd></div>
   </dl>
   <p class="section-note">
-    질문 중심으로 요약된 <a href="report_question_driven.html">보조 리포트(Question Driven)</a>도
-    함께 제공됩니다 — 이 페이지가 메인 리포트입니다.
+    A question-driven <a href="report_question_driven.html">secondary report</a> is
+    also provided — this page is the main report.
   </p>
 </header>
 
 <section id="executive-interpretation" class="hero">
-  <div class="hero-label">이 실행에서 가장 먼저 읽을 문장</div>
+  <div class="hero-label">The first sentence to read from this run</div>
   {% set share = model.spatial_concentration.dominant_region_share %}
   {% if share is none %}
-  <h2>공간 집중도를 판단할 데이터가 없습니다.</h2>
+  <h2>No data available to judge spatial concentration.</h2>
   <p class="hero-muted">
-    유효한 degradation 값을 가진 샘플이 없어 dominant-region share/spatial entropy를 계산할 수 없습니다.
+    No samples have a valid degradation value, so dominant-region share/spatial entropy cannot be computed.
   </p>
   {% elif share >= 0.5 %}
-  <h2>민감도가 <strong>{{ model.spatial_concentration.dominant_region_key }}</strong> 위치에 비교적 집중되어 있습니다.</h2>
+  <h2>Sensitivity is relatively concentrated at <strong>{{ model.spatial_concentration.dominant_region_key }}</strong>.</h2>
   <p class="hero-muted">
-    top region을 판별할 수 있었던 {{ model.spatial_concentration.n_scored_samples }}개 샘플 중
-    {{ share | fmt_pct }}가 이 위치를 가장 취약한 region으로 꼽았습니다.
+    Of the {{ model.spatial_concentration.n_scored_samples }} samples for which a top region could be
+    determined, {{ share | fmt_pct }} named this location as the most vulnerable region.
   </p>
   {% else %}
-  <h2>민감도는 존재하지만 <strong>한 고정 위치에 집중되지 않습니다.</strong></h2>
+  <h2>Sensitivity exists, but is <strong>not concentrated at one fixed location</strong>.</h2>
   <p class="hero-muted">
-    가장 자주 꼽히는 위치(<code>{{ model.spatial_concentration.dominant_region_key }}</code>)도
-    {{ share | fmt_pct }}에 그쳐, 개별 샘플의 취약 위치가 서로 다릅니다.
+    Even the most frequently named location (<code>{{ model.spatial_concentration.dominant_region_key }}</code>)
+    only reaches {{ share | fmt_pct }} — individual samples' vulnerable locations differ from one another.
   </p>
   {% endif %}
   <p class="callout">
-    이 문장은 이번 실행에서 관측된 패턴을 서술할 뿐입니다 — shortcut 여부나 원인을 자동으로 판정하지
-    않으며, 실제 원인 확인에는 후속 검증이 필요합니다.
+    This sentence only describes a pattern observed in this run — it does not automatically judge
+    whether a shortcut exists or its cause; confirming the actual cause requires follow-up verification.
   </p>
   <p class="hero-muted">
-    아래 <code>vulnerability_score</code>는 이 샘플/영역이 얼마나 나빠지는지를 나타내는
-    <strong>순위(ranking)</strong> 축이고, <code>reliability_grade</code>는 그 숫자를
-    <strong>얼마나 믿을 수 있는지</strong>를 나타내는 별개의 <strong>신뢰도</strong> 축입니다 — 두 값은
-    서로 독립적입니다.
+    Below, <code>vulnerability_score</code> is a <strong>ranking</strong> axis expressing how much this
+    sample/region degrades, while <code>reliability_grade</code> is a separate <strong>reliability</strong>
+    axis expressing <strong>how much that number can be trusted</strong> — the two values are independent
+    of each other.
   </p>
 </section>
 
@@ -682,31 +682,31 @@ _REPORT_TEMPLATE = """
       {% if model.spatial_concentration.dominant_region_key %}
       <div class="metric-note">{{ model.spatial_concentration.dominant_region_key }}</div>
       {% else %}
-      <div class="metric-note">해당 없음: 판별 가능한 샘플이 없습니다.</div>
+      <div class="metric-note">N/A: no samples could be determined.</div>
       {% endif %}
     </div>
     <div class="metric-card">
       <div class="metric-label">Spatial Entropy</div>
       <div class="metric-value">{{ model.spatial_concentration.spatial_entropy | fmt }}</div>
-      <div class="metric-note">0 = 한 위치에 집중, 1 = 완전히 분산</div>
+      <div class="metric-note">0 = concentrated at one location, 1 = fully spread out</div>
     </div>
   </div>
 
-  <h3>평균 뒤에 숨은 변이</h3>
+  <h3>Variation hidden behind the average</h3>
   {% if model.vulnerability_distribution.histogram_asset_ref %}
   <img class="chart" src="{{ model.vulnerability_distribution.histogram_asset_ref }}"
-       alt="vulnerability_score 히스토그램">
+       alt="vulnerability_score histogram">
   {% else %}
-  <p class="no-data">히스토그램 자산 없음</p>
+  <p class="no-data">No histogram asset</p>
   {% endif %}
   {% set stats = model.vulnerability_distribution.summary_stats %}
   <p class="callout">
-    평균 저하도는 {{ stats.mean | fmt }}이지만, 개별 샘플은 p90 {{ stats.p90 | fmt }} ~
-    p99 {{ stats.p99 | fmt }} 범위까지 걸쳐 있습니다 — 아래 갤러리에서 극단값을 확인하세요.
+    Mean degradation is {{ stats.mean | fmt }}, but individual samples range from p90
+    {{ stats.p90 | fmt }} to p99 {{ stats.p99 | fmt }} — check the outliers in the gallery below.
   </p>
   <dl class="stats-list">
-    <div><dt>평균</dt><dd>{{ stats.mean | fmt }}</dd></div>
-    <div><dt>중앙값</dt><dd>{{ stats.median | fmt }}</dd></div>
+    <div><dt>Mean</dt><dd>{{ stats.mean | fmt }}</dd></div>
+    <div><dt>Median</dt><dd>{{ stats.median | fmt }}</dd></div>
     <div><dt>p90</dt><dd>{{ stats.p90 | fmt }}</dd></div>
     <div><dt>p99</dt><dd>{{ stats.p99 | fmt }}</dd></div>
   </dl>
@@ -720,8 +720,8 @@ _REPORT_TEMPLATE = """
     <div>
       <h3>Top-region share</h3>
       <p class="section-note">
-        색이 진할수록 그 위치가 더 많은 샘플의 최다 취약 region이 되었다는 뜻입니다 —
-        reliability grade가 아닙니다.
+        Darker means that location was the most vulnerable region for more samples —
+        this is not the reliability grade.
       </p>
       <div class="heat" style="grid-template-columns: repeat({{ layout.cols }}, 1fr);">
         {% for grid_row in layout.cells %}
@@ -741,7 +741,7 @@ _REPORT_TEMPLATE = """
     <div>
       <h3>HIGH-graded anchor rate</h3>
       <p class="section-note">
-        색이 진할수록 그 위치에서 HIGH 등급으로 판정된 anchor의 비율이 높다는 뜻입니다.
+        Darker means a higher share of anchors at that location were graded HIGH.
       </p>
       <div class="heat" style="grid-template-columns: repeat({{ layout.cols }}, 1fr);">
         {% for grid_row in layout.cells %}
@@ -761,8 +761,8 @@ _REPORT_TEMPLATE = """
   </div>
   {% else %}
   <p class="no-data">
-    이 실행의 region이 격자(grid) 형태로 배치되어 있지 않아 히트그리드를 생략합니다 — 아래
-    "Region Summary" 표를 참고하세요.
+    This run's regions are not laid out as a grid, so the heat-grid is skipped — see the
+    "Region Summary" table below instead.
   </p>
   {% endif %}
 </section>
@@ -770,28 +770,29 @@ _REPORT_TEMPLATE = """
 <section id="region-summary">
   <h2>Region Summary</h2>
   <p class="section-note">
-    아래 막대는 이 region을 공유하는 anchor(sample × region × invert_mask) 전체의
-    <strong>등급 구성비</strong>를 보여줍니다. "가장 나쁜 등급 하나"로 축약하는 worst-case 표시는
-    sample/anchor 단위(아래 갤러리의 큰 배지)에서만 쓰고, 이 dataset 레벨 표에는 적용하지 않습니다 —
-    HIGH가 다수인 region이 anchor 하나가 UNRELIABLE이라는 이유만으로 전체가 UNRELIABLE로 보이지
-    않도록 하기 위함입니다. worst-case 값 자체는 각 막대에 마우스를 올리면(title) 확인할 수 있고,
-    <a href="data/region_summary.csv">region_summary.csv</a>에는 그대로 남아 있습니다.
+    The bars below show the <strong>grade mix</strong> across every anchor
+    (sample × region × invert_mask) sharing this region. The worst-case-only display, which
+    collapses to "one worst grade," is used only at the sample/anchor level (the large badges
+    in the gallery below) and is not applied to this dataset-level table — so that a region
+    where most anchors are HIGH doesn't look entirely UNRELIABLE just because one anchor is.
+    The worst-case value itself is still visible by hovering over each bar (title), and remains
+    in <a href="data/region_summary.csv">region_summary.csv</a>.
   </p>
   <ul class="grade-legend">
     {{ macros.grade_legend_item(ReportGrade.HIGH,
-      "모든 신뢰도 검사(대조군 대비 초과, 2개 이상 fill 전략에서 재현, 부트스트랩 신뢰구간이 0을 배제)를 통과했습니다 — 방향과 크기 모두 확실합니다.") }}
+      "Passed every reliability check (exceeds control, reproduced across 2+ fill strategies, bootstrap CI excludes zero) — both direction and magnitude are confirmed.") }}
     {{ macros.grade_legend_item(ReportGrade.MODERATE,
-      "fill 전략 간 방향(부호)은 일치하지만, 핵심 검사(대조군 초과·다중 전략 재현·신뢰구간) 중 일부만 충족합니다.") }}
+      "Direction (sign) agrees across fill strategies, but only some of the core checks (exceeds control, multi-strategy reproduction, confidence interval) are met.") }}
     {{ macros.grade_legend_item(ReportGrade.LOW,
-      "fill 전략 간 방향은 일치하지만 핵심 검사를 거의 충족하지 못했거나 근거가 부족합니다 — 효과가 작거나 아직 충분히 검증되지 않았습니다.") }}
+      "Direction agrees across fill strategies, but the core checks are barely met or the evidence is weak — the effect is small or not yet well verified.") }}
     {{ macros.grade_legend_item(ReportGrade.UNRELIABLE,
-      "fill 전략(채우기 방식)마다 이 지점을 지웠을 때 성능이 좋아지는지 나빠지는지 방향 자체가 갈립니다 — 숫자의 크기가 아니라 부호가 불일치하므로 이 값은 신뢰할 수 없습니다.") }}
+      "Different fill strategies disagree on whether removing this location makes performance better or worse — the sign, not the magnitude, is inconsistent, so this value cannot be trusted.") }}
   </ul>
   {% if model.region_summary.chart_asset_ref %}
-  <img class="chart" src="{{ model.region_summary.chart_asset_ref }}" alt="Region별 평균 저하도 막대그래프">
+  <img class="chart" src="{{ model.region_summary.chart_asset_ref }}" alt="Bar chart of mean degradation by region">
   {% endif %}
   <table id="region-table">
-    <caption>영역(region)별 평균 저하도·구성비. 헤더를 클릭하면 정렬할 수 있습니다.</caption>
+    <caption>Mean degradation and grade mix by region. Click a header to sort.</caption>
     <thead>
       <tr>
         <th data-sort="text">region_key</th>
@@ -811,58 +812,59 @@ _REPORT_TEMPLATE = """
         <td>{{ macros.grade_mix_bar(row.reliability_distribution, row.reliability_grade) }}</td>
       </tr>
       {% else %}
-      <tr><td colspan="5" class="no-data">데이터 없음</td></tr>
+      <tr><td colspan="5" class="no-data">No data</td></tr>
       {% endfor %}
     </tbody>
   </table>
 </section>
 
 <section id="gallery">
-  <h2>Vulnerable Samples — 모델이 어디를 보는가</h2>
+  <h2>Vulnerable Samples — Where the model looks</h2>
   <p class="section-note">
-    카드의 큰 등급 배지는 그 샘플이 포괄하는 모든 region 중 최악의 등급입니다(worst-case) — 위
-    Region Summary의 구성비 막대와는 축이 다릅니다. 자세한 설명은 <a href="#region-summary">Region
-    Summary</a>를 참고하세요.
+    The large grade badge on each card is the worst grade across every region the sample
+    covers (worst-case) — a different axis from the grade-mix bars in Region Summary above.
+    See <a href="#region-summary">Region Summary</a> for details.
   </p>
-  <h3>가장 취약한 샘플 (top-{{ top_k }})</h3>
+  <h3>Most vulnerable samples (top-{{ top_k }})</h3>
   {% if model.sample_rankings.most_vulnerable %}
   <div class="gallery-grid">
     {% for card in model.sample_rankings.most_vulnerable %}{{ macros.sample_card(card) }}{% endfor %}
   </div>
   {% else %}
-  <p class="no-data">데이터 없음</p>
+  <p class="no-data">No data</p>
   {% endif %}
 
-  <h3>가장 강건한 샘플 (bottom-{{ bottom_k }})</h3>
+  <h3>Most robust samples (bottom-{{ bottom_k }})</h3>
   {% if model.sample_rankings.most_robust %}
   <div class="gallery-grid">
     {% for card in model.sample_rankings.most_robust %}{{ macros.sample_card(card) }}{% endfor %}
   </div>
   {% else %}
-  <p class="no-data">데이터 없음</p>
+  <p class="no-data">No data</p>
   {% endif %}
 </section>
 
 <section id="stability-controls">
   <h2>Stability / Controls</h2>
   <p class="section-note">
-    위 Behavioral Fingerprint의 "Mean Z vs Control" 카드가 대조군 대비 초과 정도를 요약합니다.
-    여기서는 그 판단의 근거가 된 자산과 신뢰도 스포트라이트 요약을 보여줍니다.
+    The "Mean Z vs Control" card in Behavioral Fingerprint above summarizes the excess over
+    control. This section shows the assets behind that judgment and a reliability spotlight
+    summary.
   </p>
   {% if model.fill_strategy_correlation_asset_ref %}
   <h3>Fill Strategy Rank Correlation</h3>
   <img class="chart" src="{{ model.fill_strategy_correlation_asset_ref }}"
-       alt="Fill strategy 쌍별 순위 상관관계 히트맵">
+       alt="Rank correlation heatmap between fill strategy pairs">
   {% else %}
   <p class="no-data">
-    fill strategy 상관 분석 자산이 없습니다(다중 fill 전략 실행이 아니었거나 분석이 실행되지
-    않았습니다).
+    No fill-strategy correlation asset is available (either the run did not exercise multiple
+    fill strategies, or analysis was not run).
   </p>
   {% endif %}
   <p>
-    현재 <strong>{{ model.reliability_spotlight.flagged_examples | length }}개</strong> anchor가
-    UNRELIABLE로 플래그되어 있습니다 — 전체 목록은 아래 "Detailed Tables / Flagged Anchors"를
-    참고하세요.
+    <strong>{{ model.reliability_spotlight.flagged_examples | length }}</strong> anchor(s) are
+    currently flagged UNRELIABLE — see "Detailed Tables / Flagged Anchors" below for the full
+    list.
   </p>
 </section>
 
@@ -880,23 +882,23 @@ _REPORT_TEMPLATE = """
     {% endfor %}
   </ul>
   {% else %}
-  <p class="no-data">플래그된 항목 없음</p>
+  <p class="no-data">No flagged items</p>
   {% endif %}
 </section>
 
 <details id="provenance">
-  <summary>Provenance (클릭하여 펼치기)</summary>
+  <summary>Provenance (click to expand)</summary>
   <dl>
     <div><dt>dump_path</dt><dd>{{ model.provenance.dump_path }}</dd></div>
     <div><dt>metrics_dir</dt><dd>{{ model.provenance.metrics_dir }}</dd></div>
-    <div><dt>analysis_dir</dt><dd>{{ model.provenance.analysis_dir or '해당 없음' }}</dd></div>
+    <div><dt>analysis_dir</dt><dd>{{ model.provenance.analysis_dir or 'N/A' }}</dd></div>
     <div><dt>run_manifest_hash</dt><dd><code>{{ model.provenance.run_manifest_hash }}</code></dd></div>
     <div><dt>metrics_manifest_hash</dt><dd><code>{{ model.provenance.metrics_manifest_hash }}</code></dd></div>
     <div><dt>analysis_manifest_hash</dt>
-      <dd><code>{{ model.provenance.analysis_manifest_hash or '해당 없음' }}</code></dd></div>
+      <dd><code>{{ model.provenance.analysis_manifest_hash or 'N/A' }}</code></dd></div>
     <div><dt>schema_versions</dt>
       <dd>dump {{ model.meta.schema_versions.dump }} / metrics {{ model.meta.schema_versions.metrics }} /
-        analysis {{ model.meta.schema_versions.analysis or '해당 없음' }} /
+        analysis {{ model.meta.schema_versions.analysis or 'N/A' }} /
         report {{ model.meta.schema_versions.report }}</dd></div>
   </dl>
   {% if model.provenance.thresholds %}
@@ -907,7 +909,7 @@ _REPORT_TEMPLATE = """
     {% endfor %}
   </ul>
   {% endif %}
-  <h4>원본 데이터 다운로드</h4>
+  <h4>Download raw data</h4>
   <ul class="download-links">
     <li><a href="data/report_model.json">report_model.json</a></li>
     <li><a href="data/sample_rankings.csv">sample_rankings.csv</a></li>
@@ -922,39 +924,41 @@ _REPORT_TEMPLATE = """
   <h2>Semantic Region Profile</h2>
   {% if model.semantic_concentration.n_semantic_groups <= 1 %}
   <p class="no-data">
-    이 실행에는 grid 좌표 외의 의미적 영역 구분이 설정되어 있지 않습니다
-    (<code>regions[].semantic_group</code> 미설정) — 이 섹션은 표시할 내용이 없습니다.
+    This run has no semantic region grouping configured beyond grid coordinates
+    (<code>regions[].semantic_group</code> is unset) — this section has nothing to show.
   </p>
   {% else %}
   {% set semantic_share = model.semantic_concentration.dominant_semantic_group_share %}
   <p class="section-note">
     {% if semantic_share is none %}
-    의미적 영역 집중도를 판단할 데이터가 없습니다.
+    No data available to judge semantic region concentration.
     {% elif semantic_share >= 0.5 %}
-    민감도가 <strong>{{ model.semantic_concentration.dominant_semantic_group }}</strong> 부위에
-    비교적 집중되어 있습니다({{ semantic_share | fmt_pct }},
-    {{ model.semantic_concentration.n_scored_samples }}개 샘플 기준).
+    Sensitivity is relatively concentrated at the <strong>{{ model.semantic_concentration.dominant_semantic_group }}</strong>
+    region ({{ semantic_share | fmt_pct }}, based on
+    {{ model.semantic_concentration.n_scored_samples }} samples).
     {% else %}
-    민감도는 존재하지만 <strong>한 고정 부위에 집중되지 않습니다</strong> — 가장 자주 꼽히는 부위
-    (<code>{{ model.semantic_concentration.dominant_semantic_group }}</code>)도
-    {{ semantic_share | fmt_pct }}에 그칩니다.
+    Sensitivity exists, but <strong>is not concentrated at one fixed region</strong> — even the
+    most frequently named region
+    (<code>{{ model.semantic_concentration.dominant_semantic_group }}</code>) only reaches
+    {{ semantic_share | fmt_pct }}.
     {% endif %}
   </p>
   <p class="callout">
-    이 문장은 이번 실행에서 관측된 패턴을 서술할 뿐입니다 — shortcut 여부나 원인을 자동으로 판정하지
-    않으며, 실제 원인 확인에는 후속 검증이 필요합니다.
+    This sentence only describes a pattern observed in this run — it does not automatically judge
+    whether a shortcut exists or its cause; confirming the actual cause requires follow-up verification.
   </p>
 
   <h3>Class × Semantic-group</h3>
   <p class="section-note">
-    행은 정답 라벨(gt_label), 열은 의미적 영역(semantic_group)입니다 — 셀 색이 진할수록 그 라벨에서
-    그 부위를 가렸을 때 저하도(mean_degradation)가 큽니다. 표본이 적은 조합은 참고용으로만
-    해석하세요 — 각 셀에 마우스를 올리면(title) n_samples를 확인할 수 있습니다.
+    Rows are the ground-truth label (gt_label), columns are the semantic region
+    (semantic_group) — a darker cell means higher degradation (mean_degradation) when that
+    region is masked for that label. Combinations with few samples should be read as
+    reference only — hover over a cell (title) to see n_samples.
   </p>
   {% set grid = model.class_semantic_matrix | class_semantic_grid %}
   {% if grid %}
   <table>
-    <caption>gt_label × semantic_group 교차표 (mean_degradation, 이진 지표에서는 flip_rate도 함께 표시)</caption>
+    <caption>gt_label × semantic_group cross-tab (mean_degradation; flip_rate is also shown for binary metrics)</caption>
     <thead>
       <tr>
         <th>gt_label</th>
@@ -982,14 +986,14 @@ _REPORT_TEMPLATE = """
     </tbody>
   </table>
   {% else %}
-  <p class="no-data">데이터 없음</p>
+  <p class="no-data">No data</p>
   {% endif %}
 
   <p class="section-note">
-    샘플 단위 라벨 파일(후속 학습 파이프라인용)이 필요하면 이 리포트와 별도로
-    <code>ssat export-labels &lt;report_dir&gt;</code>를 실행하세요 — <code>ssat report</code>는
-    라벨 파일을 자동으로 생성하지 않습니다. 실행하면 이 리포트 디렉터리 하위에
-    <code>labels.jsonl</code>과 <code>labels_manifest.json</code>이 생성됩니다.
+    If you need a per-sample label file (for a downstream training pipeline), run
+    <code>ssat export-labels &lt;report_dir&gt;</code> separately from this report —
+    <code>ssat report</code> does not generate a label file automatically. Running it creates
+    <code>labels.jsonl</code> and <code>labels_manifest.json</code> under this report directory.
   </p>
   {% endif %}
 </section>
@@ -1003,7 +1007,7 @@ _REPORT_TEMPLATE = """
 _REPORT_TEMPLATE_B = """
 {% import "macros.html" as macros %}
 <!doctype html>
-<html lang="ko">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -1013,10 +1017,11 @@ _REPORT_TEMPLATE_B = """
 <body>
 
 <header class="run-header">
-  <h1>{{ model.run_summary.dataset_name }} — 결과를 질문 순서로 읽는 보조 리포트</h1>
+  <h1>{{ model.run_summary.dataset_name }} — A question-driven secondary report</h1>
   <p class="hero-muted">
-    이 페이지는 <a href="report.html">메인 리포트(report.html)</a>의 보조 리포트입니다 — 같은 데이터를
-    처음 보는 사람이 실제로 궁금해할 다섯 가지 질문 순서로 다시 배치했을 뿐, 새로 계산된 값은 없습니다.
+    This page is a secondary report alongside the <a href="report.html">main report
+    (report.html)</a> — the same data, simply reordered around the five questions someone
+    seeing it for the first time would actually ask. No values here are newly computed.
   </p>
 </header>
 
@@ -1026,13 +1031,13 @@ _REPORT_TEMPLATE_B = """
     <div class="qnum">1</div>
     <div>
       <div class="hero-label">Baseline</div>
-      <div class="q-answer">이 모델은 교란 전에는 얼마나 잘 작동하는가?</div>
+      <div class="q-answer">How well does this model perform before any perturbation?</div>
       <p>
-        <span class="pill">답</span> Clean accuracy는
-        <b>{{ accuracy_card.value | fmt_pct if accuracy_card.value is not none else '해당 없음' }}</b>입니다.
+        <span class="pill">Answer</span> Clean accuracy is
+        <b>{{ accuracy_card.value | fmt_pct if accuracy_card.value is not none else 'N/A' }}</b>.
         {% if accuracy_card.note %}({{ accuracy_card.note }}){% endif %}
       </p>
-      <p class="hero-muted">N = {{ model.run_summary.n_samples }} · 실패율 {{ model.run_summary.failure_rate | fmt_pct }}</p>
+      <p class="hero-muted">N = {{ model.run_summary.n_samples }} · failure rate {{ model.run_summary.failure_rate | fmt_pct }}</p>
     </div>
   </div>
 </section>
@@ -1043,14 +1048,14 @@ _REPORT_TEMPLATE_B = """
     <div class="qnum">2</div>
     <div>
       <div class="hero-label">Sensitivity magnitude</div>
-      <div class="q-answer">영역을 가리면 전반적으로 얼마나 흔들리는가?</div>
+      <div class="q-answer">How much does masking a region shake things up overall?</div>
       <p>
-        <span class="pill">답</span> 평균 저하는 <b>{{ stats.mean | fmt }}</b>이지만,
-        상위 샘플은 p90 {{ stats.p90 | fmt }} ~ p99 {{ stats.p99 | fmt }}까지 훨씬 크게 흔들립니다.
+        <span class="pill">Answer</span> Mean degradation is <b>{{ stats.mean | fmt }}</b>, but the
+        top samples swing much harder, from p90 {{ stats.p90 | fmt }} to p99 {{ stats.p99 | fmt }}.
       </p>
       {% if model.vulnerability_distribution.histogram_asset_ref %}
       <img class="chart" src="{{ model.vulnerability_distribution.histogram_asset_ref }}"
-           alt="vulnerability_score 히스토그램">
+           alt="vulnerability_score histogram">
       {% endif %}
     </div>
   </div>
@@ -1062,29 +1067,30 @@ _REPORT_TEMPLATE_B = """
     <div class="qnum">3</div>
     <div>
       <div class="hero-label">Spatial concentration</div>
-      <div class="q-answer">모든 샘플이 반복적으로 의존하는 "고정 위치"가 있는가?</div>
+      <div class="q-answer">Is there one "fixed location" that every sample repeatedly depends on?</div>
       {% if share is none %}
-      <p><span class="pill">답: 해당 없음</span> 판별 가능한 샘플이 없어 결론을 내릴 수 없습니다.</p>
+      <p><span class="pill">Answer: N/A</span> No conclusion can be drawn — no samples could be determined.</p>
       {% elif share >= 0.5 %}
       <p>
-        <span class="pill">답: 있음</span> <code>{{ model.spatial_concentration.dominant_region_key }}</code>가
-        샘플의 {{ share | fmt_pct }}에서 top region으로 반복됩니다.
+        <span class="pill">Answer: Yes</span> <code>{{ model.spatial_concentration.dominant_region_key }}</code>
+        repeats as the top region in {{ share | fmt_pct }} of samples.
       </p>
       {% else %}
       <p>
-        <span class="pill">답: 뚜렷하지 않음</span> 가장 자주 top-1이 되는 위치
-        (<code>{{ model.spatial_concentration.dominant_region_key }}</code>)도 {{ share | fmt_pct }}
-        수준이며, 취약 위치가 샘플마다 달라집니다.
+        <span class="pill">Answer: Not distinct</span> Even the most frequent top-1 location
+        (<code>{{ model.spatial_concentration.dominant_region_key }}</code>) only reaches
+        {{ share | fmt_pct }}, and vulnerable locations differ from sample to sample.
       </p>
       {% endif %}
       <div class="grid2">
         <div><div class="metric-value">{{ share | fmt_pct }}</div><div class="hero-muted">Dominant-region share</div></div>
-        <div><div class="metric-value">{{ model.spatial_concentration.spatial_entropy | fmt }}</div><div class="hero-muted">Spatial entropy (1에 가까울수록 분산)</div></div>
+        <div><div class="metric-value">{{ model.spatial_concentration.spatial_entropy | fmt }}</div><div class="hero-muted">Spatial entropy (closer to 1 = more spread out)</div></div>
       </div>
       <p class="callout">
-        <b>중요:</b> "HIGH region이 없다"라고 결론짓지 않습니다. 대신 dataset-wide 고정 위치 의존이
-        약한지/강한지를 표현합니다 — 개별 샘플의 HIGH 근거는 아래 5번과 메인 리포트의 갤러리에 그대로
-        남아 있습니다.
+        <b>Important:</b> this does not conclude "there is no HIGH region." It only expresses
+        how weak or strong the dataset-wide dependence on a fixed location is — the HIGH
+        evidence for individual samples remains intact in question 5 below and in the main
+        report's gallery.
       </p>
     </div>
   </div>
@@ -1096,29 +1102,29 @@ _REPORT_TEMPLATE_B = """
     <div class="qnum">4</div>
     <div>
       <div class="hero-label">Control &amp; stability</div>
-      <div class="q-answer">보이는 효과는 우연한 마스크 효과보다 강하고 반복 가능한가?</div>
+      <div class="q-answer">Is the observed effect stronger than a chance masking effect, and reproducible?</div>
       <table>
-        <thead><tr><th>검사</th><th>결과</th><th>의미</th></tr></thead>
+        <thead><tr><th>Check</th><th>Result</th><th>Meaning</th></tr></thead>
         <tbody>
           <tr>
-            <td>동일 면적 control</td>
-            <td>{{ control_card.value | fmt if control_card.value is not none else '해당 없음' }}</td>
-            <td>Mean Z vs Control — 클수록 대조군 대비 효과가 큼{% if control_card.note %} ({{ control_card.note }}){% endif %}</td>
+            <td>Same-area control</td>
+            <td>{{ control_card.value | fmt if control_card.value is not none else 'N/A' }}</td>
+            <td>Mean Z vs Control — higher means a larger effect over control{% if control_card.note %} ({{ control_card.note }}){% endif %}</td>
           </tr>
           <tr>
             <td>Fill agreement</td>
-            <td>{% if model.fill_strategy_correlation_asset_ref %}차트 있음{% else %}해당 없음{% endif %}</td>
-            <td>fill strategy 간 순위 상관 — 아래 링크된 차트에서 직접 확인</td>
+            <td>{% if model.fill_strategy_correlation_asset_ref %}Chart available{% else %}N/A{% endif %}</td>
+            <td>Rank correlation across fill strategies — see the linked chart below</td>
           </tr>
           <tr>
             <td>UNRELIABLE anchors</td>
-            <td>{{ model.reliability_spotlight.flagged_examples | length }}개</td>
-            <td>fill 전략마다 방향이 갈리는 anchor 수 — 메인 리포트의 상세 목록 참고</td>
+            <td>{{ model.reliability_spotlight.flagged_examples | length }}</td>
+            <td>Number of anchors where fill strategies disagree on direction — see the main report's detailed list</td>
           </tr>
         </tbody>
       </table>
       {% if model.fill_strategy_correlation_asset_ref %}
-      <p><a href="report.html#stability-controls">메인 리포트에서 상관관계 차트 보기 →</a></p>
+      <p><a href="report.html#stability-controls">See the correlation chart in the main report →</a></p>
       {% endif %}
     </div>
   </div>
@@ -1129,7 +1135,7 @@ _REPORT_TEMPLATE_B = """
     <div class="qnum">5</div>
     <div>
       <div class="hero-label">Actionable examples</div>
-      <div class="q-answer">그렇다면 실제로 어떤 샘플을 먼저 조사해야 하는가?</div>
+      <div class="q-answer">So which samples should actually be investigated first?</div>
       {% set examples = model.sample_rankings.most_vulnerable[:5] %}
       {% if examples %}
       <table>
@@ -1138,7 +1144,7 @@ _REPORT_TEMPLATE_B = """
           {% for card in examples %}
           <tr>
             <td>{{ card.sample_id }}</td>
-            <td>{{ card.top_regions[0].region_key if card.top_regions else '해당 없음' }}</td>
+            <td>{{ card.top_regions[0].region_key if card.top_regions else 'N/A' }}</td>
             <td>{{ card.vulnerability_score | fmt }}</td>
             <td>{{ macros.grade_badge(card.reliability_grade) }}</td>
           </tr>
@@ -1146,20 +1152,20 @@ _REPORT_TEMPLATE_B = """
         </tbody>
       </table>
       {% else %}
-      <p class="no-data">데이터 없음</p>
+      <p class="no-data">No data</p>
       {% endif %}
-      <p><a href="report.html#gallery">메인 리포트의 전체 갤러리 보기 →</a></p>
+      <p><a href="report.html#gallery">See the full gallery in the main report →</a></p>
     </div>
   </div>
 </section>
 
 <section class="section-block">
   <details>
-    <summary><b>전문가용 상세: region 표 / fill correlation / flagged anchors / provenance</b></summary>
+    <summary><b>Expert detail: region table / fill correlation / flagged anchors / provenance</b></summary>
     <p class="hero-muted">
-      이 보조 리포트는 요약만 담습니다 — region별 구성비 표, 상세 상관관계 차트, 전체 flagged anchor
-      목록, provenance/원본 CSV·JSON은 전부 <a href="report.html">메인 리포트(report.html)</a>에
-      그대로 있습니다.
+      This secondary report holds only a summary — the per-region grade-mix table, detailed
+      correlation chart, full flagged-anchor list, and provenance/raw CSV·JSON all remain in the
+      <a href="report.html">main report (report.html)</a>.
     </p>
   </details>
 </section>

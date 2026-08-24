@@ -20,6 +20,37 @@ def _validate_sha256_hex(value: str, *, field_name: str) -> None:
         )
 
 
+def _item_identity_payload(
+    *,
+    sample_id: str,
+    region_spec: RegionSpec,
+    perturb_op: PerturbationOp,
+    perturb_params: Mapping[str, JsonValue],
+    invert_mask: bool,
+    seed_salt: int,
+    is_control: bool,
+) -> dict[str, object]:
+    """Return the field set covered by a work item's identity hash.
+
+    Shared by ``WorkItem.identity_payload()`` and ``PlanBuilder._make_item``,
+    which independently need this same mapping: the latter must compute
+    ``item_id`` before a ``WorkItem`` instance exists to call the former.
+
+    Returns:
+        A mapping ready for canonical serialization.
+    """
+
+    return {
+        "sample_id": sample_id,
+        "region_spec": region_spec,
+        "perturb_op": perturb_op,
+        "perturb_params": perturb_params,
+        "invert_mask": invert_mask,
+        "seed_salt": seed_salt,
+        "is_control": is_control,
+    }
+
+
 @dataclass(frozen=True, slots=True)
 class WorkItem:
     """Define one deterministic sample-region-perturbation evaluation.
@@ -66,15 +97,15 @@ class WorkItem:
             A mapping ready for canonical serialization.
         """
 
-        return {
-            "sample_id": self.sample_id,
-            "region_spec": self.region_spec,
-            "perturb_op": self.perturb_op,
-            "perturb_params": self.perturb_params,
-            "invert_mask": self.invert_mask,
-            "seed_salt": self.seed_salt,
-            "is_control": self.is_control,
-        }
+        return _item_identity_payload(
+            sample_id=self.sample_id,
+            region_spec=self.region_spec,
+            perturb_op=self.perturb_op,
+            perturb_params=self.perturb_params,
+            invert_mask=self.invert_mask,
+            seed_salt=self.seed_salt,
+            is_control=self.is_control,
+        )
 
 
 @dataclass(frozen=True, slots=True)

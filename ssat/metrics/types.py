@@ -14,6 +14,26 @@ from enum import Enum
 from ssat.core.types import RegionKind
 
 
+def region_key(region_id: str, region_instance_id: str) -> str:
+    """Format the stable concrete-region identity used across ``ssat.metrics``.
+
+    Shared by ``ssat.metrics.aggregate`` and ``ssat.metrics.viz.mask_check``,
+    which previously each hand-wrote this same ``"{region_id}::{region_instance_id}"``
+    format. The analogous ``ssat.analysis`` side keeps its own independent
+    copy (``ssat.analysis.types.region_key``) rather than importing this one,
+    per that package's documented dependency-direction boundary.
+
+    Args:
+        region_id: Region family identity.
+        region_instance_id: Concrete instance identity within the family.
+
+    Returns:
+        The joined region key.
+    """
+
+    return f"{region_id}::{region_instance_id}"
+
+
 class ExclusionReason(str, Enum):
     """Identify why a perturbed item's metric value could not be computed.
 

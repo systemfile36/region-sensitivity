@@ -475,7 +475,7 @@ class ReportDataAssembler:
                 value=None,
                 unit="",
                 higher_is_better=False,
-                note="분석 미실행: 대조군 비교가 실행되지 않았습니다.",
+                note="Analysis not run: control comparison was not executed.",
             )
         values = [
             row.z_vs_control
@@ -491,7 +491,7 @@ class ReportDataAssembler:
                 value=None,
                 unit="",
                 higher_is_better=False,
-                note="해당 없음: 매칭된 대조군이 없습니다.",
+                note="N/A: no matched controls.",
             )
         return MetricCard(
             key="control_comparison",

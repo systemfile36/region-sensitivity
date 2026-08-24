@@ -422,7 +422,7 @@ def test_analysis_dir_none_marks_every_analysis_derived_field_unavailable(tmp_pa
 
     control_card = next(card for card in model.scorecard if card.key == "control_comparison")
     assert control_card.value is None
-    assert control_card.note == "분석 미실행: 대조군 비교가 실행되지 않았습니다."
+    assert control_card.note == "Analysis not run: control comparison was not executed."
 
     assert len(model.region_summary.rows) == 1
     region_row = model.region_summary.rows[0]

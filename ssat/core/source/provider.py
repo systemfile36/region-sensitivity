@@ -19,6 +19,7 @@ from typing import Any, ClassVar, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from ssat.core._provider_registry_support import validate_config_literal
 from ssat.core.config.schema import SourceProvenance
 from ssat.core.source.base import SampleSource
 from ssat.core.source.image_folder import ImageFolderSource
@@ -181,6 +182,9 @@ class SourceProviderRegistry:
             raise SourceProviderError(f"source provider already registered: {name}")
         if not issubclass(provider.config_model, SourceProviderConfig):
             raise SourceProviderError("provider config_model must extend SourceProviderConfig")
+        validate_config_literal(
+            provider.config_model, "kind", name, error=SourceProviderError
+        )
         self._providers[name] = provider
 
     def parse(self, value: Any) -> SourceProviderConfig:
