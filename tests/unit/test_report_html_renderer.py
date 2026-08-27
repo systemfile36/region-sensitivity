@@ -22,6 +22,7 @@ from pathlib import Path
 import pytest
 
 from ssat.report.html_renderer import (
+    _FLAGGED_ANCHORS_DISPLAY_LIMIT,
     ReportManifestPaths,
     _class_semantic_grid,
     _grade_distribution_percentages,
@@ -650,6 +651,43 @@ def test_flagged_anchors_section_lists_spotlight_items(tmp_path: Path) -> None:
 
     assert "s0::grid::0::False" in html
     assert "sign flips across fill strategies" in html
+
+
+def test_flagged_anchors_section_truncates_beyond_display_limit(tmp_path: Path) -> None:
+    """A run with more UNRELIABLE anchors than the display limit only inlines
+
+    the first N (module docstring's 400MB-report bug) — the rest stay
+    reachable only via data/flagged_items.csv, while the true total keeps
+    surfacing in the "N anchor(s) currently flagged" count.
+    """
+
+    n_flagged = _FLAGGED_ANCHORS_DISPLAY_LIMIT + 5
+    items = tuple(
+        _flagged_item(anchor_key_repr=f"s{i}::grid::0::False") for i in range(n_flagged)
+    )
+    model = _report_model(reliability_spotlight=ReliabilitySpotlight(flagged_examples=items))
+    paths = render_report(model, tmp_path, top_k=20, bottom_k=20)
+    html = paths.report_html.read_text(encoding="utf-8")
+
+    rendered = sum(1 for i in range(n_flagged) if f"s{i}::grid::0::False" in html)
+    assert rendered == _FLAGGED_ANCHORS_DISPLAY_LIMIT
+    assert f"{n_flagged}</strong> anchor" in html  # true total, unaffected by truncation
+    assert "data/flagged_items.csv" in html
+    assert f"first {_FLAGGED_ANCHORS_DISPLAY_LIMIT} of {n_flagged}" in html
+
+
+def test_flagged_anchors_section_no_truncation_note_at_exactly_limit(tmp_path: Path) -> None:
+    items = tuple(
+        _flagged_item(anchor_key_repr=f"s{i}::grid::0::False")
+        for i in range(_FLAGGED_ANCHORS_DISPLAY_LIMIT)
+    )
+    model = _report_model(reliability_spotlight=ReliabilitySpotlight(flagged_examples=items))
+    paths = render_report(model, tmp_path, top_k=20, bottom_k=20)
+    html = paths.report_html.read_text(encoding="utf-8")
+
+    for i in range(_FLAGGED_ANCHORS_DISPLAY_LIMIT):
+        assert f"s{i}::grid::0::False" in html
+    assert "Showing the first" not in html
 
 
 # --- semantic region profile -----------------------------------------------------

@@ -162,6 +162,18 @@ _GRID_CELL_PATTERN = re.compile(r"/r(\d+)/c(\d+)$")
 _HEAT_COLOR_LOW_RGB = (238, 241, 245)
 _HEAT_COLOR_HIGH_RGB = (21, 101, 192)
 
+# Max flagged-anchor rows rendered inline in the "Detailed Tables / Flagged
+# Anchors" section. Real-dataset runs (e.g. ImageNet-scale) can flag anchors
+# in numbers that scale with samples x regions x invert_mask; rendering one
+# <li> per anchor with no cap was large enough to push report.html past
+# 400MB on such runs — unopenable in VS Code and slow/memory-heavy even in a
+# browser. Only this inline HTML list is capped: ReliabilitySpotlight.
+# flagged_examples itself, the "N anchor(s) flagged" count (stability-
+# controls section), and the full data/flagged_items.csv export (exporter.py)
+# all stay untruncated, so no information is lost — it just isn't all
+# inlined into the HTML.
+_FLAGGED_ANCHORS_DISPLAY_LIMIT = 20
+
 
 @dataclass(frozen=True, slots=True)
 class ReportManifestPaths:
@@ -331,6 +343,7 @@ def _build_environment() -> jinja2.Environment:
     environment.globals["grade_color"] = _grade_color
     environment.globals["unreliable_badge_color"] = GRADE_COLORS[ReportGrade.UNRELIABLE]
     environment.globals["ReportGrade"] = ReportGrade
+    environment.globals["flagged_anchors_display_limit"] = _FLAGGED_ANCHORS_DISPLAY_LIMIT
     return environment
 
 
@@ -871,8 +884,18 @@ _REPORT_TEMPLATE = """
 <section id="flagged-anchors">
   <h2>Detailed Tables / Flagged Anchors</h2>
   {% if model.reliability_spotlight.flagged_examples %}
+  {% set total_flagged = model.reliability_spotlight.flagged_examples | length %}
+  {% set displayed_flagged = model.reliability_spotlight.flagged_examples[:flagged_anchors_display_limit] %}
+  {% if total_flagged > displayed_flagged | length %}
+  <p class="section-note">
+    Showing the first {{ displayed_flagged | length }} of {{ total_flagged }} flagged
+    anchors. The complete list is in
+    <a href="data/flagged_items.csv">flagged_items.csv</a> — see
+    <a href="#provenance">Provenance</a>.
+  </p>
+  {% endif %}
   <ul class="flagged-list">
-    {% for item in model.reliability_spotlight.flagged_examples %}
+    {% for item in displayed_flagged %}
     <li>
       <span class="badge" style="background-color: {{ unreliable_badge_color }};"
             title="{{ item.reliability_reasons | join('; ') }}">UNRELIABLE</span>
