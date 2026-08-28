@@ -240,7 +240,6 @@ def render_fill_strategy_correlation(
         axis.set_yticks(range(len(ops)))
         axis.set_yticklabels(ops)
         figure.colorbar(image, ax=axis, label="Spearman rank correlation")
-        axis.set_title("Fill Strategy Rank Correlation")
         figure.tight_layout()
         return _figure_to_svg(figure)
 
