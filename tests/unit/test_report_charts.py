@@ -128,14 +128,43 @@ def test_region_bar_has_no_external_references() -> None:
 
 def test_region_bar_excludes_rows_with_no_mean_degradation() -> None:
     rows = (
-        _RegionRowStub(region_key="grid::0", mean_degradation=0.3, reliability_grade=ReportGrade.HIGH),
-        _RegionRowStub(region_key="grid::1", mean_degradation=None, reliability_grade=None),
+        _RegionRowStub(
+            region_key="grid::included", mean_degradation=0.3, reliability_grade=ReportGrade.HIGH
+        ),
+        _RegionRowStub(region_key="grid::excluded", mean_degradation=None, reliability_grade=None),
     )
 
     svg = render_region_bar(rows)
 
-    assert "grid::0" in svg
-    assert "grid::1" not in svg
+    assert "included" in svg
+    assert "excluded" not in svg
+
+
+def test_region_bar_xtick_labels_drop_redundant_region_id_prefix() -> None:
+    """matplotlib embeds each tick label as a literal XML comment ahead of its
+
+    vector glyph path (even under ``svg.fonttype="path"``), so the shortened
+    label is directly searchable in the SVG text.
+    """
+
+    rows = (
+        _RegionRowStub(
+            region_key="grid_4x4::grid_4x4/r0/c0", mean_degradation=0.3, reliability_grade=ReportGrade.HIGH
+        ),
+    )
+
+    svg = render_region_bar(rows)
+
+    assert "grid_4x4::grid_4x4/r0/c0" not in svg
+    assert "grid_4x4/r0/c0" in svg
+
+
+def test_short_region_key_strips_leading_region_id_prefix() -> None:
+    from ssat.report.charts import _short_region_key
+
+    assert _short_region_key("grid_4x4::grid_4x4/r0/c0") == "grid_4x4/r0/c0"
+    assert _short_region_key("grid::0") == "0"
+    assert _short_region_key("left_arm") == "left_arm"  # no "::" -- unchanged
 
 
 def test_region_bar_handles_empty_input_without_raising() -> None:

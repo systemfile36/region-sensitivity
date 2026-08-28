@@ -28,8 +28,8 @@ regions:
   - {region_id: right_hand, kind: skeleton_parts, semantic_group: hands, params: {body_part: right_hand, bbox_scale: 1.15}}
   - {region_id: left_leg, kind: skeleton_parts, semantic_group: legs, params: {body_part: left_leg, bbox_scale: 1.15}}
   - {region_id: right_leg, kind: skeleton_parts, semantic_group: legs, params: {body_part: right_leg, bbox_scale: 1.15}}
-  - {region_id: upper_body, kind: skeleton_parts, semantic_group: body_halves, params: {body_part: upper_body, bbox_scale: 1.15}}
-  - {region_id: lower_body, kind: skeleton_parts, semantic_group: body_halves, params: {body_part: lower_body, bbox_scale: 1.15}}
+  - {region_id: upper_body, kind: skeleton_parts, semantic_group: upper_body, params: {body_part: upper_body, bbox_scale: 1.15}}
+  - {region_id: lower_body, kind: skeleton_parts, semantic_group: lower_body, params: {body_part: lower_body, bbox_scale: 1.15}}
 perturbations:
   - {op: mean_fill, params: {}, seed_salts: [0]}
   - {op: blur, params: {sigma: 3.0}, seed_salts: [0]}

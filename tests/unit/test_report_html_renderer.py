@@ -28,6 +28,7 @@ from ssat.report.html_renderer import (
     _grade_distribution_percentages,
     _grid_layout,
     _heat_color,
+    _short_region_key,
     render_report,
     render_secondary_report,
 )
@@ -479,7 +480,8 @@ def test_executive_interpretation_concentrated_wording_above_half_share(tmp_path
     html = paths.report_html.read_text(encoding="utf-8")
 
     assert "relatively concentrated at" in html
-    assert "grid::grid/r0/c0" in html
+    assert "grid::grid/r0/c0" in html  # full key still present, in the strong tag's title
+    assert 'title="grid::grid/r0/c0">grid/r0/c0<' in html  # visible text is the short form
     assert "82.00%" in html
 
 
@@ -555,6 +557,37 @@ def test_spatial_pattern_renders_heat_grid_for_grid_shaped_regions(tmp_path: Pat
     assert "HIGH-graded anchor rate" in html
 
 
+def test_spatial_pattern_heat_grid_shows_short_label_full_key_in_title(tmp_path: Path) -> None:
+    """The redundant "grid::" prefix is dropped from the visible cell label,
+
+    but the full raw region_key stays in the cell's title attribute (hover)
+    -- no information is lost, it's just not force-displayed.
+    """
+
+    rows = tuple(
+        _grid_region_row(r, c, top_region_share=0.1 * (r * 2 + c + 1), high_rate=0.2)
+        for r in range(2)
+        for c in range(2)
+    )
+    model = _report_model(
+        region_summary=RegionSummary(
+            rows=rows, reliability_distribution={"high": 4}, chart_asset_ref=None
+        )
+    )
+    paths = render_report(model, tmp_path, top_k=20, bottom_k=20)
+    html = paths.report_html.read_text(encoding="utf-8")
+
+    assert 'title="grid::grid/r0/c0"' in html
+    assert ">grid/r0/c0<" in html
+    assert ">grid::grid/r0/c0<" not in html
+
+
+def test_short_region_key_strips_leading_region_id_prefix() -> None:
+    assert _short_region_key("grid_4x4::grid_4x4/r0/c0") == "grid_4x4/r0/c0"
+    assert _short_region_key("grid::0") == "0"
+    assert _short_region_key("left_arm") == "left_arm"  # no "::" -- unchanged
+
+
 def test_spatial_pattern_falls_back_to_message_for_non_grid_regions(tmp_path: Path) -> None:
     """The default fixture's single region_key ("grid::0") has no /r../c.. suffix."""
 
@@ -589,6 +622,22 @@ def test_region_summary_renders_grade_composition_not_single_worst_case_badge(tm
     # worst-case is preserved, but demoted to a hover title rather than a
     # standalone visible badge (report layout redesign):
     assert 'title="worst-case anchor: UNRELIABLE"' in html
+
+
+def test_region_summary_table_shows_short_region_key_full_key_in_title(tmp_path: Path) -> None:
+    model = _report_model(
+        region_summary=RegionSummary(
+            rows=(_region_row(region_key="grid_4x4::grid_4x4/r0/c0"),),
+            reliability_distribution={"high": 1},
+            chart_asset_ref=None,
+        )
+    )
+    paths = render_report(model, tmp_path, top_k=20, bottom_k=20)
+    html = paths.report_html.read_text(encoding="utf-8")
+
+    assert 'title="grid_4x4::grid_4x4/r0/c0"' in html
+    assert ">grid_4x4/r0/c0<" in html
+    assert ">grid_4x4::grid_4x4/r0/c0<" not in html
 
 
 def test_region_summary_legend_and_worst_case_scope_note_present(tmp_path: Path) -> None:

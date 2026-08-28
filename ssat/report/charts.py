@@ -187,7 +187,7 @@ def render_region_bar(region_summary_rows: Sequence[RegionRow]) -> str:
                 color=[_grade_color(row.reliability_grade) for row in plottable],
             )
             axis.set_xticks(list(positions))
-            axis.set_xticklabels([row.region_key for row in plottable], rotation=90)
+            axis.set_xticklabels([_short_region_key(row.region_key) for row in plottable], rotation=90)
         else:
             _draw_no_data(axis)
         axis.set_ylabel("mean_degradation")
@@ -254,6 +254,19 @@ def _grade_color(grade: ReportGrade | None) -> str:
     if grade is None:
         return _NO_GRADE_COLOR
     return GRADE_COLORS[grade]
+
+
+def _short_region_key(region_key: str) -> str:
+    """Drop the redundant leading ``"<region_id>::"`` for display only.
+
+    Duplicated from ``report.html_renderer._short_region_key`` (mirrors
+    ``_grade_color``/``_NO_GRADE_COLOR`` above) rather than imported, since
+    this module's charts are consumed by ``html_renderer`` and not the
+    other way around. See that function's docstring for why the split is
+    always safe. A key with no ``"::"`` is returned unchanged.
+    """
+
+    return region_key.split("::", 1)[-1] if "::" in region_key else region_key
 
 
 def _draw_no_data(axis: Axes) -> None:

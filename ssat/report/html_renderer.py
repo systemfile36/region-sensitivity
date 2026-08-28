@@ -340,6 +340,7 @@ def _build_environment() -> jinja2.Environment:
     environment.filters["grid_layout"] = _grid_layout
     environment.filters["class_semantic_grid"] = _class_semantic_grid
     environment.filters["heat_color"] = _heat_color
+    environment.filters["short_region_key"] = _short_region_key
     environment.globals["grade_color"] = _grade_color
     environment.globals["unreliable_badge_color"] = GRADE_COLORS[ReportGrade.UNRELIABLE]
     environment.globals["ReportGrade"] = ReportGrade
@@ -353,6 +354,32 @@ def _grade_color(grade: ReportGrade | None) -> str:
     if grade is None:
         return _NO_GRADE_COLOR
     return GRADE_COLORS[grade]
+
+
+def _short_region_key(region_key: str) -> str:
+    """Drop the redundant leading ``"<region_id>::"`` for display only.
+
+    ``region_key`` is always ``f"{region_id}::{region_instance_id}"``
+    (``ssat.metrics.types.region_key``), and every ``RegionExpander``
+    (``ssat.core.plan.region_expanders``) builds ``region_instance_id``
+    starting with that same ``region_id`` — e.g. a grid cell's full key is
+    ``"grid_4x4::grid_4x4/r0/c0"``. The prefix repeats in every region's
+    label without adding information, which reads poorly at real-dataset
+    scale (many grid cells sharing one family). Splitting on the first
+    ``"::"`` is always safe: mirrors ``ssat.report.assembler.
+    _region_id_from_region_key``'s split, verified there that ``RegionId``
+    forbids ``"::"`` so it never cuts through the family name itself. A
+    key with no ``"::"`` (e.g. the skeleton_parts rows ``_build_region_
+    summary`` already aggregates down to a bare ``region_id``) is returned
+    unchanged. Duplicated in ``report.charts`` (mirrors ``_grade_color``/
+    ``_NO_GRADE_COLOR`` above) rather than imported, since this module
+    never imports ``report.charts`` (module docstring). Display-only: the
+    full raw ``region_key`` stays in a ``title`` attribute next to every
+    use of this filter, and untouched everywhere else (CSV/JSON export,
+    sort/join keys, ``FlaggedItem.anchor_key_repr``).
+    """
+
+    return region_key.split("::", 1)[-1] if "::" in region_key else region_key
 
 
 def _grade_distribution_percentages(
@@ -602,8 +629,8 @@ _MACROS_TEMPLATE = """
     <div class="sample-card-score">vulnerability_score: {{ card.vulnerability_score | fmt }}</div>
     {% if card.top_regions %}
     {% set top = card.top_regions[0] %}
-    <div class="sample-card-top-region">
-      Most vulnerable region: {{ top.region_key }} ({{ top.degradation | fmt }})
+    <div class="sample-card-top-region" title="{{ top.region_key }}">
+      Most vulnerable region: {{ top.region_key | short_region_key }} ({{ top.degradation | fmt }})
       {{ grade_badge(top.reliability_grade) }}
     </div>
     {% endif %}
@@ -653,7 +680,7 @@ _REPORT_TEMPLATE = """
     No samples have a valid degradation value, so dominant-region share/spatial entropy cannot be computed.
   </p>
   {% elif share >= 0.5 %}
-  <h2>Sensitivity is relatively concentrated at <strong>{{ model.spatial_concentration.dominant_region_key }}</strong>.</h2>
+  <h2>Sensitivity is relatively concentrated at <strong title="{{ model.spatial_concentration.dominant_region_key }}">{{ model.spatial_concentration.dominant_region_key | short_region_key }}</strong>.</h2>
   <p class="hero-muted">
     Of the {{ model.spatial_concentration.n_scored_samples }} samples for which a top region could be
     determined, {{ share | fmt_pct }} named this location as the most vulnerable region.
@@ -661,7 +688,7 @@ _REPORT_TEMPLATE = """
   {% else %}
   <h2>Sensitivity exists, but is <strong>not concentrated at one fixed location</strong>.</h2>
   <p class="hero-muted">
-    Even the most frequently named location (<code>{{ model.spatial_concentration.dominant_region_key }}</code>)
+    Even the most frequently named location (<code title="{{ model.spatial_concentration.dominant_region_key }}">{{ model.spatial_concentration.dominant_region_key | short_region_key }}</code>)
     only reaches {{ share | fmt_pct }} — individual samples' vulnerable locations differ from one another.
   </p>
   {% endif %}
@@ -693,7 +720,7 @@ _REPORT_TEMPLATE = """
       <div class="metric-label">Dominant-region Share</div>
       <div class="metric-value">{{ model.spatial_concentration.dominant_region_share | fmt_pct }}</div>
       {% if model.spatial_concentration.dominant_region_key %}
-      <div class="metric-note">{{ model.spatial_concentration.dominant_region_key }}</div>
+      <div class="metric-note" title="{{ model.spatial_concentration.dominant_region_key }}">{{ model.spatial_concentration.dominant_region_key | short_region_key }}</div>
       {% else %}
       <div class="metric-note">N/A: no samples could be determined.</div>
       {% endif %}
@@ -742,7 +769,7 @@ _REPORT_TEMPLATE = """
         {% if cell %}
         <div class="cell" style="background-color: {{ cell.top_region_share | heat_color(layout.max_top_region_share) }};"
              title="{{ cell.region_key }}">
-          <b>{{ cell.top_region_share | fmt_pct }}</b>{{ cell.region_key }}
+          <b>{{ cell.top_region_share | fmt_pct }}</b>{{ cell.region_key | short_region_key }}
         </div>
         {% else %}
         <div class="cell no-data">—</div>
@@ -762,7 +789,7 @@ _REPORT_TEMPLATE = """
         {% if cell %}
         <div class="cell" style="background-color: {{ cell.high_rate | heat_color(layout.max_high_rate) }};"
              title="{{ cell.region_key }}">
-          <b>{{ cell.high_rate | fmt_pct }}</b>{{ cell.region_key }}
+          <b>{{ cell.high_rate | fmt_pct }}</b>{{ cell.region_key | short_region_key }}
         </div>
         {% else %}
         <div class="cell no-data">—</div>
@@ -818,7 +845,7 @@ _REPORT_TEMPLATE = """
     <tbody>
       {% for row in model.region_summary.rows %}
       <tr>
-        <td>{{ row.region_key }}</td>
+        <td title="{{ row.region_key }}">{{ row.region_key | short_region_key }}</td>
         <td>{{ row.mean_degradation | fmt }}</td>
         <td>{{ row.top_region_share | fmt_pct }}</td>
         <td>{{ row.n_valid }}</td>
@@ -1095,13 +1122,13 @@ _REPORT_TEMPLATE_B = """
       <p><span class="pill">Answer: N/A</span> No conclusion can be drawn — no samples could be determined.</p>
       {% elif share >= 0.5 %}
       <p>
-        <span class="pill">Answer: Yes</span> <code>{{ model.spatial_concentration.dominant_region_key }}</code>
+        <span class="pill">Answer: Yes</span> <code title="{{ model.spatial_concentration.dominant_region_key }}">{{ model.spatial_concentration.dominant_region_key | short_region_key }}</code>
         repeats as the top region in {{ share | fmt_pct }} of samples.
       </p>
       {% else %}
       <p>
         <span class="pill">Answer: Not distinct</span> Even the most frequent top-1 location
-        (<code>{{ model.spatial_concentration.dominant_region_key }}</code>) only reaches
+        (<code title="{{ model.spatial_concentration.dominant_region_key }}">{{ model.spatial_concentration.dominant_region_key | short_region_key }}</code>) only reaches
         {{ share | fmt_pct }}, and vulnerable locations differ from sample to sample.
       </p>
       {% endif %}
@@ -1167,7 +1194,7 @@ _REPORT_TEMPLATE_B = """
           {% for card in examples %}
           <tr>
             <td>{{ card.sample_id }}</td>
-            <td>{{ card.top_regions[0].region_key if card.top_regions else 'N/A' }}</td>
+            <td{% if card.top_regions %} title="{{ card.top_regions[0].region_key }}"{% endif %}>{{ card.top_regions[0].region_key | short_region_key if card.top_regions else 'N/A' }}</td>
             <td>{{ card.vulnerability_score | fmt }}</td>
             <td>{{ macros.grade_badge(card.reliability_grade) }}</td>
           </tr>
