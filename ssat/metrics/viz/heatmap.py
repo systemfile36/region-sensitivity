@@ -62,6 +62,7 @@ from ssat.metrics.viz._shared import decanonicalize, open_image_source, open_ske
 
 __all__ = [
     "HeatmapView",
+    "render_heatmap_overlay",
     "render_heatmap_panel",
     "resolve_heatmap_view",
     "save_heatmap_views",
@@ -326,6 +327,35 @@ def _resolve_region_mask(
     return mask
 
 
+def render_heatmap_overlay(axis: Axes, view: HeatmapView) -> None:
+    """Draw one view's heatmap-overlay panel onto a given axis.
+
+    Public so ``ssat.report.assets`` can render a heatmap-only image for
+    report gallery cards (whose original is already shown separately, via
+    the standalone thumbnail), without duplicating the overlay math here.
+
+    Args:
+        axis: Axis to draw into.
+        view: Reconstructed view to render.
+    """
+
+    valid = ~np.isnan(view.intensity)
+    normalized = np.zeros_like(view.intensity)
+    if valid.any():
+        vmin = float(np.nanmin(view.intensity))
+        vmax = float(np.nanmax(view.intensity))
+        span = vmax - vmin
+        normalized[valid] = (view.intensity[valid] - vmin) / span if span > 0 else 0.5
+
+    colored = colormaps["inferno"](normalized)
+    colored[..., 3] = np.where(valid, 0.6, 0.0)
+
+    axis.imshow(view.original)
+    axis.imshow(colored)
+    axis.set_title(f"{view.metric_name} heatmap")
+    axis.axis("off")
+
+
 def render_heatmap_panel(axes: tuple[Axes, Axes], view: HeatmapView) -> None:
     """Draw one view's original/heatmap-overlay panels onto two given axes.
 
@@ -340,24 +370,9 @@ def render_heatmap_panel(axes: tuple[Axes, Axes], view: HeatmapView) -> None:
 
     original_axis.imshow(view.original)
     original_axis.set_title("original")
+    original_axis.axis("off")
 
-    valid = ~np.isnan(view.intensity)
-    normalized = np.zeros_like(view.intensity)
-    if valid.any():
-        vmin = float(np.nanmin(view.intensity))
-        vmax = float(np.nanmax(view.intensity))
-        span = vmax - vmin
-        normalized[valid] = (view.intensity[valid] - vmin) / span if span > 0 else 0.5
-
-    colored = colormaps["inferno"](normalized)
-    colored[..., 3] = np.where(valid, 0.6, 0.0)
-
-    overlay_axis.imshow(view.original)
-    overlay_axis.imshow(colored)
-    overlay_axis.set_title(f"{view.metric_name} heatmap")
-
-    for axis in axes:
-        axis.axis("off")
+    render_heatmap_overlay(overlay_axis, view)
 
 
 def save_heatmap_views(

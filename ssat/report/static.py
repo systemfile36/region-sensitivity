@@ -304,7 +304,7 @@ section, details {
 
 .gallery-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(420px, 1fr));
   gap: 1rem;
 }
 
@@ -324,7 +324,7 @@ section, details {
 .sample-card-images img, .sample-card-images .no-image {
   flex: 1 1 50%;
   width: 50%;
-  height: 130px;
+  height: 260px;
   object-fit: contain;
   background: var(--bg);
   display: flex;

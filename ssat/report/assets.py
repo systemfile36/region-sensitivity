@@ -5,7 +5,7 @@ just relocate already-rendered images, but ``ssat metrics``/``ssat
 analyze`` never persist a DebugViz heatmap PNG anywhere, so there is
 nothing to "relocate" here. Instead this module calls
 ``ssat.metrics.viz.heatmap.select_spatial_profile_rows``/
-``resolve_heatmap_view``/``render_heatmap_panel`` — functions the metrics
+``resolve_heatmap_view``/``render_heatmap_overlay`` — functions the metrics
 engine already wrote, tested, and made public — limited to exactly the
 ``sample_id``\\s the assembler already chose (top-K ∪ bottom-K), never a
 set this module decides for itself. No new visualization logic or new
@@ -42,14 +42,17 @@ not blank out every other sample's assets, so each ``sample_id`` gets its
 own try/except.
 
 **Two separate images, two separate reuse paths.** ``heatmap_asset_ref``
-reuses ``render_heatmap_panel`` exactly as its own docstring already invites
-("Public so ``ranking.py`` can reuse it for its own composite views") — a
-2-panel original|heatmap-overlay figure, unmodified. ``thumbnail_asset_ref``
-is a plain Pillow resize of the same ``HeatmapView.original`` array — no
-matplotlib, no overlay, just a small preview for the gallery grid, cheap
-because it is a resize of already-rendered pixels rather than a new
-computation. Both read the identical source array, so neither can show a
-different sample than the other.
+reuses ``render_heatmap_overlay`` — the same overlay-drawing logic
+``render_heatmap_panel`` itself calls for its own 2-panel composite — but
+renders only the overlay, into its own single-axis figure, since the
+gallery card already shows the original via ``thumbnail_asset_ref`` on the
+card's other half; duplicating it into this image too would waste half of
+each half's width. ``thumbnail_asset_ref`` is a plain Pillow resize of the
+same ``HeatmapView.original`` array — no matplotlib, no overlay, just a
+small preview for the gallery grid, cheap because it is a resize of
+already-rendered pixels rather than a new computation. Both read the
+identical source array, so neither can show a different sample than the
+other.
 
 **Asset refs are report-root-relative POSIX paths, never absolute**, so
 that a copied or moved ``report/`` folder keeps working. ``output_dir`` is
@@ -96,7 +99,7 @@ from ssat.metrics.store import load_metrics, verify_source_dump
 from ssat.metrics.viz._shared import open_image_source, open_skeleton_store
 from ssat.metrics.viz.heatmap import (
     HeatmapView,
-    render_heatmap_panel,
+    render_heatmap_overlay,
     resolve_heatmap_view,
     select_spatial_profile_rows,
 )
@@ -328,17 +331,18 @@ def _gallery_sample_ids(model: ReportModel) -> tuple[str, ...]:
 
 
 def _save_heatmap_png(view: HeatmapView, path: Path) -> None:
-    """Save one sample's 2-panel original|heatmap-overlay figure (module docstring).
+    """Save one sample's heatmap-overlay-only figure.
 
-    Mirrors ``ssat.metrics.viz.heatmap._save_view_png`` (private there, so
-    duplicated here rather than imported) — same figure shape, same
-    ``render_heatmap_panel`` call, no new rendering logic.
+    The original is deliberately not re-rendered here: the gallery card
+    already shows it via the standalone thumbnail (``_save_thumbnail_png``)
+    on the card's left side, so this image only needs the overlay
+    (``render_heatmap_overlay``), left at full card width on the right side.
     """
 
-    figure = Figure(figsize=(8, 4))
+    figure = Figure(figsize=(4, 4))
     FigureCanvasAgg(figure)
-    axes = figure.subplots(1, 2)
-    render_heatmap_panel((axes[0], axes[1]), view)
+    axis = figure.subplots()
+    render_heatmap_overlay(axis, view)
     caption = f"sample_id={view.sample_id}"
     if view.num_frames > 1:
         caption += f" frame={view.frame_index}/{view.num_frames}"
