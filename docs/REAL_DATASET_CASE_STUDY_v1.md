@@ -6,8 +6,8 @@ This document fixes the reproducible protocol for the SoftwareX Phase-3 case stu
 
 | Dataset | Model | Preprocessing | Samples | Regions | Controls |
 | --- | --- | --- | ---: | --- | ---: |
-| ImageNet-1k validation | `mobilenetv2_050.lamb_in1k` | official / crop-free | 10,000 | 4×4 grid | 1 per target |
-| ImageNet-1k validation | `mobilenetv2_100.ra_in1k` | official / crop-free | 10,000 | 4×4 grid | 1 per target |
+| ImageNet-1k validation | `mobilenetv2_050.lamb_in1k` | official / crop-free | 10,000 | 4×4 grid | 3 per target |
+| ImageNet-1k validation | `mobilenetv2_100.ra_in1k` | official / crop-free | 10,000 | 4×4 grid | 3 per target |
 | NTU60 XSub test | TSM-ResNet50 | MMAction2 val / crop-free | 1,200 | 10 skeleton parts | none |
 
 Every run uses mean fill, Gaussian blur (`sigma=3.0`), and Gaussian noise (`sigma=12.5`, seeds 0/1/2), with global seed `20260820`. The primary metric is `margin_drop`; probability drop, flip rate, region/class/sample aggregates, and stability outputs remain available in the standard stores.

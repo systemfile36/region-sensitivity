@@ -17,7 +17,7 @@ perturbations:
   - {op: blur, params: {sigma: 3.0}, seed_salts: [0]}
   - {op: gaussian_noise, params: {sigma: 12.5}, seed_salts: [0, 1, 2]}
 controls:
-  - {match_area_of: grid_4x4, n_samples: 1}
+  - {match_area_of: grid_4x4, n_samples: 3}
 dataset_stats:
   channel_mean: [123.675, 116.28, 103.53]
 runtime:
