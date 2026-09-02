@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/systemfile36/region-sensitivity/actions/workflows/ci.yml/badge.svg)](https://github.com/systemfile36/region-sensitivity/actions/workflows/ci.yml)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/)
-[![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE.txt)
 
 SSAT is a reproducible audit toolkit for measuring how image- and video-classification models respond to spatial perturbations. It applies controlled deletion-style perturbations to configured regions, stores clean and perturbed logits in a resumable Parquet dump, computes vulnerability metrics, evaluates control and stability evidence, and generates an inspectable HTML report.
 
@@ -71,7 +71,7 @@ estimate -> run -> raw Parquet dump -> metrics -> analysis -> HTML/CSV/JSON repo
 
 Preflight checks whether preprocessing preserves each selected region's intended area fraction. It compares `effective_area_px / model_input_plane_px` with the source-space `intended_area_ratio`; resizing alone therefore passes when it preserves the fraction, while a crop that favors central regions over edge regions is detected. The default inclusive relative-deviation tolerance is 5%.
 
-The check is bounded to three evenly selected samples and 256 deduplicated region geometries per sample. A FAIL is reported as an advisory and makes `ssat run` request confirmation; it is not a hard error, so an reviewed run can proceed with `--yes`. Adapters without a model-space mask transform report `UNAVAILABLE` and do not require confirmation. Use `--max-area-relative-deviation` to adjust the tolerance.
+The check is bounded to three evenly selected samples and 256 deduplicated region geometries per sample. A FAIL is reported as an advisory and makes `ssat run` request confirmation; it is not a hard error, so a reviewed run can proceed with `--yes`. Adapters without a model-space mask transform report `UNAVAILABLE` and do not require confirmation. Use `--max-area-relative-deviation` to adjust the tolerance.
 
 By default, the workflow creates this durable layout:
 
@@ -217,4 +217,4 @@ Citation metadata is provided in [CITATION.cff](CITATION.cff). If you use SSAT i
 
 ## License
 
-SSAT is released under the [MIT License](LICENSE).
+SSAT is released under the [MIT License](LICENSE.txt).
