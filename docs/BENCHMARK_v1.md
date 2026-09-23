@@ -90,6 +90,12 @@ validation samples, 4x4 grid regions, `--minimum-accuracy 0.50` (matches
 Phase 3's gate for this config; the preflight sanity check measured 70.00%
 clean top-1 accuracy, so the gate passed).
 
+These numbers were measured with **one** matched control per target region
+(`controls[0].n_samples: 1`, config SHA-256
+`0abaa1e60387a9a5c123a7c71409ef74f950228d296bea9b748062c166fc781d`, commit
+`bb6b0af`); the config was later raised to three controls per target
+(commit `486007a`), which roughly doubles the item count to 3,210,000.
+
 | phase | wall time | peak host RSS (GiB) |
 | --- | ---: | ---: |
 | `run` | 1h 46m 28s | 19.43 |
