@@ -1,0 +1,104 @@
+{
+  "experiment": "B1",
+  "title": "ImageNet preprocessing confound quantification",
+  "registered_on": "2026-09-24",
+  "plan": {
+    "experiment_plan": "docs/internal/revision_1/SSAT_minor_revision_experiment_plan.md section 5",
+    "implementation_plan": "docs/internal/revision_1/SSAT_minor_revision_implementation_plan.md section 4"
+  },
+  "inference": "none for B1-1 to B1-3; B1-4 reuses the A2 K=20 dumps",
+  "primary_metric": "margin_drop",
+  "protocols": {
+    "P_exact": "timm official eval preprocessing (resize shorter side to 256, center crop 224; crop_pct 0.875); runs imagenet_mnv2_{050,100}_exact_k3",
+    "P_cf": "crop-free preprocessing (geometry_mode squash to 224x224); runs imagenet_mnv2_{050,100}_crop_free_k3",
+    "P_exact_EA": "P_exact inputs; z computed only from controls whose effective area is within +-5 % of the target's (B1-4, after A2)"
+  },
+  "pairs": {
+    "protocol_comparison": [
+      ["imagenet_mnv2_050_exact_k3", "imagenet_mnv2_050_crop_free_k3"],
+      ["imagenet_mnv2_100_exact_k3", "imagenet_mnv2_100_crop_free_k3"]
+    ],
+    "yardstick_model_comparison": [
+      ["imagenet_mnv2_050_exact_k3", "imagenet_mnv2_100_exact_k3"],
+      ["imagenet_mnv2_050_crop_free_k3", "imagenet_mnv2_100_crop_free_k3"]
+    ]
+  },
+  "populations": {
+    "primary": "all 10,000 samples of each pair (every sample is scored in both runs)",
+    "secondary": "samples whose clean prediction is correct in both runs of the pair"
+  },
+  "b1_1_area": {
+    "model_input_px": 50176,
+    "nominal_fraction": 0.0625,
+    "cell_area": "Per target cell and protocol: effective fraction = effective_area_px / 50176 over the 10,000 samples (mean, p5, p50, p95, min, max) and its ratio to the nominal 1/16. Target areas must be identical across the three operators and both models (asserted). cell_type: corner r0c0,r0c3,r3c0,r3c3; center r1c1,r1c2,r2c1,r2c2; edge the rest.",
+    "within_sample_ratio": "Per sample and protocol: max over cells / min over cells of effective area (distribution), next to the analytic square-image value 4096 / 2304 = 1.78 for P_exact.",
+    "control_area": {
+      "item_level": "control item effective area / its target's effective area (same sample, target region from region_params_json), over every control item and condition",
+      "anchor_level": "ratio of anchor-mean areas as ssat.analysis.indexer computes it (control anchor area = rounded mean over all its items); per target anchor, the share whose K control anchors are all within tolerance. At 0.05 this must reproduce the stored area_matched flag exactly.",
+      "tolerances": [0.05, 0.10, 0.20]
+    }
+  },
+  "b1_2_ranking": {
+    "profile": "metrics/spatial_profile.parquet margin_drop per (sample, cell): mean over every target item of that sample and cell",
+    "dataset_level": [
+      "Spearman between the two runs' 16-cell mean profiles",
+      "top-region share per cell (share of samples whose largest-margin_drop cell is that cell; ties by region_key ascending, as in P0-2) and its difference"
+    ],
+    "sample_level": [
+      "per-sample Spearman over the 16 cells (samples with a constant profile in either run are excluded and counted): median, IQR, p10, p90, share < 0.5",
+      "top-1 cell agreement",
+      "top-3 overlap |A intersect B| / 3 (ties by region_key ascending)"
+    ],
+    "cell_level": "per cell: mean rank in each run (rank 1 = largest margin_drop within the sample), mean rank change, and Spearman across the 16 cells between the cell's effective-area ratio (P_cf / P_exact mean effective area) and (a) its mean rank change, (b) its grade change rate"
+  },
+  "b1_3_grade": {
+    "source": "stored reliability.parquet of both runs (A1 parity-checked)",
+    "metrics": [
+      "transition matrix (P_exact rows, P_cf columns)",
+      "agreement, linear weighted kappa, unchanged / 1-step / >=2-step shares, up / down",
+      "change decomposition: grade changed with sign_consistent changed; grade changed with only exceeds_control changed; other",
+      "all of the above per cell type (corner / edge / center)"
+    ],
+    "control_matching_context": "stored area_matched TRUE share per protocol (anchor level)"
+  },
+  "b1_4_effective_area_controls": {
+    "status": "runs after the A2 K=20 exact and crop-free dumps exist; definition fixed here before those dumps are produced",
+    "population": "the A2 2,000-sample subset (salt rev1-a2, 2 samples per class)",
+    "eligibility": "a control item is eligible if |effective_area(control item) / effective_area(target) - 1| <= 0.05",
+    "z": "per (target anchor, condition): control anchors with at least one eligible item contribute the mean of their eligible items; z = (target - mean) / std (ddof 0) over those control anchors if there are at least 3, otherwise UNAVAILABLE",
+    "grade": "A1 grade engine with default thresholds",
+    "compare": [
+      "(a) P_exact, control_index 0-2 of the K=20 run",
+      "(b) P_exact, all 20 controls",
+      "(c) P_exact_EA",
+      "(d) P_cf, all 20 controls (reference)"
+    ],
+    "report": "grade distributions, pairwise agreement / weighted kappa, eligible-control count distribution and UNAVAILABLE share per cell type"
+  },
+  "representative_cases": {
+    "rule": "mnv2_050: the samples whose per-sample exact-vs-crop-free Spearman is closest to the p10, p50, and p90 of its distribution; ties broken by sample_id ascending",
+    "panels": "original image, exact heatmap, crop-free heatmap, per-cell effective area under each protocol"
+  },
+  "outputs": {
+    "summary_dir": "experiments/revision_1/b1_preprocessing/summary",
+    "tables": [
+      "cell_area.csv",
+      "within_sample_area_ratio.csv",
+      "control_area_ratio.csv",
+      "ranking_change.csv",
+      "cell_rank_change.csv",
+      "top_region_share.csv",
+      "grade_transition_exact_to_cf.csv",
+      "grade_change.csv",
+      "by_cell_type.csv",
+      "yardstick.csv",
+      "representative_cases.csv",
+      "eff_area_controls.csv (B1-4)"
+    ],
+    "figures": ["fig_b1_area.pdf", "fig_b1_rank.pdf", "fig_b1_examples.pdf"],
+    "report": "B1_REPORT.md"
+  },
+  "correction_neutrality": "No protocol is treated as the correct one; P_exact, P_cf, and P_exact_EA are all reported (experiment plan section 5.6).",
+  "resampling": "none",
+  "subsets": "none for B1-1 to B1-3; B1-4 uses the A2 subset"
+}
