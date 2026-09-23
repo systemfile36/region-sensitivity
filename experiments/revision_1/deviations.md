@@ -91,3 +91,35 @@ dumps into `results/phase0/recomputed/` and compares every table.
 - Synthetic Q1-Q5 are checked against `results_crop_free/verdicts.json`,
   which `evaluate.py` derived from separate single-operator runs, not from
   the `*_all_ops_thresholds_crop_free` baseline runs.
+
+## D-004 (2026-09-24, Phase 1B): B1 additions and data source
+
+A1 ran as registered (`a1_threshold/protocol.json`); no deviation.
+
+**Added after the area tables were first computed, before any ranking or
+grade comparison was run.**
+
+- Under P_exact, 896 target cells (115 samples) have `effective_area_px == 0`:
+  the cell lies entirely outside the center crop. The registered
+  within-sample max/min area ratio is unbounded for those samples, so
+  `within_sample_area_ratio.csv` reports them as a count and computes the
+  quantiles over the other 9,885 samples. Ratios against a zero-area target
+  are undefined in `control_area_ratio.csv` (counted, and treated as "not
+  within tolerance", as `ssat.analysis.indexer` does).
+- New table `zero_area_targets.csv`: grades and `margin_drop` of those cells.
+- Extra outputs not listed in the protocol: `grade_transition_yardstick.csv`
+  and `sample_spearman_hist.csv` (the histogram behind `fig_b1_rank.pdf`).
+
+**Image source.** The ImageNet validation JPEGs the audits read
+(`data/imagenet/ILSVRC/Data/CLS-LOC/val/`, per the case-study configs) are no
+longer in the working tree. For `fig_b1_examples.pdf` the three pre-registered
+samples were extracted from
+`/media/limdongha/LARGE_DATA/imagenet-object-localization-challenge.zip` into
+`results/b1/images/`, and `plot_figures.py` checks each file's SHA-256
+against the `content_hash` the dumps recorded (all three match). A2 and A3
+need the full 10,000-image set and cannot start until the directory is
+restored.
+
+**Location.** The example renderer is `b1_preprocessing/plot_figures.py`, not
+`scripts/paper_figures/rev1_b1_examples.py` (implementation plan section 4.2),
+because it reads raw images and dumps rather than `summary/` files only.
