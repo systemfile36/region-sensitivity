@@ -75,6 +75,24 @@ Pre-registered in `a1_threshold/protocol.json`; results in
 `intervals.parquet`, and `run_sweep.py` stops unless the default-setting grades
 reproduce `reliability.parquet` exactly.
 
+## Phase 1B: B1 ImageNet preprocessing confound (offline)
+
+Pre-registered in `b1_preprocessing/protocol.json`; results in
+`b1_preprocessing/B1_REPORT.md`. B1-4 (effective-area-matched controls) runs
+after the A2 K=20 dumps exist.
+
+| Step | Command | Output (`b1_preprocessing/summary/`) | Time |
+|---|---|---|---|
+| B1-1 areas | `python experiments/revision_1/b1_preprocessing/area_tables.py` | `cell_area.csv`, `within_sample_area_ratio.csv`, `control_area_ratio.csv`, `zero_area_targets.csv` | ~1 min |
+| B1-2/3 ranking and grades | `python experiments/revision_1/b1_preprocessing/compare_protocols.py` | `ranking_change.csv`, `cell_rank_change.csv`, `top_region_share.csv`, `grade_*.csv`, `by_cell_type.csv`, `yardstick.csv`, `representative_cases.csv` | ~10 s |
+| Figures | `python experiments/revision_1/b1_preprocessing/plot_figures.py --image-root <dir with the 3 example JPEGs>` | `fig_b1_area.pdf`, `fig_b1_rank.pdf`; `results/b1/fig_b1_examples.pdf` (untracked, embeds ImageNet images) | ~1 min |
+| Tests | `python -m pytest -q tests/unit/test_rev1_b1.py` | – | seconds |
+
+`area_tables.py` fails unless its anchor-level area ratios reproduce the stored
+`area_matched` flag exactly. The ImageNet JPEGs are currently missing from
+`data/imagenet/` (`deviations.md` D-004); the example images were extracted
+from the ImageNet zip and are checked against the dumps' `content_hash`.
+
 ## Running new audits
 
 `common/run_matrix.py --matrix <matrix.json> --output-root <dir>` runs
@@ -91,3 +109,5 @@ Filled in as experiments complete.
 | Config / seed / environment / commit for every experiment | `baseline_manifest.json`, `environment.json`, each `*.provenance.json` | `phase0/summary/` |
 | Threshold sensitivity figure/table | `fig_a1_z_curve.pdf`, `fig_a1_oat.pdf`, `table_a1.*`, `sensitivity_ranking.csv` | `a1_threshold/summary/` |
 | Reliability grade transition summary | `transitions.csv`, `fig_a1_transitions.pdf`, `agreement.csv` | `a1_threshold/summary/` |
+| Preprocessing: nominal vs effective area | `cell_area.csv`, `within_sample_area_ratio.csv`, `control_area_ratio.csv`, `fig_b1_area.pdf` | `b1_preprocessing/summary/` |
+| Preprocessing: ranking and grade change | `ranking_change.csv`, `grade_transition_exact_to_cf.csv`, `yardstick.csv`, `fig_b1_rank.pdf` | `b1_preprocessing/summary/` |

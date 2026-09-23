@@ -122,4 +122,7 @@ restored.
 
 **Location.** The example renderer is `b1_preprocessing/plot_figures.py`, not
 `scripts/paper_figures/rev1_b1_examples.py` (implementation plan section 4.2),
-because it reads raw images and dumps rather than `summary/` files only.
+because it reads raw images and dumps rather than `summary/` files only. Its
+output `fig_b1_examples.pdf` goes to `results/b1/` (untracked) instead of
+`summary/`, because it embeds ImageNet photographs that the ImageNet terms of
+access do not allow us to redistribute in the repository.

@@ -3,7 +3,7 @@
 ``fig_b1_area.pdf`` and ``fig_b1_rank.pdf`` read only ``summary/*.csv``.
 ``fig_b1_examples.pdf`` additionally reads the three pre-registered
 representative samples' images, per-cell ``margin_drop``, and effective areas
-from the mnv2_050 runs.
+from the mnv2_050 runs, and is written to ``results/b1/`` (untracked).
 
 Example:
     python experiments/revision_1/b1_preprocessing/plot_figures.py
@@ -30,11 +30,13 @@ from PIL import Image  # noqa: E402
 from experiments.revision_1.a1_threshold.build_features import cell_columns  # noqa: E402
 from experiments.revision_1.common.loading import iter_latest_perturbed, load_spatial_profile  # noqa: E402
 from experiments.revision_1.common.provenance import write_provenance  # noqa: E402
-from experiments.revision_1.common.runs import BASELINE_RUNS, REPO_ROOT  # noqa: E402
+from experiments.revision_1.common.runs import BASELINE_RUNS, REPO_ROOT, REVISION_RESULTS_DIR  # noqa: E402
 from ssat.core.dump._storage import fragment_files  # noqa: E402
 from ssat.utils.io import sha256_file  # noqa: E402
 
 SUMMARY_DIR = Path(__file__).resolve().parent / "summary"
+EXAMPLES_PATH = REVISION_RESULTS_DIR / "b1" / "fig_b1_examples.pdf"
+"""Kept out of git: the figure embeds ImageNet photographs, which the ImageNet terms do not let us redistribute."""
 IMAGE_ROOT = REPO_ROOT / "data" / "imagenet" / "ILSVRC" / "Data" / "CLS-LOC" / "val"
 EXAMPLE_RUNS = {"exact": "imagenet_mnv2_050_exact_k3", "crop_free": "imagenet_mnv2_050_crop_free_k3"}
 PROTOCOL_COLORS = {"exact": "#d95f02", "crop_free": "#1b9e77"}
@@ -254,7 +256,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     inputs = {name: summary / f"{name}.csv" for name in ("cell_area", "within_sample_area_ratio", "sample_spearman_hist", "by_cell_type")}
     if not args.skip_examples:
         cases = pd.read_csv(summary / "representative_cases.csv")
-        plot_examples(cases, summary / "fig_b1_examples.pdf", args.image_root)
+        plot_examples(cases, EXAMPLES_PATH, args.image_root)
         inputs["representative_cases"] = summary / "representative_cases.csv"
         inputs.update({f"image:{sample_id}": args.image_root / sample_id for sample_id in cases["sample_id"]})
     write_provenance(summary, inputs=inputs, filename="plot_figures.provenance.json")
