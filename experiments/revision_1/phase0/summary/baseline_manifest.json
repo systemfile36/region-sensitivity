@@ -1,0 +1,4472 @@
+{
+  "baseline": {
+    "imagenet_mnv2_050_crop_free_k3": {
+      "adapter_spec": {
+        "adapter_kind": "timm",
+        "class_names": null,
+        "deterministic": true,
+        "input_layout": "THWC_uint8",
+        "mask_transform_available": true,
+        "max_batch_size": 128,
+        "model_id": "timm:mobilenetv2_050.lamb_in1k:pretrained=true",
+        "model_name": "mobilenetv2_050.lamb_in1k",
+        "output_kind": "logits",
+        "preprocessing_desc": "{\"geometry_mode\": \"squash\", \"input_size\": [3, 224, 224], \"interpolation\": \"bicubic\", \"kind\": \"timm\", \"mean\": [0.485, 0.456, 0.406], \"std\": [0.229, 0.224, 0.225]}",
+        "preprocessing_fingerprint": "d8a816490e39b1bd19df7349f41bc98fbd5007822132c02e5cf0a18c883bbd06",
+        "weights_hash": null,
+        "weights_id": "timm/mobilenetv2_050.lamb_in1k"
+      },
+      "analysis_manifest": {
+        "available_analyses": {
+          "control_comparison": true,
+          "fill_strategy_stability": true,
+          "jitter_stability": false,
+          "seed_stability": true
+        },
+        "computed_at": "2026-08-31T17:36:53.895507+00:00",
+        "grade_distribution_all_metrics": {
+          "high": 105836,
+          "low": 265092,
+          "moderate": 599626,
+          "unreliable": 469446
+        },
+        "n_bootstrap": 1000,
+        "random_seed": 0,
+        "schema_version": "1.0.0",
+        "sha256": "12a6ef77386dd60ca10500c014820a6a5d9e20938409e9de4b9fae13fc5cdeb7",
+        "thresholds": {
+          "area_match_tolerance": 0.05,
+          "seed_cv_threshold": 0.2,
+          "z_vs_control_threshold": 2.0
+        }
+      },
+      "bytes": {
+        "analysis": 216714265,
+        "dump_total": 13380499874,
+        "imagenet_mnv2_050_crop_free": 13380499874,
+        "metrics": 272277845
+      },
+      "checks": {
+        "all_items_ok": true,
+        "analysis_from_these_metrics": true,
+        "analysis_predates_last_analysis_or_metrics_commit": false,
+        "metrics_from_this_dump": true,
+        "n_controls_matches_registry": true,
+        "run_finished": true,
+        "source_manifest_unchanged": true
+      },
+      "config": {
+        "path": "experiments/real_dataset_case_study/configs/imagenet_mnv2_050_crop_free.yaml",
+        "recorded_config_source": "experiments/real_dataset_case_study/configs/imagenet_mnv2_050_crop_free.yaml",
+        "revision": null,
+        "sha256_current": "bd40274d82a410c2e835333fed9192731a0756d2378aae44890158e3990bae31"
+      },
+      "dataset": "imagenet",
+      "margin_drop": {
+        "flag_rates": {
+          "area_matched": {
+            "true": 1.0
+          },
+          "ci_excludes_zero": {
+            "true": 1.0
+          },
+          "exceeds_control": {
+            "false": 0.639687,
+            "true": 0.360312
+          },
+          "multi_strategy": {
+            "true": 1.0
+          },
+          "seed_stable": {
+            "false": 0.810837,
+            "true": 0.189163
+          },
+          "sign_consistent": {
+            "false": 0.616075,
+            "true": 0.383925
+          }
+        },
+        "grade_counts": {
+          "high": 23265,
+          "low": 38163,
+          "unreliable": 98572
+        },
+        "grade_pct": {
+          "high": 14.5406,
+          "low": 23.8519,
+          "unreliable": 61.6075
+        },
+        "n_anchors": 160000
+      },
+      "metrics_manifest": {
+        "computed_at": "2026-08-31T17:17:47.346308+00:00",
+        "exclusion_summary": {
+          "clean_status_counts": {
+            "load_failed": 0,
+            "ok": 10000,
+            "predict_failed": 0,
+            "prepare_failed": 0,
+            "skipped_oom": 0
+          },
+          "items_excluded_perturbed_failed": 0,
+          "perturbed_status_counts": {
+            "load_failed": 0,
+            "ok": 3200000,
+            "predict_failed": 0,
+            "prepare_failed": 0,
+            "skipped_oom": 0
+          },
+          "samples_excluded_clean_failed": 0,
+          "total_clean_samples": 10000,
+          "total_perturbed_items": 3200000
+        },
+        "metric_config": {
+          "primary_metric": "margin_drop",
+          "topk": 5
+        },
+        "schema_version": "1.1.0",
+        "sha256": "1b5efaa61f39d2cd54210daa2f6bfb76e3d898ae34e50f6f347a5b0146250f0a"
+      },
+      "model": "mobilenetv2_050",
+      "n_controls": 3,
+      "name": "imagenet_mnv2_050_crop_free_k3",
+      "paths": {
+        "analysis": "experiments/real_dataset_case_study/results_control_3/imagenet_mnv2_050_crop_free/analysis",
+        "dump": "experiments/real_dataset_case_study/results_control_3/imagenet_mnv2_050_crop_free",
+        "metrics": "experiments/real_dataset_case_study/results_control_3/imagenet_mnv2_050_crop_free/metrics"
+      },
+      "preprocessing_fingerprint": "d8a816490e39b1bd19df7349f41bc98fbd5007822132c02e5cf0a18c883bbd06",
+      "protocol": "crop_free",
+      "resolved_config": {
+        "controls": [
+          {
+            "match_area_of": "grid_4x4",
+            "n_samples": 3
+          }
+        ],
+        "dataset_stats": {
+          "channel_mean": [
+            123.675,
+            116.28,
+            103.53
+          ]
+        },
+        "perturbations": [
+          {
+            "invert_mask": false,
+            "op": "mean_fill",
+            "params": {
+              "value": [
+                123.675,
+                116.28,
+                103.53
+              ]
+            },
+            "seed_salts": [
+              0
+            ]
+          },
+          {
+            "invert_mask": false,
+            "op": "blur",
+            "params": {
+              "sigma": 3.0
+            },
+            "seed_salts": [
+              0
+            ]
+          },
+          {
+            "invert_mask": false,
+            "op": "gaussian_noise",
+            "params": {
+              "sigma": 12.5
+            },
+            "seed_salts": [
+              0,
+              1,
+              2
+            ]
+          }
+        ],
+        "regions": [
+          {
+            "kind": "grid",
+            "params": {
+              "cols": 4,
+              "rows": 4
+            },
+            "ref": null,
+            "ref_hash": null,
+            "region_id": "grid_4x4",
+            "semantic_group": null
+          }
+        ],
+        "runtime": {
+          "allow_nondeterministic": false,
+          "fail_fast": false,
+          "global_seed": 20260820,
+          "num_workers": 12,
+          "retry_failed": true,
+          "target_batch_size": 128,
+          "variants_per_chunk": 128
+        },
+        "sha256_canonical": "eaa883674f088df20e3e10b180f10ad69f189ec3beee0a7cb5767b817737bd3f",
+        "skeleton_source": null,
+        "source_provenance": {
+          "kind": "imagenet",
+          "loader_parameters": {
+            "root": "/workspace/data/imagenet/ILSVRC/Data/CLS-LOC/val"
+          },
+          "manifest": "/workspace/data/phase3/imagenet/val_10_per_class.txt",
+          "manifest_hash": "bfa620c787cfea0d17e613ff06b10bdef9215d0b2ba0abbceb2aba28283fdb87"
+        }
+      },
+      "run_manifest": {
+        "code_version": "0.1.0",
+        "counts_by_status": {
+          "load_failed": 0,
+          "ok": 3210000,
+          "predict_failed": 0,
+          "prepare_failed": 0,
+          "skipped_oom": 0
+        },
+        "environment": {
+          "cuda_version": "12.9",
+          "gpu_names": [
+            "NVIDIA GeForce RTX 4090"
+          ],
+          "platform": "Linux-7.0.0-28-generic-x86_64-with-glibc2.35",
+          "python_version": "3.11.13",
+          "torch_version": "2.8.0+cu129"
+        },
+        "finished_at": "2026-08-31T16:52:06.861973Z",
+        "resume_events": 0,
+        "run_duration_s": 10404.232516,
+        "schema_version": "1.0.0",
+        "sha256": "78ce1a6e8c1941eb1b0d133dffa8b6579148539e45dff707c91a5062b4915e5f",
+        "started_at": "2026-08-31T13:58:42.629457Z"
+      }
+    },
+    "imagenet_mnv2_050_exact_k3": {
+      "adapter_spec": {
+        "adapter_kind": "timm",
+        "class_names": null,
+        "deterministic": true,
+        "input_layout": "THWC_uint8",
+        "mask_transform_available": true,
+        "max_batch_size": 128,
+        "model_id": "timm:mobilenetv2_050.lamb_in1k:pretrained=true",
+        "model_name": "mobilenetv2_050.lamb_in1k",
+        "output_kind": "logits",
+        "preprocessing_desc": "{\"crop_mode\": \"center\", \"crop_pct\": 0.875, \"input_size\": [3, 224, 224], \"interpolation\": \"bicubic\", \"mean\": [0.485, 0.456, 0.406], \"std\": [0.229, 0.224, 0.225]}",
+        "preprocessing_fingerprint": "fa2a97c526a01911268753632336e5c959e28f6d6b16e438bc7fbc8218f8fc7f",
+        "weights_hash": null,
+        "weights_id": "timm/mobilenetv2_050.lamb_in1k"
+      },
+      "analysis_manifest": {
+        "available_analyses": {
+          "control_comparison": true,
+          "fill_strategy_stability": true,
+          "jitter_stability": false,
+          "seed_stability": true
+        },
+        "computed_at": "2026-08-31T13:50:21.300386+00:00",
+        "grade_distribution_all_metrics": {
+          "high": 102707,
+          "low": 288446,
+          "moderate": 609019,
+          "unreliable": 439828
+        },
+        "n_bootstrap": 1000,
+        "random_seed": 0,
+        "schema_version": "1.0.0",
+        "sha256": "c961e6c017399fba12d0dcddd64a8a943a15cadf0d9694d0f23be9d1cd80f66f",
+        "thresholds": {
+          "area_match_tolerance": 0.05,
+          "seed_cv_threshold": 0.2,
+          "z_vs_control_threshold": 2.0
+        }
+      },
+      "bytes": {
+        "analysis": 216394691,
+        "dump_total": 13378495553,
+        "imagenet_mnv2_050_exact": 13378495553,
+        "metrics": 272710719
+      },
+      "checks": {
+        "all_items_ok": true,
+        "analysis_from_these_metrics": true,
+        "analysis_predates_last_analysis_or_metrics_commit": false,
+        "metrics_from_this_dump": true,
+        "n_controls_matches_registry": true,
+        "run_finished": true,
+        "source_manifest_unchanged": true
+      },
+      "config": {
+        "path": "experiments/real_dataset_case_study/configs/imagenet_mnv2_050_exact.yaml",
+        "recorded_config_source": "experiments/real_dataset_case_study/configs/imagenet_mnv2_050_exact.yaml",
+        "revision": null,
+        "sha256_current": "3403b4705fcb739347c5b391164d62d004306b3f382c45b207b8e93b7120cea3"
+      },
+      "dataset": "imagenet",
+      "margin_drop": {
+        "flag_rates": {
+          "area_matched": {
+            "false": 0.993125,
+            "true": 0.006875
+          },
+          "ci_excludes_zero": {
+            "true": 1.0
+          },
+          "exceeds_control": {
+            "false": 0.673869,
+            "true": 0.326131
+          },
+          "multi_strategy": {
+            "true": 1.0
+          },
+          "seed_stable": {
+            "false": 0.799687,
+            "true": 0.200306,
+            "unavailable": 6e-06
+          },
+          "sign_consistent": {
+            "false": 0.590294,
+            "true": 0.409706
+          }
+        },
+        "grade_counts": {
+          "high": 22855,
+          "low": 42698,
+          "unreliable": 94447
+        },
+        "grade_pct": {
+          "high": 14.2844,
+          "low": 26.6863,
+          "unreliable": 59.0294
+        },
+        "n_anchors": 160000
+      },
+      "metrics_manifest": {
+        "computed_at": "2026-08-31T13:31:11.192648+00:00",
+        "exclusion_summary": {
+          "clean_status_counts": {
+            "load_failed": 0,
+            "ok": 10000,
+            "predict_failed": 0,
+            "prepare_failed": 0,
+            "skipped_oom": 0
+          },
+          "items_excluded_perturbed_failed": 0,
+          "perturbed_status_counts": {
+            "load_failed": 0,
+            "ok": 3200000,
+            "predict_failed": 0,
+            "prepare_failed": 0,
+            "skipped_oom": 0
+          },
+          "samples_excluded_clean_failed": 0,
+          "total_clean_samples": 10000,
+          "total_perturbed_items": 3200000
+        },
+        "metric_config": {
+          "primary_metric": "margin_drop",
+          "topk": 5
+        },
+        "schema_version": "1.1.0",
+        "sha256": "652756b373c95b140ea710dc6f50cb248eba6586ce75e7bbf7bfc0ee0b425cb8"
+      },
+      "model": "mobilenetv2_050",
+      "n_controls": 3,
+      "name": "imagenet_mnv2_050_exact_k3",
+      "paths": {
+        "analysis": "experiments/real_dataset_case_study/results_control_3/imagenet_mnv2_050_exact/analysis",
+        "dump": "experiments/real_dataset_case_study/results_control_3/imagenet_mnv2_050_exact",
+        "metrics": "experiments/real_dataset_case_study/results_control_3/imagenet_mnv2_050_exact/metrics"
+      },
+      "preprocessing_fingerprint": "fa2a97c526a01911268753632336e5c959e28f6d6b16e438bc7fbc8218f8fc7f",
+      "protocol": "exact",
+      "resolved_config": {
+        "controls": [
+          {
+            "match_area_of": "grid_4x4",
+            "n_samples": 3
+          }
+        ],
+        "dataset_stats": {
+          "channel_mean": [
+            123.675,
+            116.28,
+            103.53
+          ]
+        },
+        "perturbations": [
+          {
+            "invert_mask": false,
+            "op": "mean_fill",
+            "params": {
+              "value": [
+                123.675,
+                116.28,
+                103.53
+              ]
+            },
+            "seed_salts": [
+              0
+            ]
+          },
+          {
+            "invert_mask": false,
+            "op": "blur",
+            "params": {
+              "sigma": 3.0
+            },
+            "seed_salts": [
+              0
+            ]
+          },
+          {
+            "invert_mask": false,
+            "op": "gaussian_noise",
+            "params": {
+              "sigma": 12.5
+            },
+            "seed_salts": [
+              0,
+              1,
+              2
+            ]
+          }
+        ],
+        "regions": [
+          {
+            "kind": "grid",
+            "params": {
+              "cols": 4,
+              "rows": 4
+            },
+            "ref": null,
+            "ref_hash": null,
+            "region_id": "grid_4x4",
+            "semantic_group": null
+          }
+        ],
+        "runtime": {
+          "allow_nondeterministic": false,
+          "fail_fast": false,
+          "global_seed": 20260820,
+          "num_workers": 12,
+          "retry_failed": true,
+          "target_batch_size": 128,
+          "variants_per_chunk": 128
+        },
+        "sha256_canonical": "241d8d36d2ffaeebb948fa341ca8b481184cb1926ae823a86967f6ecfadffc51",
+        "skeleton_source": null,
+        "source_provenance": {
+          "kind": "imagenet",
+          "loader_parameters": {
+            "root": "/workspace/data/imagenet/ILSVRC/Data/CLS-LOC/val"
+          },
+          "manifest": "/workspace/data/phase3/imagenet/val_10_per_class.txt",
+          "manifest_hash": "bfa620c787cfea0d17e613ff06b10bdef9215d0b2ba0abbceb2aba28283fdb87"
+        }
+      },
+      "run_manifest": {
+        "code_version": "0.1.0",
+        "counts_by_status": {
+          "load_failed": 0,
+          "ok": 3210000,
+          "predict_failed": 0,
+          "prepare_failed": 0,
+          "skipped_oom": 0
+        },
+        "environment": {
+          "cuda_version": "12.9",
+          "gpu_names": [
+            "NVIDIA GeForce RTX 4090"
+          ],
+          "platform": "Linux-7.0.0-28-generic-x86_64-with-glibc2.35",
+          "python_version": "3.11.13",
+          "torch_version": "2.8.0+cu129"
+        },
+        "finished_at": "2026-08-31T13:05:40.339122Z",
+        "resume_events": 0,
+        "run_duration_s": 11925.114051,
+        "schema_version": "1.0.0",
+        "sha256": "ca1340c1d13b3c65493f4dd3915e0ffb8321103b0da48fec1506feaf13cb1413",
+        "started_at": "2026-08-31T09:46:55.225071Z"
+      }
+    },
+    "imagenet_mnv2_100_crop_free_k3": {
+      "adapter_spec": {
+        "adapter_kind": "timm",
+        "class_names": null,
+        "deterministic": true,
+        "input_layout": "THWC_uint8",
+        "mask_transform_available": true,
+        "max_batch_size": 96,
+        "model_id": "timm:mobilenetv2_100.ra_in1k:pretrained=true",
+        "model_name": "mobilenetv2_100.ra_in1k",
+        "output_kind": "logits",
+        "preprocessing_desc": "{\"geometry_mode\": \"squash\", \"input_size\": [3, 224, 224], \"interpolation\": \"bicubic\", \"kind\": \"timm\", \"mean\": [0.485, 0.456, 0.406], \"std\": [0.229, 0.224, 0.225]}",
+        "preprocessing_fingerprint": "d8a816490e39b1bd19df7349f41bc98fbd5007822132c02e5cf0a18c883bbd06",
+        "weights_hash": null,
+        "weights_id": "timm/mobilenetv2_100.ra_in1k"
+      },
+      "analysis_manifest": {
+        "available_analyses": {
+          "control_comparison": true,
+          "fill_strategy_stability": true,
+          "jitter_stability": false,
+          "seed_stability": true
+        },
+        "computed_at": "2026-09-01T09:46:24.353466+00:00",
+        "grade_distribution_all_metrics": {
+          "high": 95073,
+          "low": 264266,
+          "moderate": 629968,
+          "unreliable": 450693
+        },
+        "n_bootstrap": 1000,
+        "random_seed": 0,
+        "schema_version": "1.0.0",
+        "sha256": "038ab9959002cdce168825484879bf86ffeb25c8bb04db811a8d27d29f2d2a2b",
+        "thresholds": {
+          "area_match_tolerance": 0.05,
+          "seed_cv_threshold": 0.2,
+          "z_vs_control_threshold": 2.0
+        }
+      },
+      "bytes": {
+        "analysis": 212582016,
+        "dump_total": 14402224880,
+        "imagenet_mnv2_100_crop_free": 14402224880,
+        "metrics": 266492823
+      },
+      "checks": {
+        "all_items_ok": true,
+        "analysis_from_these_metrics": true,
+        "analysis_predates_last_analysis_or_metrics_commit": false,
+        "metrics_from_this_dump": true,
+        "n_controls_matches_registry": true,
+        "run_finished": true,
+        "source_manifest_unchanged": true
+      },
+      "config": {
+        "path": "experiments/real_dataset_case_study/configs/imagenet_mnv2_100_crop_free.yaml",
+        "recorded_config_source": "experiments/real_dataset_case_study/configs/imagenet_mnv2_100_crop_free.yaml",
+        "revision": null,
+        "sha256_current": "d6c49be041f9e5575dff100659772e283436e5321c0e44f772ef0d0805608e23"
+      },
+      "dataset": "imagenet",
+      "margin_drop": {
+        "flag_rates": {
+          "area_matched": {
+            "true": 1.0
+          },
+          "ci_excludes_zero": {
+            "true": 1.0
+          },
+          "exceeds_control": {
+            "false": 0.6518,
+            "true": 0.3482
+          },
+          "multi_strategy": {
+            "false": 6e-06,
+            "true": 0.999994
+          },
+          "seed_stable": {
+            "false": 0.8227,
+            "true": 0.177281,
+            "unavailable": 1.9e-05
+          },
+          "sign_consistent": {
+            "false": 0.611431,
+            "true": 0.388569
+          }
+        },
+        "grade_counts": {
+          "high": 22865,
+          "low": 39306,
+          "unreliable": 97829
+        },
+        "grade_pct": {
+          "high": 14.2906,
+          "low": 24.5663,
+          "unreliable": 61.1431
+        },
+        "n_anchors": 160000
+      },
+      "metrics_manifest": {
+        "computed_at": "2026-09-01T09:26:38.698231+00:00",
+        "exclusion_summary": {
+          "clean_status_counts": {
+            "load_failed": 0,
+            "ok": 10000,
+            "predict_failed": 0,
+            "prepare_failed": 0,
+            "skipped_oom": 0
+          },
+          "items_excluded_perturbed_failed": 0,
+          "perturbed_status_counts": {
+            "load_failed": 0,
+            "ok": 3200000,
+            "predict_failed": 0,
+            "prepare_failed": 0,
+            "skipped_oom": 0
+          },
+          "samples_excluded_clean_failed": 0,
+          "total_clean_samples": 10000,
+          "total_perturbed_items": 3200000
+        },
+        "metric_config": {
+          "primary_metric": "margin_drop",
+          "topk": 5
+        },
+        "schema_version": "1.1.0",
+        "sha256": "69e20fd91768b7dc8c89760ea729107e8180be9f7c2847d9d6386169b07bcd4a"
+      },
+      "model": "mobilenetv2_100",
+      "n_controls": 3,
+      "name": "imagenet_mnv2_100_crop_free_k3",
+      "paths": {
+        "analysis": "experiments/real_dataset_case_study/results_control_3/imagenet_mnv2_100_crop_free/analysis",
+        "dump": "experiments/real_dataset_case_study/results_control_3/imagenet_mnv2_100_crop_free",
+        "metrics": "experiments/real_dataset_case_study/results_control_3/imagenet_mnv2_100_crop_free/metrics"
+      },
+      "preprocessing_fingerprint": "d8a816490e39b1bd19df7349f41bc98fbd5007822132c02e5cf0a18c883bbd06",
+      "protocol": "crop_free",
+      "resolved_config": {
+        "controls": [
+          {
+            "match_area_of": "grid_4x4",
+            "n_samples": 3
+          }
+        ],
+        "dataset_stats": {
+          "channel_mean": [
+            123.675,
+            116.28,
+            103.53
+          ]
+        },
+        "perturbations": [
+          {
+            "invert_mask": false,
+            "op": "mean_fill",
+            "params": {
+              "value": [
+                123.675,
+                116.28,
+                103.53
+              ]
+            },
+            "seed_salts": [
+              0
+            ]
+          },
+          {
+            "invert_mask": false,
+            "op": "blur",
+            "params": {
+              "sigma": 3.0
+            },
+            "seed_salts": [
+              0
+            ]
+          },
+          {
+            "invert_mask": false,
+            "op": "gaussian_noise",
+            "params": {
+              "sigma": 12.5
+            },
+            "seed_salts": [
+              0,
+              1,
+              2
+            ]
+          }
+        ],
+        "regions": [
+          {
+            "kind": "grid",
+            "params": {
+              "cols": 4,
+              "rows": 4
+            },
+            "ref": null,
+            "ref_hash": null,
+            "region_id": "grid_4x4",
+            "semantic_group": null
+          }
+        ],
+        "runtime": {
+          "allow_nondeterministic": false,
+          "fail_fast": false,
+          "global_seed": 20260820,
+          "num_workers": 12,
+          "retry_failed": true,
+          "target_batch_size": 96,
+          "variants_per_chunk": 96
+        },
+        "sha256_canonical": "bc464d94983e4141ffff6aac4ae90048edf34ed1cf51cc8fc289261c85574aeb",
+        "skeleton_source": null,
+        "source_provenance": {
+          "kind": "imagenet",
+          "loader_parameters": {
+            "root": "/workspace/data/imagenet/ILSVRC/Data/CLS-LOC/val"
+          },
+          "manifest": "/workspace/data/phase3/imagenet/val_10_per_class.txt",
+          "manifest_hash": "bfa620c787cfea0d17e613ff06b10bdef9215d0b2ba0abbceb2aba28283fdb87"
+        }
+      },
+      "run_manifest": {
+        "code_version": "0.1.0",
+        "counts_by_status": {
+          "load_failed": 0,
+          "ok": 3210000,
+          "predict_failed": 0,
+          "prepare_failed": 0,
+          "skipped_oom": 0
+        },
+        "environment": {
+          "cuda_version": "12.9",
+          "gpu_names": [
+            "NVIDIA GeForce RTX 4090"
+          ],
+          "platform": "Linux-7.0.0-28-generic-x86_64-with-glibc2.35",
+          "python_version": "3.11.13",
+          "torch_version": "2.8.0+cu129"
+        },
+        "finished_at": "2026-09-01T09:00:39.583697Z",
+        "resume_events": 0,
+        "run_duration_s": 11602.371842,
+        "schema_version": "1.0.0",
+        "sha256": "aed5876ae0669e354613c11ac313edb538d148267ab77f046346a38cf42544c3",
+        "started_at": "2026-09-01T05:47:17.211855Z"
+      }
+    },
+    "imagenet_mnv2_100_exact_k3": {
+      "adapter_spec": {
+        "adapter_kind": "timm",
+        "class_names": null,
+        "deterministic": true,
+        "input_layout": "THWC_uint8",
+        "mask_transform_available": true,
+        "max_batch_size": 96,
+        "model_id": "timm:mobilenetv2_100.ra_in1k:pretrained=true",
+        "model_name": "mobilenetv2_100.ra_in1k",
+        "output_kind": "logits",
+        "preprocessing_desc": "{\"crop_mode\": \"center\", \"crop_pct\": 0.875, \"input_size\": [3, 224, 224], \"interpolation\": \"bicubic\", \"mean\": [0.485, 0.456, 0.406], \"std\": [0.229, 0.224, 0.225]}",
+        "preprocessing_fingerprint": "fa2a97c526a01911268753632336e5c959e28f6d6b16e438bc7fbc8218f8fc7f",
+        "weights_hash": null,
+        "weights_id": "timm/mobilenetv2_100.ra_in1k"
+      },
+      "analysis_manifest": {
+        "available_analyses": {
+          "control_comparison": true,
+          "fill_strategy_stability": true,
+          "jitter_stability": false,
+          "seed_stability": true
+        },
+        "computed_at": "2026-08-31T21:50:08.843214+00:00",
+        "grade_distribution_all_metrics": {
+          "high": 93052,
+          "low": 290763,
+          "moderate": 626370,
+          "unreliable": 429815
+        },
+        "n_bootstrap": 1000,
+        "random_seed": 0,
+        "schema_version": "1.0.0",
+        "sha256": "105bcb6ff15ad24bd1231385568be285637693368fec726d5d0e80fc45be61ff",
+        "thresholds": {
+          "area_match_tolerance": 0.05,
+          "seed_cv_threshold": 0.2,
+          "z_vs_control_threshold": 2.0
+        }
+      },
+      "bytes": {
+        "analysis": 212278082,
+        "dump_total": 14397906357,
+        "imagenet_mnv2_100_exact": 14397906357,
+        "metrics": 266309207
+      },
+      "checks": {
+        "all_items_ok": true,
+        "analysis_from_these_metrics": true,
+        "analysis_predates_last_analysis_or_metrics_commit": false,
+        "metrics_from_this_dump": true,
+        "n_controls_matches_registry": true,
+        "run_finished": true,
+        "source_manifest_unchanged": true
+      },
+      "config": {
+        "path": "experiments/real_dataset_case_study/configs/imagenet_mnv2_100_exact.yaml",
+        "recorded_config_source": "experiments/real_dataset_case_study/configs/imagenet_mnv2_100_exact.yaml",
+        "revision": null,
+        "sha256_current": "a95fcfecc40c19a85a7e2e69a1d34f38b055aa4a4a359a6c100d6241b401eaab"
+      },
+      "dataset": "imagenet",
+      "margin_drop": {
+        "flag_rates": {
+          "area_matched": {
+            "false": 0.993125,
+            "true": 0.006875
+          },
+          "ci_excludes_zero": {
+            "true": 1.0
+          },
+          "exceeds_control": {
+            "false": 0.678531,
+            "true": 0.321469
+          },
+          "multi_strategy": {
+            "true": 1.0
+          },
+          "seed_stable": {
+            "false": 0.818381,
+            "true": 0.181606,
+            "unavailable": 1.3e-05
+          },
+          "sign_consistent": {
+            "false": 0.592025,
+            "true": 0.407975
+          }
+        },
+        "grade_counts": {
+          "high": 22287,
+          "low": 42989,
+          "unreliable": 94724
+        },
+        "grade_pct": {
+          "high": 13.9294,
+          "low": 26.8681,
+          "unreliable": 59.2025
+        },
+        "n_anchors": 160000
+      },
+      "metrics_manifest": {
+        "computed_at": "2026-08-31T21:30:59.039389+00:00",
+        "exclusion_summary": {
+          "clean_status_counts": {
+            "load_failed": 0,
+            "ok": 10000,
+            "predict_failed": 0,
+            "prepare_failed": 0,
+            "skipped_oom": 0
+          },
+          "items_excluded_perturbed_failed": 0,
+          "perturbed_status_counts": {
+            "load_failed": 0,
+            "ok": 3200000,
+            "predict_failed": 0,
+            "prepare_failed": 0,
+            "skipped_oom": 0
+          },
+          "samples_excluded_clean_failed": 0,
+          "total_clean_samples": 10000,
+          "total_perturbed_items": 3200000
+        },
+        "metric_config": {
+          "primary_metric": "margin_drop",
+          "topk": 5
+        },
+        "schema_version": "1.1.0",
+        "sha256": "d5a7a9511f9d1573768e00f20dc733d02c258d5b234a8505e112c711dd97d671"
+      },
+      "model": "mobilenetv2_100",
+      "n_controls": 3,
+      "name": "imagenet_mnv2_100_exact_k3",
+      "paths": {
+        "analysis": "experiments/real_dataset_case_study/results_control_3/imagenet_mnv2_100_exact/analysis",
+        "dump": "experiments/real_dataset_case_study/results_control_3/imagenet_mnv2_100_exact",
+        "metrics": "experiments/real_dataset_case_study/results_control_3/imagenet_mnv2_100_exact/metrics"
+      },
+      "preprocessing_fingerprint": "fa2a97c526a01911268753632336e5c959e28f6d6b16e438bc7fbc8218f8fc7f",
+      "protocol": "exact",
+      "resolved_config": {
+        "controls": [
+          {
+            "match_area_of": "grid_4x4",
+            "n_samples": 3
+          }
+        ],
+        "dataset_stats": {
+          "channel_mean": [
+            123.675,
+            116.28,
+            103.53
+          ]
+        },
+        "perturbations": [
+          {
+            "invert_mask": false,
+            "op": "mean_fill",
+            "params": {
+              "value": [
+                123.675,
+                116.28,
+                103.53
+              ]
+            },
+            "seed_salts": [
+              0
+            ]
+          },
+          {
+            "invert_mask": false,
+            "op": "blur",
+            "params": {
+              "sigma": 3.0
+            },
+            "seed_salts": [
+              0
+            ]
+          },
+          {
+            "invert_mask": false,
+            "op": "gaussian_noise",
+            "params": {
+              "sigma": 12.5
+            },
+            "seed_salts": [
+              0,
+              1,
+              2
+            ]
+          }
+        ],
+        "regions": [
+          {
+            "kind": "grid",
+            "params": {
+              "cols": 4,
+              "rows": 4
+            },
+            "ref": null,
+            "ref_hash": null,
+            "region_id": "grid_4x4",
+            "semantic_group": null
+          }
+        ],
+        "runtime": {
+          "allow_nondeterministic": false,
+          "fail_fast": false,
+          "global_seed": 20260820,
+          "num_workers": 12,
+          "retry_failed": true,
+          "target_batch_size": 96,
+          "variants_per_chunk": 96
+        },
+        "sha256_canonical": "ecc5cc0da12c669e5d39b8580c8c55f85098eee46490ef78f40ea665452d8ee5",
+        "skeleton_source": null,
+        "source_provenance": {
+          "kind": "imagenet",
+          "loader_parameters": {
+            "root": "/workspace/data/imagenet/ILSVRC/Data/CLS-LOC/val"
+          },
+          "manifest": "/workspace/data/phase3/imagenet/val_10_per_class.txt",
+          "manifest_hash": "bfa620c787cfea0d17e613ff06b10bdef9215d0b2ba0abbceb2aba28283fdb87"
+        }
+      },
+      "run_manifest": {
+        "code_version": "0.1.0",
+        "counts_by_status": {
+          "load_failed": 0,
+          "ok": 3210000,
+          "predict_failed": 0,
+          "prepare_failed": 0,
+          "skipped_oom": 0
+        },
+        "environment": {
+          "cuda_version": "12.9",
+          "gpu_names": [
+            "NVIDIA GeForce RTX 4090"
+          ],
+          "platform": "Linux-7.0.0-28-generic-x86_64-with-glibc2.35",
+          "python_version": "3.11.13",
+          "torch_version": "2.8.0+cu129"
+        },
+        "finished_at": "2026-08-31T21:05:39.266778Z",
+        "resume_events": 0,
+        "run_duration_s": 12021.238537,
+        "schema_version": "1.0.0",
+        "sha256": "ba8791401ac90ffbf811a7736d76adbde43e74b6da3bb607e48a408df86eea28",
+        "started_at": "2026-08-31T17:45:18.028241Z"
+      }
+    },
+    "ntu60_tsm_crop_free": {
+      "adapter_spec": {
+        "adapter_kind": "torchvision_tsm",
+        "class_names": null,
+        "deterministic": true,
+        "input_layout": "THWC_uint8",
+        "mask_transform_available": true,
+        "max_batch_size": 64,
+        "model_id": "torchvision_tsm:tsm_resnet50:segments=8:classes=60:weights=checkpoint:native_tsm_r50_xsub_epoch45.pt",
+        "model_name": "tsm_resnet50",
+        "output_kind": "logits",
+        "preprocessing_desc": "Resize(size=(224, 224)) -> ToFloat(scale=1.0) -> Normalize(mean=(123.675, 116.28, 103.53), std=(58.395, 57.12, 57.375)) -> ChannelsFirst()",
+        "preprocessing_fingerprint": "4ff37ee203f8a5db64aeb5bdbf054a2e5ea1be4bf8be8e1acaa4f9fb9c5aa9c2",
+        "weights_hash": "b7b53db426b6f81cd3ff3f1729dd5a837c3e59018bb76aa34a2e160a7a72371a",
+        "weights_id": "checkpoint:native_tsm_r50_xsub_epoch45.pt"
+      },
+      "analysis_manifest": {
+        "available_analyses": {
+          "control_comparison": false,
+          "fill_strategy_stability": true,
+          "jitter_stability": false,
+          "seed_stability": true
+        },
+        "computed_at": "2026-09-23T08:16:07.776827+00:00",
+        "grade_distribution_all_metrics": {
+          "low": 50454,
+          "moderate": 18028,
+          "unreliable": 39518
+        },
+        "n_bootstrap": 1000,
+        "random_seed": 0,
+        "schema_version": "1.0.0",
+        "sha256": "77c78ed2ddf99d8acd0e75554f907eaa263ac4c96b98af690dbda870da14f18c",
+        "thresholds": {
+          "area_match_tolerance": 0.05,
+          "seed_cv_threshold": 0.2,
+          "z_vs_control_threshold": 2.0
+        }
+      },
+      "bytes": {
+        "analysis": 5691312,
+        "dump_total": 287229729,
+        "metrics": 6457499,
+        "ntu60_tsm_crop_free": 287229729
+      },
+      "checks": {
+        "all_items_ok": true,
+        "analysis_from_these_metrics": true,
+        "analysis_predates_last_analysis_or_metrics_commit": false,
+        "metrics_from_this_dump": true,
+        "n_controls_matches_registry": true,
+        "run_finished": true,
+        "source_manifest_unchanged": true
+      },
+      "config": {
+        "path": "experiments/real_dataset_case_study/configs/ntu60_tsm_crop_free.yaml",
+        "recorded_config_source": "experiments/real_dataset_case_study/configs/ntu60_tsm_crop_free.yaml",
+        "revision": null,
+        "sha256_current": "0977fc7bc5e3ff3496b7d4d2c7ddbf089006dd36d062b5461ad4d6ae024311a9"
+      },
+      "dataset": "ntu60",
+      "margin_drop": {
+        "flag_rates": {
+          "area_matched": {
+            "unavailable": 1.0
+          },
+          "ci_excludes_zero": {
+            "false": 0.00375,
+            "true": 0.99625
+          },
+          "exceeds_control": {
+            "unavailable": 1.0
+          },
+          "multi_strategy": {
+            "true": 1.0
+          },
+          "seed_stable": {
+            "false": 0.8805,
+            "true": 0.115667,
+            "unavailable": 0.003833
+          },
+          "sign_consistent": {
+            "false": 0.634417,
+            "true": 0.365583
+          }
+        },
+        "grade_counts": {
+          "low": 45,
+          "moderate": 4342,
+          "unreliable": 7613
+        },
+        "grade_pct": {
+          "low": 0.375,
+          "moderate": 36.1833,
+          "unreliable": 63.4417
+        },
+        "n_anchors": 12000
+      },
+      "metrics_manifest": {
+        "computed_at": "2026-09-23T08:15:45.931105+00:00",
+        "exclusion_summary": {
+          "clean_status_counts": {
+            "load_failed": 0,
+            "ok": 1200,
+            "predict_failed": 0,
+            "prepare_failed": 0,
+            "skipped_oom": 0
+          },
+          "items_excluded_perturbed_failed": 0,
+          "perturbed_status_counts": {
+            "load_failed": 0,
+            "ok": 60000,
+            "predict_failed": 0,
+            "prepare_failed": 0,
+            "skipped_oom": 0
+          },
+          "samples_excluded_clean_failed": 0,
+          "total_clean_samples": 1200,
+          "total_perturbed_items": 60000
+        },
+        "metric_config": {
+          "primary_metric": "margin_drop",
+          "topk": 5
+        },
+        "schema_version": "1.1.0",
+        "sha256": "0ad75d51efabcbbd1420a3a8691639500acde3e0e62a98ae29eff3671cfa9248"
+      },
+      "model": "tsm_resnet50",
+      "n_controls": 0,
+      "name": "ntu60_tsm_crop_free",
+      "paths": {
+        "analysis": "experiments/revision_1/results/phase0/recomputed/ntu60_tsm_crop_free/analysis",
+        "dump": "experiments/real_dataset_case_study/results/ntu60_tsm_crop_free",
+        "metrics": "experiments/revision_1/results/phase0/recomputed/ntu60_tsm_crop_free/metrics"
+      },
+      "preprocessing_fingerprint": "4ff37ee203f8a5db64aeb5bdbf054a2e5ea1be4bf8be8e1acaa4f9fb9c5aa9c2",
+      "protocol": "crop_free",
+      "resolved_config": {
+        "controls": [],
+        "dataset_stats": {
+          "channel_mean": [
+            123.675,
+            116.28,
+            103.53
+          ]
+        },
+        "perturbations": [
+          {
+            "invert_mask": false,
+            "op": "mean_fill",
+            "params": {
+              "value": [
+                123.675,
+                116.28,
+                103.53
+              ]
+            },
+            "seed_salts": [
+              0
+            ]
+          },
+          {
+            "invert_mask": false,
+            "op": "blur",
+            "params": {
+              "sigma": 3.0
+            },
+            "seed_salts": [
+              0
+            ]
+          },
+          {
+            "invert_mask": false,
+            "op": "gaussian_noise",
+            "params": {
+              "sigma": 12.5
+            },
+            "seed_salts": [
+              0,
+              1,
+              2
+            ]
+          }
+        ],
+        "regions": [
+          {
+            "kind": "skeleton_parts",
+            "params": {
+              "bbox_scale": 1.15,
+              "body_part": "head"
+            },
+            "ref": null,
+            "ref_hash": null,
+            "region_id": "head",
+            "semantic_group": "head"
+          },
+          {
+            "kind": "skeleton_parts",
+            "params": {
+              "bbox_scale": 1.15,
+              "body_part": "torso"
+            },
+            "ref": null,
+            "ref_hash": null,
+            "region_id": "torso",
+            "semantic_group": "torso"
+          },
+          {
+            "kind": "skeleton_parts",
+            "params": {
+              "bbox_scale": 1.15,
+              "body_part": "left_arm"
+            },
+            "ref": null,
+            "ref_hash": null,
+            "region_id": "left_arm",
+            "semantic_group": "arms"
+          },
+          {
+            "kind": "skeleton_parts",
+            "params": {
+              "bbox_scale": 1.15,
+              "body_part": "right_arm"
+            },
+            "ref": null,
+            "ref_hash": null,
+            "region_id": "right_arm",
+            "semantic_group": "arms"
+          },
+          {
+            "kind": "skeleton_parts",
+            "params": {
+              "bbox_scale": 1.15,
+              "body_part": "left_hand"
+            },
+            "ref": null,
+            "ref_hash": null,
+            "region_id": "left_hand",
+            "semantic_group": "hands"
+          },
+          {
+            "kind": "skeleton_parts",
+            "params": {
+              "bbox_scale": 1.15,
+              "body_part": "right_hand"
+            },
+            "ref": null,
+            "ref_hash": null,
+            "region_id": "right_hand",
+            "semantic_group": "hands"
+          },
+          {
+            "kind": "skeleton_parts",
+            "params": {
+              "bbox_scale": 1.15,
+              "body_part": "left_leg"
+            },
+            "ref": null,
+            "ref_hash": null,
+            "region_id": "left_leg",
+            "semantic_group": "legs"
+          },
+          {
+            "kind": "skeleton_parts",
+            "params": {
+              "bbox_scale": 1.15,
+              "body_part": "right_leg"
+            },
+            "ref": null,
+            "ref_hash": null,
+            "region_id": "right_leg",
+            "semantic_group": "legs"
+          },
+          {
+            "kind": "skeleton_parts",
+            "params": {
+              "bbox_scale": 1.15,
+              "body_part": "upper_body"
+            },
+            "ref": null,
+            "ref_hash": null,
+            "region_id": "upper_body",
+            "semantic_group": "upper_body"
+          },
+          {
+            "kind": "skeleton_parts",
+            "params": {
+              "bbox_scale": 1.15,
+              "body_part": "lower_body"
+            },
+            "ref": null,
+            "ref_hash": null,
+            "region_id": "lower_body",
+            "semantic_group": "lower_body"
+          }
+        ],
+        "runtime": {
+          "allow_nondeterministic": false,
+          "fail_fast": false,
+          "global_seed": 20260820,
+          "num_workers": 8,
+          "retry_failed": true,
+          "target_batch_size": 64,
+          "variants_per_chunk": 64
+        },
+        "sha256_canonical": "223eedf52e982a72e2c6dee644f14882cfacd613258809d43e474f7e25f4380a",
+        "skeleton_source": {
+          "bbox_data": "/workspace/data/phase3/ntu60_xsub_test_20/skeleton_bbox.json",
+          "bbox_data_hash": "bd81e601de83d74e1ab5658a600711b63a5d6497b7575c6ae65de5d564e8c83f"
+        },
+        "source_provenance": {
+          "kind": "video_manifest",
+          "loader_parameters": {
+            "num_frames": 8,
+            "sampling": "segment_center"
+          },
+          "manifest": "/workspace/data/phase3/ntu60_xsub_test_20/video_manifest.json",
+          "manifest_hash": "fb087cbfeb26c9c203b224cd845f988956532ec0f1c227ca2f274e834fb830b0"
+        }
+      },
+      "run_manifest": {
+        "code_version": "0.1.0",
+        "counts_by_status": {
+          "load_failed": 0,
+          "ok": 61200,
+          "predict_failed": 0,
+          "prepare_failed": 0,
+          "skipped_oom": 0
+        },
+        "environment": {
+          "cuda_version": "12.9",
+          "gpu_names": [
+            "NVIDIA GeForce RTX 4090"
+          ],
+          "platform": "Linux-7.0.0-28-generic-x86_64-with-glibc2.35",
+          "python_version": "3.11.13",
+          "torch_version": "2.8.0+cu129"
+        },
+        "finished_at": "2026-08-21T18:59:46.950805Z",
+        "resume_events": 0,
+        "run_duration_s": 6828.22798,
+        "schema_version": "1.0.0",
+        "sha256": "98536b7b84e372e200ab5aae46ce66c6a1defb53156bf5ce14ceb2b332c82290",
+        "started_at": "2026-08-21T17:05:58.722825Z"
+      }
+    },
+    "ntu60_tsm_exact": {
+      "adapter_spec": {
+        "adapter_kind": "torchvision_tsm",
+        "class_names": null,
+        "deterministic": true,
+        "input_layout": "THWC_uint8",
+        "mask_transform_available": true,
+        "max_batch_size": 64,
+        "model_id": "torchvision_tsm:tsm_resnet50:segments=8:classes=60:weights=checkpoint:native_tsm_r50_xsub_epoch45.pt",
+        "model_name": "tsm_resnet50",
+        "output_kind": "logits",
+        "preprocessing_desc": "Resize(size=256) -> CenterCrop(size=224) -> ToFloat(scale=1.0) -> Normalize(mean=(123.675, 116.28, 103.53), std=(58.395, 57.12, 57.375)) -> ChannelsFirst()",
+        "preprocessing_fingerprint": "ad64d6576db708f9bffcb580aeac2891fb973a4211a024cb09a601dc66b2421a",
+        "weights_hash": "b7b53db426b6f81cd3ff3f1729dd5a837c3e59018bb76aa34a2e160a7a72371a",
+        "weights_id": "checkpoint:native_tsm_r50_xsub_epoch45.pt"
+      },
+      "analysis_manifest": {
+        "available_analyses": {
+          "control_comparison": false,
+          "fill_strategy_stability": true,
+          "jitter_stability": false,
+          "seed_stability": true
+        },
+        "computed_at": "2026-09-23T08:15:34.617776+00:00",
+        "grade_distribution_all_metrics": {
+          "low": 53167,
+          "moderate": 18469,
+          "unreliable": 36364
+        },
+        "n_bootstrap": 1000,
+        "random_seed": 0,
+        "schema_version": "1.0.0",
+        "sha256": "ec4ea9dbc3e083b11cd0ff74d06b588d6f9fc21e5c0abab791335940c11047d4",
+        "thresholds": {
+          "area_match_tolerance": 0.05,
+          "seed_cv_threshold": 0.2,
+          "z_vs_control_threshold": 2.0
+        }
+      },
+      "bytes": {
+        "analysis": 5434358,
+        "dump_total": 228352717,
+        "metrics": 6251103,
+        "ntu60_tsm_exact": 228352717
+      },
+      "checks": {
+        "all_items_ok": true,
+        "analysis_from_these_metrics": true,
+        "analysis_predates_last_analysis_or_metrics_commit": false,
+        "metrics_from_this_dump": true,
+        "n_controls_matches_registry": true,
+        "run_finished": true,
+        "source_manifest_unchanged": true
+      },
+      "config": {
+        "path": "experiments/real_dataset_case_study/configs/ntu60_tsm_exact.yaml",
+        "recorded_config_source": "experiments/real_dataset_case_study/configs/ntu60_tsm_exact.yaml",
+        "revision": null,
+        "sha256_current": "ee83e49ec3be698cd731a3295018950b0cc9e711731d1a9c14bafce57a12c4a2"
+      },
+      "dataset": "ntu60",
+      "margin_drop": {
+        "flag_rates": {
+          "area_matched": {
+            "unavailable": 1.0
+          },
+          "ci_excludes_zero": {
+            "false": 0.010083,
+            "true": 0.989917
+          },
+          "exceeds_control": {
+            "unavailable": 1.0
+          },
+          "multi_strategy": {
+            "true": 1.0
+          },
+          "seed_stable": {
+            "false": 0.818333,
+            "true": 0.171583,
+            "unavailable": 0.010083
+          },
+          "sign_consistent": {
+            "false": 0.60475,
+            "true": 0.39525
+          }
+        },
+        "grade_counts": {
+          "low": 121,
+          "moderate": 4622,
+          "unreliable": 7257
+        },
+        "grade_pct": {
+          "low": 1.0083,
+          "moderate": 38.5167,
+          "unreliable": 60.475
+        },
+        "n_anchors": 12000
+      },
+      "metrics_manifest": {
+        "computed_at": "2026-09-23T08:15:12.508206+00:00",
+        "exclusion_summary": {
+          "clean_status_counts": {
+            "load_failed": 0,
+            "ok": 1200,
+            "predict_failed": 0,
+            "prepare_failed": 0,
+            "skipped_oom": 0
+          },
+          "items_excluded_perturbed_failed": 0,
+          "perturbed_status_counts": {
+            "load_failed": 0,
+            "ok": 60000,
+            "predict_failed": 0,
+            "prepare_failed": 0,
+            "skipped_oom": 0
+          },
+          "samples_excluded_clean_failed": 0,
+          "total_clean_samples": 1200,
+          "total_perturbed_items": 60000
+        },
+        "metric_config": {
+          "primary_metric": "margin_drop",
+          "topk": 5
+        },
+        "schema_version": "1.1.0",
+        "sha256": "2912b302de26c9d8dffbb84779cdfcf87a1641c228ed7070a23de935bfa73d4f"
+      },
+      "model": "tsm_resnet50",
+      "n_controls": 0,
+      "name": "ntu60_tsm_exact",
+      "paths": {
+        "analysis": "experiments/revision_1/results/phase0/recomputed/ntu60_tsm_exact/analysis",
+        "dump": "experiments/real_dataset_case_study/results/ntu60_tsm_exact",
+        "metrics": "experiments/revision_1/results/phase0/recomputed/ntu60_tsm_exact/metrics"
+      },
+      "preprocessing_fingerprint": "ad64d6576db708f9bffcb580aeac2891fb973a4211a024cb09a601dc66b2421a",
+      "protocol": "exact",
+      "resolved_config": {
+        "controls": [],
+        "dataset_stats": {
+          "channel_mean": [
+            123.675,
+            116.28,
+            103.53
+          ]
+        },
+        "perturbations": [
+          {
+            "invert_mask": false,
+            "op": "mean_fill",
+            "params": {
+              "value": [
+                123.675,
+                116.28,
+                103.53
+              ]
+            },
+            "seed_salts": [
+              0
+            ]
+          },
+          {
+            "invert_mask": false,
+            "op": "blur",
+            "params": {
+              "sigma": 3.0
+            },
+            "seed_salts": [
+              0
+            ]
+          },
+          {
+            "invert_mask": false,
+            "op": "gaussian_noise",
+            "params": {
+              "sigma": 12.5
+            },
+            "seed_salts": [
+              0,
+              1,
+              2
+            ]
+          }
+        ],
+        "regions": [
+          {
+            "kind": "skeleton_parts",
+            "params": {
+              "bbox_scale": 1.15,
+              "body_part": "head"
+            },
+            "ref": null,
+            "ref_hash": null,
+            "region_id": "head",
+            "semantic_group": "head"
+          },
+          {
+            "kind": "skeleton_parts",
+            "params": {
+              "bbox_scale": 1.15,
+              "body_part": "torso"
+            },
+            "ref": null,
+            "ref_hash": null,
+            "region_id": "torso",
+            "semantic_group": "torso"
+          },
+          {
+            "kind": "skeleton_parts",
+            "params": {
+              "bbox_scale": 1.15,
+              "body_part": "left_arm"
+            },
+            "ref": null,
+            "ref_hash": null,
+            "region_id": "left_arm",
+            "semantic_group": "arms"
+          },
+          {
+            "kind": "skeleton_parts",
+            "params": {
+              "bbox_scale": 1.15,
+              "body_part": "right_arm"
+            },
+            "ref": null,
+            "ref_hash": null,
+            "region_id": "right_arm",
+            "semantic_group": "arms"
+          },
+          {
+            "kind": "skeleton_parts",
+            "params": {
+              "bbox_scale": 1.15,
+              "body_part": "left_hand"
+            },
+            "ref": null,
+            "ref_hash": null,
+            "region_id": "left_hand",
+            "semantic_group": "hands"
+          },
+          {
+            "kind": "skeleton_parts",
+            "params": {
+              "bbox_scale": 1.15,
+              "body_part": "right_hand"
+            },
+            "ref": null,
+            "ref_hash": null,
+            "region_id": "right_hand",
+            "semantic_group": "hands"
+          },
+          {
+            "kind": "skeleton_parts",
+            "params": {
+              "bbox_scale": 1.15,
+              "body_part": "left_leg"
+            },
+            "ref": null,
+            "ref_hash": null,
+            "region_id": "left_leg",
+            "semantic_group": "legs"
+          },
+          {
+            "kind": "skeleton_parts",
+            "params": {
+              "bbox_scale": 1.15,
+              "body_part": "right_leg"
+            },
+            "ref": null,
+            "ref_hash": null,
+            "region_id": "right_leg",
+            "semantic_group": "legs"
+          },
+          {
+            "kind": "skeleton_parts",
+            "params": {
+              "bbox_scale": 1.15,
+              "body_part": "upper_body"
+            },
+            "ref": null,
+            "ref_hash": null,
+            "region_id": "upper_body",
+            "semantic_group": "upper_body"
+          },
+          {
+            "kind": "skeleton_parts",
+            "params": {
+              "bbox_scale": 1.15,
+              "body_part": "lower_body"
+            },
+            "ref": null,
+            "ref_hash": null,
+            "region_id": "lower_body",
+            "semantic_group": "lower_body"
+          }
+        ],
+        "runtime": {
+          "allow_nondeterministic": false,
+          "fail_fast": false,
+          "global_seed": 20260820,
+          "num_workers": 8,
+          "retry_failed": true,
+          "target_batch_size": 64,
+          "variants_per_chunk": 64
+        },
+        "sha256_canonical": "b995bd4ace2fa217d34e71d167708391d5c21991719037a2104b8962455a49c7",
+        "skeleton_source": {
+          "bbox_data": "/workspace/data/phase3/ntu60_xsub_test_20/skeleton_bbox.json",
+          "bbox_data_hash": "bd81e601de83d74e1ab5658a600711b63a5d6497b7575c6ae65de5d564e8c83f"
+        },
+        "source_provenance": {
+          "kind": "video_manifest",
+          "loader_parameters": {
+            "num_frames": 8,
+            "sampling": "segment_center"
+          },
+          "manifest": "/workspace/data/phase3/ntu60_xsub_test_20/video_manifest.json",
+          "manifest_hash": "fb087cbfeb26c9c203b224cd845f988956532ec0f1c227ca2f274e834fb830b0"
+        }
+      },
+      "run_manifest": {
+        "code_version": "0.1.0",
+        "counts_by_status": {
+          "load_failed": 0,
+          "ok": 61200,
+          "predict_failed": 0,
+          "prepare_failed": 0,
+          "skipped_oom": 0
+        },
+        "environment": {
+          "cuda_version": "12.9",
+          "gpu_names": [
+            "NVIDIA GeForce RTX 4090"
+          ],
+          "platform": "Linux-7.0.0-28-generic-x86_64-with-glibc2.35",
+          "python_version": "3.11.13",
+          "torch_version": "2.8.0+cu129"
+        },
+        "finished_at": "2026-08-21T17:02:00.827989Z",
+        "resume_events": 0,
+        "run_duration_s": 6765.757476,
+        "schema_version": "1.0.0",
+        "sha256": "dddba52799f611cae0a231cdb80d24e68d8cff420b5ffdfd9a59ab6872be4347",
+        "started_at": "2026-08-21T15:09:15.070513Z"
+      }
+    },
+    "synthetic_normal": {
+      "adapter_spec": {
+        "adapter_kind": "torchvision",
+        "class_names": null,
+        "deterministic": true,
+        "input_layout": "THWC_uint8",
+        "mask_transform_available": true,
+        "max_batch_size": null,
+        "model_id": "torchvision:squeezenet1_0:weights=checkpoint:m_normal.pt",
+        "model_name": "squeezenet1_0",
+        "output_kind": "logits",
+        "preprocessing_desc": "Resize(size=(224, 224)) -> ToFloat(scale=0.00392156862745098) -> Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225)) -> ChannelsFirst() -> SqueezeTime()",
+        "preprocessing_fingerprint": "63ab8d7faf7497f1066c35959e013be28f1cb2d0af0e7cb09170a81adba1c5ee",
+        "weights_hash": "3c9f0da29df96ca3fdeeffe0079e66a0674140d90516a482473157a1e618735f",
+        "weights_id": "checkpoint:m_normal.pt"
+      },
+      "analysis_manifest": {
+        "available_analyses": {
+          "control_comparison": true,
+          "fill_strategy_stability": true,
+          "jitter_stability": false,
+          "seed_stability": true
+        },
+        "computed_at": "2026-09-23T08:17:26.490585+00:00",
+        "grade_distribution_all_metrics": {
+          "high": 3143,
+          "low": 5703,
+          "moderate": 7986,
+          "unreliable": 11968
+        },
+        "n_bootstrap": 1000,
+        "random_seed": 0,
+        "schema_version": "1.0.0",
+        "sha256": "fa0e16affe8357cc00919deb5c9a1d677525af1851d8295f521e5684cd3d20af",
+        "thresholds": {
+          "area_match_tolerance": 0.05,
+          "seed_cv_threshold": 0.2,
+          "z_vs_control_threshold": 2.0
+        }
+      },
+      "bytes": {
+        "analysis": 8591287,
+        "dump_total": 20821828,
+        "metrics": 11616249,
+        "normal_A_all_ops_thresholds_crop_free": 20821828
+      },
+      "checks": {
+        "all_items_ok": true,
+        "analysis_from_these_metrics": true,
+        "analysis_predates_last_analysis_or_metrics_commit": false,
+        "metrics_from_this_dump": true,
+        "n_controls_matches_registry": true,
+        "run_finished": true,
+        "source_manifest_unchanged": true
+      },
+      "config": {
+        "path": "experiments/synthetic_shortcut/run_threshold_validation_full.py",
+        "recorded_config_source": null,
+        "revision": null,
+        "sha256_current": "fece7bd669102a1b0deea9d0cd07ba3ec88857e4c0338a8ee516da0fa9622f24"
+      },
+      "dataset": "synthetic",
+      "margin_drop": {
+        "flag_rates": {
+          "area_matched": {
+            "true": 1.0
+          },
+          "ci_excludes_zero": {
+            "true": 1.0
+          },
+          "exceeds_control": {
+            "false": 0.372812,
+            "true": 0.627188
+          },
+          "multi_strategy": {
+            "true": 1.0
+          },
+          "seed_stable": {
+            "false": 0.960313,
+            "true": 0.039688
+          },
+          "sign_consistent": {
+            "false": 0.630938,
+            "true": 0.369063
+          }
+        },
+        "grade_counts": {
+          "high": 763,
+          "low": 418,
+          "unreliable": 2019
+        },
+        "grade_pct": {
+          "high": 23.8438,
+          "low": 13.0625,
+          "unreliable": 63.0938
+        },
+        "n_anchors": 3200
+      },
+      "metrics_manifest": {
+        "computed_at": "2026-09-23T08:17:05.623205+00:00",
+        "exclusion_summary": {
+          "clean_status_counts": {
+            "load_failed": 0,
+            "ok": 200,
+            "predict_failed": 0,
+            "prepare_failed": 0,
+            "skipped_oom": 0
+          },
+          "items_excluded_perturbed_failed": 0,
+          "perturbed_status_counts": {
+            "load_failed": 0,
+            "ok": 144000,
+            "predict_failed": 0,
+            "prepare_failed": 0,
+            "skipped_oom": 0
+          },
+          "samples_excluded_clean_failed": 0,
+          "total_clean_samples": 200,
+          "total_perturbed_items": 144000
+        },
+        "metric_config": {
+          "primary_metric": "margin_drop",
+          "topk": 5
+        },
+        "schema_version": "1.1.0",
+        "sha256": "3ec7805adde7202651190bf93ae5e1d105134a0ae72c484b1b4da605924e5061"
+      },
+      "model": "squeezenet1_0_m_normal",
+      "n_controls": 2,
+      "name": "synthetic_normal",
+      "paths": {
+        "analysis": "experiments/revision_1/results/phase0/recomputed/synthetic_normal/analysis",
+        "dump": "experiments/synthetic_shortcut/results_crop_free/dumps/normal_A_all_ops_thresholds_crop_free",
+        "metrics": "experiments/revision_1/results/phase0/recomputed/synthetic_normal/metrics"
+      },
+      "preprocessing_fingerprint": "63ab8d7faf7497f1066c35959e013be28f1cb2d0af0e7cb09170a81adba1c5ee",
+      "protocol": "crop_free",
+      "resolved_config": {
+        "controls": [
+          {
+            "match_area_of": "grid",
+            "n_samples": 2
+          }
+        ],
+        "dataset_stats": {
+          "channel_mean": [
+            125.18542294921875,
+            122.59611487630208,
+            113.81679231770833
+          ]
+        },
+        "perturbations": [
+          {
+            "invert_mask": false,
+            "op": "constant_fill",
+            "params": {
+              "value": 0.0
+            },
+            "seed_salts": [
+              0,
+              1,
+              2
+            ]
+          },
+          {
+            "invert_mask": false,
+            "op": "mean_fill",
+            "params": {
+              "value": [
+                125.18542294921875,
+                122.59611487630208,
+                113.81679231770833
+              ]
+            },
+            "seed_salts": [
+              0,
+              1,
+              2
+            ]
+          },
+          {
+            "invert_mask": false,
+            "op": "blur",
+            "params": {
+              "sigma": 4.0
+            },
+            "seed_salts": [
+              0,
+              1,
+              2
+            ]
+          },
+          {
+            "invert_mask": false,
+            "op": "gaussian_noise",
+            "params": {
+              "sigma": 50.0
+            },
+            "seed_salts": [
+              0,
+              1,
+              2
+            ]
+          },
+          {
+            "invert_mask": false,
+            "op": "patch_shuffle",
+            "params": {
+              "patch_size": 4
+            },
+            "seed_salts": [
+              0,
+              1,
+              2
+            ]
+          }
+        ],
+        "regions": [
+          {
+            "kind": "grid",
+            "params": {
+              "cols": 4,
+              "rows": 4
+            },
+            "ref": null,
+            "ref_hash": null,
+            "region_id": "grid"
+          }
+        ],
+        "runtime": {
+          "allow_nondeterministic": false,
+          "fail_fast": false,
+          "global_seed": 0,
+          "num_workers": 0,
+          "retry_failed": false,
+          "target_batch_size": 32,
+          "variants_per_chunk": 16
+        },
+        "sha256_canonical": "9a84b64f3a91a74c8efb20de186d21f282452ad2b263a973dff0aaf68c0bca34",
+        "skeleton_source": null,
+        "source_provenance": {
+          "kind": "image_manifest",
+          "manifest": "/workspace/experiments/synthetic_shortcut/data/manifests/A_audit.json",
+          "manifest_hash": "bea8066085f2c5de113ae1dd1e5d0ce5610a187bff510c1a6abdf2db02a68896"
+        }
+      },
+      "run_manifest": {
+        "code_version": "1.0.0",
+        "counts_by_status": {
+          "load_failed": 0,
+          "ok": 144200,
+          "predict_failed": 0,
+          "prepare_failed": 0,
+          "skipped_oom": 0
+        },
+        "environment": {
+          "cuda_version": "12.9",
+          "gpu_names": [],
+          "platform": "Linux-7.0.0-28-generic-x86_64-with-glibc2.35",
+          "python_version": "3.11.13",
+          "torch_version": "2.8.0+cu129"
+        },
+        "finished_at": "2026-08-14T10:28:36.746957Z",
+        "resume_events": 0,
+        "run_duration_s": 1521.599978,
+        "schema_version": "1.0.0",
+        "sha256": "709f29fe2edcffc9f96484abfa52cfd9d42f32a1a29f5bc19e37080bbe87e6e3",
+        "started_at": "2026-08-14T10:03:15.146979Z"
+      }
+    },
+    "synthetic_shortcut": {
+      "adapter_spec": {
+        "adapter_kind": "torchvision",
+        "class_names": null,
+        "deterministic": true,
+        "input_layout": "THWC_uint8",
+        "mask_transform_available": true,
+        "max_batch_size": null,
+        "model_id": "torchvision:squeezenet1_0:weights=checkpoint:m_shortcut.pt",
+        "model_name": "squeezenet1_0",
+        "output_kind": "logits",
+        "preprocessing_desc": "Resize(size=(224, 224)) -> ToFloat(scale=0.00392156862745098) -> Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225)) -> ChannelsFirst() -> SqueezeTime()",
+        "preprocessing_fingerprint": "63ab8d7faf7497f1066c35959e013be28f1cb2d0af0e7cb09170a81adba1c5ee",
+        "weights_hash": "f74d6c96f579a4a7197737ba22307d10c87e3461d20b559f2bcdd1f8e2b6f97b",
+        "weights_id": "checkpoint:m_shortcut.pt"
+      },
+      "analysis_manifest": {
+        "available_analyses": {
+          "control_comparison": true,
+          "fill_strategy_stability": true,
+          "jitter_stability": false,
+          "seed_stability": true
+        },
+        "computed_at": "2026-09-23T08:16:47.258498+00:00",
+        "grade_distribution_all_metrics": {
+          "high": 1052,
+          "low": 17648,
+          "moderate": 270,
+          "unreliable": 9830
+        },
+        "n_bootstrap": 1000,
+        "random_seed": 0,
+        "schema_version": "1.0.0",
+        "sha256": "fa1d705f89f0dbc678fc71fa39fbce4a82ae9bffcd25bb3177d2afed04b7037f",
+        "thresholds": {
+          "area_match_tolerance": 0.05,
+          "seed_cv_threshold": 0.2,
+          "z_vs_control_threshold": 2.0
+        }
+      },
+      "bytes": {
+        "analysis": 5947536,
+        "dump_total": 19358754,
+        "metrics": 8452795,
+        "shortcut_A_all_ops_thresholds_crop_free": 19358754
+      },
+      "checks": {
+        "all_items_ok": true,
+        "analysis_from_these_metrics": true,
+        "analysis_predates_last_analysis_or_metrics_commit": false,
+        "metrics_from_this_dump": true,
+        "n_controls_matches_registry": true,
+        "run_finished": true,
+        "source_manifest_unchanged": true
+      },
+      "config": {
+        "path": "experiments/synthetic_shortcut/run_threshold_validation_full.py",
+        "recorded_config_source": null,
+        "revision": null,
+        "sha256_current": "fece7bd669102a1b0deea9d0cd07ba3ec88857e4c0338a8ee516da0fa9622f24"
+      },
+      "dataset": "synthetic",
+      "margin_drop": {
+        "flag_rates": {
+          "area_matched": {
+            "true": 1.0
+          },
+          "ci_excludes_zero": {
+            "false": 0.5,
+            "true": 0.5
+          },
+          "exceeds_control": {
+            "false": 0.540625,
+            "true": 0.459375
+          },
+          "multi_strategy": {
+            "true": 1.0
+          },
+          "seed_stable": {
+            "false": 0.9125,
+            "true": 0.049063,
+            "unavailable": 0.038437
+          },
+          "sign_consistent": {
+            "false": 0.746563,
+            "true": 0.253437
+          }
+        },
+        "grade_counts": {
+          "high": 260,
+          "low": 551,
+          "unreliable": 2389
+        },
+        "grade_pct": {
+          "high": 8.125,
+          "low": 17.2188,
+          "unreliable": 74.6562
+        },
+        "n_anchors": 3200
+      },
+      "metrics_manifest": {
+        "computed_at": "2026-09-23T08:16:26.202817+00:00",
+        "exclusion_summary": {
+          "clean_status_counts": {
+            "load_failed": 0,
+            "ok": 200,
+            "predict_failed": 0,
+            "prepare_failed": 0,
+            "skipped_oom": 0
+          },
+          "items_excluded_perturbed_failed": 0,
+          "perturbed_status_counts": {
+            "load_failed": 0,
+            "ok": 144000,
+            "predict_failed": 0,
+            "prepare_failed": 0,
+            "skipped_oom": 0
+          },
+          "samples_excluded_clean_failed": 0,
+          "total_clean_samples": 200,
+          "total_perturbed_items": 144000
+        },
+        "metric_config": {
+          "primary_metric": "margin_drop",
+          "topk": 5
+        },
+        "schema_version": "1.1.0",
+        "sha256": "6e26c53572215177bfbb2bf2cb4bc92758b5453a2b83993c55a502349d082efb"
+      },
+      "model": "squeezenet1_0_m_shortcut",
+      "n_controls": 2,
+      "name": "synthetic_shortcut",
+      "paths": {
+        "analysis": "experiments/revision_1/results/phase0/recomputed/synthetic_shortcut/analysis",
+        "dump": "experiments/synthetic_shortcut/results_crop_free/dumps/shortcut_A_all_ops_thresholds_crop_free",
+        "metrics": "experiments/revision_1/results/phase0/recomputed/synthetic_shortcut/metrics"
+      },
+      "preprocessing_fingerprint": "63ab8d7faf7497f1066c35959e013be28f1cb2d0af0e7cb09170a81adba1c5ee",
+      "protocol": "crop_free",
+      "resolved_config": {
+        "controls": [
+          {
+            "match_area_of": "grid",
+            "n_samples": 2
+          }
+        ],
+        "dataset_stats": {
+          "channel_mean": [
+            125.18542294921875,
+            122.59611487630208,
+            113.81679231770833
+          ]
+        },
+        "perturbations": [
+          {
+            "invert_mask": false,
+            "op": "constant_fill",
+            "params": {
+              "value": 0.0
+            },
+            "seed_salts": [
+              0,
+              1,
+              2
+            ]
+          },
+          {
+            "invert_mask": false,
+            "op": "mean_fill",
+            "params": {
+              "value": [
+                125.18542294921875,
+                122.59611487630208,
+                113.81679231770833
+              ]
+            },
+            "seed_salts": [
+              0,
+              1,
+              2
+            ]
+          },
+          {
+            "invert_mask": false,
+            "op": "blur",
+            "params": {
+              "sigma": 4.0
+            },
+            "seed_salts": [
+              0,
+              1,
+              2
+            ]
+          },
+          {
+            "invert_mask": false,
+            "op": "gaussian_noise",
+            "params": {
+              "sigma": 50.0
+            },
+            "seed_salts": [
+              0,
+              1,
+              2
+            ]
+          },
+          {
+            "invert_mask": false,
+            "op": "patch_shuffle",
+            "params": {
+              "patch_size": 4
+            },
+            "seed_salts": [
+              0,
+              1,
+              2
+            ]
+          }
+        ],
+        "regions": [
+          {
+            "kind": "grid",
+            "params": {
+              "cols": 4,
+              "rows": 4
+            },
+            "ref": null,
+            "ref_hash": null,
+            "region_id": "grid"
+          }
+        ],
+        "runtime": {
+          "allow_nondeterministic": false,
+          "fail_fast": false,
+          "global_seed": 0,
+          "num_workers": 0,
+          "retry_failed": false,
+          "target_batch_size": 32,
+          "variants_per_chunk": 16
+        },
+        "sha256_canonical": "6c886bdb99e739624d1e556cfbd72d5cda3a762ccfd9ab502f3f6ba19ae77f37",
+        "skeleton_source": null,
+        "source_provenance": {
+          "kind": "image_manifest",
+          "manifest": "/workspace/experiments/synthetic_shortcut/data/manifests/A_audit.json",
+          "manifest_hash": "bea8066085f2c5de113ae1dd1e5d0ce5610a187bff510c1a6abdf2db02a68896"
+        }
+      },
+      "run_manifest": {
+        "code_version": "1.0.0",
+        "counts_by_status": {
+          "load_failed": 0,
+          "ok": 144200,
+          "predict_failed": 0,
+          "prepare_failed": 0,
+          "skipped_oom": 0
+        },
+        "environment": {
+          "cuda_version": "12.9",
+          "gpu_names": [
+            "NVIDIA GeForce RTX 4090"
+          ],
+          "platform": "Linux-7.0.0-28-generic-x86_64-with-glibc2.35",
+          "python_version": "3.11.13",
+          "torch_version": "2.8.0+cu129"
+        },
+        "finished_at": "2026-08-13T09:39:58.891149Z",
+        "resume_events": 0,
+        "run_duration_s": 536.731484,
+        "schema_version": "1.0.0",
+        "sha256": "df822d910a09b1b5b0d8f4cd13f523277ad73763d5ee128b0c61055e4c8c43e1",
+        "started_at": "2026-08-13T09:31:02.159665Z"
+      }
+    }
+  },
+  "baseline_commit": "9d192c8773e7b7bf5844ff4aa31f020753157dff",
+  "baseline_tag": "v1.0.0",
+  "check_failures": [],
+  "created_at": "2026-09-23T08:17:28.293324+00:00",
+  "git": {
+    "branch": "revision-1",
+    "describe": "v1.0.0-1-gac4b3bf",
+    "dirty": false,
+    "dirty_files": [],
+    "sha": "ac4b3bfec74fb83990d7c16b414f551495f00ea0"
+  },
+  "k1_parity": {
+    "imagenet_mnv2_050_crop_free_k1": {
+      "adapter_spec": {
+        "adapter_kind": "timm",
+        "class_names": null,
+        "deterministic": true,
+        "input_layout": "THWC_uint8",
+        "mask_transform_available": true,
+        "max_batch_size": 128,
+        "model_id": "timm:mobilenetv2_050.lamb_in1k:pretrained=true",
+        "model_name": "mobilenetv2_050.lamb_in1k",
+        "output_kind": "logits",
+        "preprocessing_desc": "{\"geometry_mode\": \"squash\", \"input_size\": [3, 224, 224], \"interpolation\": \"bicubic\", \"kind\": \"timm\", \"mean\": [0.485, 0.456, 0.406], \"std\": [0.229, 0.224, 0.225]}",
+        "preprocessing_fingerprint": "d8a816490e39b1bd19df7349f41bc98fbd5007822132c02e5cf0a18c883bbd06",
+        "weights_hash": null,
+        "weights_id": "timm/mobilenetv2_050.lamb_in1k"
+      },
+      "analysis_manifest": {
+        "available_analyses": {
+          "control_comparison": true,
+          "fill_strategy_stability": true,
+          "jitter_stability": false,
+          "seed_stability": true
+        },
+        "computed_at": "2026-08-21T10:54:49.625984+00:00",
+        "grade_distribution_all_metrics": {
+          "low": 23263,
+          "moderate": 947291,
+          "unreliable": 469446
+        },
+        "n_bootstrap": 1000,
+        "random_seed": 0,
+        "schema_version": "1.0.0",
+        "sha256": "127e2a508150ceaf557ec49ea3926c78f23b3831199d9e6e824c4e6bbf18b60e",
+        "thresholds": {
+          "area_match_tolerance": 0.05,
+          "seed_cv_threshold": 0.2,
+          "z_vs_control_threshold": 2.0
+        }
+      },
+      "bytes": {
+        "analysis": 123486208,
+        "dump_total": 8981442697,
+        "imagenet_mnv2_050_crop_free": 8981442697,
+        "metrics": 139958498
+      },
+      "checks": {
+        "all_items_ok": true,
+        "analysis_from_these_metrics": true,
+        "analysis_predates_last_analysis_or_metrics_commit": true,
+        "metrics_from_this_dump": true,
+        "n_controls_matches_registry": true,
+        "run_finished": true,
+        "source_manifest_unchanged": true
+      },
+      "config": {
+        "path": "experiments/real_dataset_case_study/configs/imagenet_mnv2_050_crop_free.yaml",
+        "recorded_config_source": "experiments/real_dataset_case_study/configs/imagenet_mnv2_050_crop_free.yaml",
+        "revision": "486007a^",
+        "sha256_at_revision": "f59eb7e4c4dab048a21295f00b4bb591f109047d9863ec6a2eddebc07e40f593",
+        "sha256_current": "bd40274d82a410c2e835333fed9192731a0756d2378aae44890158e3990bae31"
+      },
+      "dataset": "imagenet",
+      "margin_drop": {
+        "flag_rates": {
+          "area_matched": {
+            "true": 1.0
+          },
+          "ci_excludes_zero": {
+            "true": 1.0
+          },
+          "exceeds_control": {
+            "unavailable": 1.0
+          },
+          "multi_strategy": {
+            "true": 1.0
+          },
+          "seed_stable": {
+            "false": 0.810837,
+            "true": 0.189163
+          },
+          "sign_consistent": {
+            "false": 0.616075,
+            "true": 0.383925
+          }
+        },
+        "grade_counts": {
+          "moderate": 61428,
+          "unreliable": 98572
+        },
+        "grade_pct": {
+          "moderate": 38.3925,
+          "unreliable": 61.6075
+        },
+        "n_anchors": 160000
+      },
+      "metrics_manifest": {
+        "computed_at": "2026-08-21T10:44:41.735516+00:00",
+        "exclusion_summary": {
+          "clean_status_counts": {
+            "load_failed": 0,
+            "ok": 10000,
+            "predict_failed": 0,
+            "prepare_failed": 0,
+            "skipped_oom": 0
+          },
+          "items_excluded_perturbed_failed": 0,
+          "perturbed_status_counts": {
+            "load_failed": 0,
+            "ok": 1600000,
+            "predict_failed": 0,
+            "prepare_failed": 0,
+            "skipped_oom": 0
+          },
+          "samples_excluded_clean_failed": 0,
+          "total_clean_samples": 10000,
+          "total_perturbed_items": 1600000
+        },
+        "metric_config": {
+          "primary_metric": "margin_drop",
+          "topk": 5
+        },
+        "schema_version": "1.1.0",
+        "sha256": "fbf369a7f103a14a797df5ab48e03e5690f69fc8213123030980935405e7c303"
+      },
+      "model": "mobilenetv2_050",
+      "n_controls": 1,
+      "name": "imagenet_mnv2_050_crop_free_k1",
+      "paths": {
+        "analysis": "experiments/real_dataset_case_study/results/imagenet_mnv2_050_crop_free/analysis",
+        "dump": "experiments/real_dataset_case_study/results/imagenet_mnv2_050_crop_free",
+        "metrics": "experiments/real_dataset_case_study/results/imagenet_mnv2_050_crop_free/metrics"
+      },
+      "preprocessing_fingerprint": "d8a816490e39b1bd19df7349f41bc98fbd5007822132c02e5cf0a18c883bbd06",
+      "protocol": "crop_free",
+      "resolved_config": {
+        "controls": [
+          {
+            "match_area_of": "grid_4x4",
+            "n_samples": 1
+          }
+        ],
+        "dataset_stats": {
+          "channel_mean": [
+            123.675,
+            116.28,
+            103.53
+          ]
+        },
+        "perturbations": [
+          {
+            "invert_mask": false,
+            "op": "mean_fill",
+            "params": {
+              "value": [
+                123.675,
+                116.28,
+                103.53
+              ]
+            },
+            "seed_salts": [
+              0
+            ]
+          },
+          {
+            "invert_mask": false,
+            "op": "blur",
+            "params": {
+              "sigma": 3.0
+            },
+            "seed_salts": [
+              0
+            ]
+          },
+          {
+            "invert_mask": false,
+            "op": "gaussian_noise",
+            "params": {
+              "sigma": 12.5
+            },
+            "seed_salts": [
+              0,
+              1,
+              2
+            ]
+          }
+        ],
+        "regions": [
+          {
+            "kind": "grid",
+            "params": {
+              "cols": 4,
+              "rows": 4
+            },
+            "ref": null,
+            "ref_hash": null,
+            "region_id": "grid_4x4",
+            "semantic_group": null
+          }
+        ],
+        "runtime": {
+          "allow_nondeterministic": false,
+          "fail_fast": false,
+          "global_seed": 20260820,
+          "num_workers": 12,
+          "retry_failed": true,
+          "target_batch_size": 128,
+          "variants_per_chunk": 128
+        },
+        "sha256_canonical": "126568851ff55ab8cfa7abb38b530e3129fb27b437d2eed74181a00668b7e272",
+        "skeleton_source": null,
+        "source_provenance": {
+          "kind": "imagenet",
+          "loader_parameters": {
+            "root": "/workspace/data/imagenet/ILSVRC/Data/CLS-LOC/val"
+          },
+          "manifest": "/workspace/data/phase3/imagenet/val_10_per_class.txt",
+          "manifest_hash": "bfa620c787cfea0d17e613ff06b10bdef9215d0b2ba0abbceb2aba28283fdb87"
+        }
+      },
+      "run_manifest": {
+        "code_version": "0.1.0",
+        "counts_by_status": {
+          "load_failed": 0,
+          "ok": 1610000,
+          "predict_failed": 0,
+          "prepare_failed": 0,
+          "skipped_oom": 0
+        },
+        "environment": {
+          "cuda_version": "12.9",
+          "gpu_names": [
+            "NVIDIA GeForce RTX 4090"
+          ],
+          "platform": "Linux-7.0.0-28-generic-x86_64-with-glibc2.35",
+          "python_version": "3.11.13",
+          "torch_version": "2.8.0+cu129"
+        },
+        "finished_at": "2026-08-21T10:32:19.472912Z",
+        "resume_events": 0,
+        "run_duration_s": 5744.781308,
+        "schema_version": "1.0.0",
+        "sha256": "78a3612b316ff13dff51bc5ee89888b21441c4b3b8412dde9ccd88a4a953d4b4",
+        "started_at": "2026-08-21T08:56:34.691604Z"
+      }
+    },
+    "imagenet_mnv2_050_exact_k1": {
+      "adapter_spec": {
+        "adapter_kind": "timm",
+        "class_names": null,
+        "deterministic": true,
+        "input_layout": "THWC_uint8",
+        "mask_transform_available": true,
+        "max_batch_size": 128,
+        "model_id": "timm:mobilenetv2_050.lamb_in1k:pretrained=true",
+        "model_name": "mobilenetv2_050.lamb_in1k",
+        "output_kind": "logits",
+        "preprocessing_desc": "{\"crop_mode\": \"center\", \"crop_pct\": 0.875, \"input_size\": [3, 224, 224], \"interpolation\": \"bicubic\", \"mean\": [0.485, 0.456, 0.406], \"std\": [0.229, 0.224, 0.225]}",
+        "preprocessing_fingerprint": "fa2a97c526a01911268753632336e5c959e28f6d6b16e438bc7fbc8218f8fc7f",
+        "weights_hash": null,
+        "weights_id": "timm/mobilenetv2_050.lamb_in1k"
+      },
+      "analysis_manifest": {
+        "available_analyses": {
+          "control_comparison": true,
+          "fill_strategy_stability": true,
+          "jitter_stability": false,
+          "seed_stability": true
+        },
+        "computed_at": "2026-08-21T08:16:37.180298+00:00",
+        "grade_distribution_all_metrics": {
+          "low": 16779,
+          "moderate": 983393,
+          "unreliable": 439828
+        },
+        "n_bootstrap": 1000,
+        "random_seed": 0,
+        "schema_version": "1.0.0",
+        "sha256": "14c8dffecbe085cb57f222b11d3db92f2cdf749d3e024f28dd05dd89492f4e35",
+        "thresholds": {
+          "area_match_tolerance": 0.05,
+          "seed_cv_threshold": 0.2,
+          "z_vs_control_threshold": 2.0
+        }
+      },
+      "bytes": {
+        "analysis": 123229022,
+        "dump_total": 8020009718,
+        "imagenet_mnv2_050_exact": 8020009718,
+        "metrics": 139898907
+      },
+      "checks": {
+        "all_items_ok": true,
+        "analysis_from_these_metrics": true,
+        "analysis_predates_last_analysis_or_metrics_commit": true,
+        "metrics_from_this_dump": true,
+        "n_controls_matches_registry": true,
+        "run_finished": true,
+        "source_manifest_unchanged": true
+      },
+      "config": {
+        "path": "experiments/real_dataset_case_study/configs/imagenet_mnv2_050_exact.yaml",
+        "recorded_config_source": "experiments/real_dataset_case_study/configs/imagenet_mnv2_050_exact.yaml",
+        "revision": "486007a^",
+        "sha256_at_revision": "0abaa1e60387a9a5c123a7c71409ef74f950228d296bea9b748062c166fc781d",
+        "sha256_current": "3403b4705fcb739347c5b391164d62d004306b3f382c45b207b8e93b7120cea3"
+      },
+      "dataset": "imagenet",
+      "margin_drop": {
+        "flag_rates": {
+          "area_matched": {
+            "false": 0.919656,
+            "true": 0.080344
+          },
+          "ci_excludes_zero": {
+            "true": 1.0
+          },
+          "exceeds_control": {
+            "unavailable": 1.0
+          },
+          "multi_strategy": {
+            "true": 1.0
+          },
+          "seed_stable": {
+            "false": 0.799687,
+            "true": 0.200306,
+            "unavailable": 6e-06
+          },
+          "sign_consistent": {
+            "false": 0.590294,
+            "true": 0.409706
+          }
+        },
+        "grade_counts": {
+          "moderate": 65553,
+          "unreliable": 94447
+        },
+        "grade_pct": {
+          "moderate": 40.9706,
+          "unreliable": 59.0294
+        },
+        "n_anchors": 160000
+      },
+      "metrics_manifest": {
+        "computed_at": "2026-08-21T07:55:36.634672+00:00",
+        "exclusion_summary": {
+          "clean_status_counts": {
+            "load_failed": 0,
+            "ok": 10000,
+            "predict_failed": 0,
+            "prepare_failed": 0,
+            "skipped_oom": 0
+          },
+          "items_excluded_perturbed_failed": 0,
+          "perturbed_status_counts": {
+            "load_failed": 0,
+            "ok": 1600000,
+            "predict_failed": 0,
+            "prepare_failed": 0,
+            "skipped_oom": 0
+          },
+          "samples_excluded_clean_failed": 0,
+          "total_clean_samples": 10000,
+          "total_perturbed_items": 1600000
+        },
+        "metric_config": {
+          "primary_metric": "margin_drop",
+          "topk": 5
+        },
+        "schema_version": "1.1.0",
+        "sha256": "fbe72c1571eec73b9aeb3fd0e8d87bec785fdb995540eda9b12c1bd024e19192"
+      },
+      "model": "mobilenetv2_050",
+      "n_controls": 1,
+      "name": "imagenet_mnv2_050_exact_k1",
+      "paths": {
+        "analysis": "experiments/real_dataset_case_study/results/imagenet_mnv2_050_exact/analysis",
+        "dump": "experiments/real_dataset_case_study/results/imagenet_mnv2_050_exact",
+        "metrics": "experiments/real_dataset_case_study/results/imagenet_mnv2_050_exact/metrics"
+      },
+      "preprocessing_fingerprint": "fa2a97c526a01911268753632336e5c959e28f6d6b16e438bc7fbc8218f8fc7f",
+      "protocol": "exact",
+      "resolved_config": {
+        "controls": [
+          {
+            "match_area_of": "grid_4x4",
+            "n_samples": 1
+          }
+        ],
+        "dataset_stats": {
+          "channel_mean": [
+            123.675,
+            116.28,
+            103.53
+          ]
+        },
+        "perturbations": [
+          {
+            "invert_mask": false,
+            "op": "mean_fill",
+            "params": {
+              "value": [
+                123.675,
+                116.28,
+                103.53
+              ]
+            },
+            "seed_salts": [
+              0
+            ]
+          },
+          {
+            "invert_mask": false,
+            "op": "blur",
+            "params": {
+              "sigma": 3.0
+            },
+            "seed_salts": [
+              0
+            ]
+          },
+          {
+            "invert_mask": false,
+            "op": "gaussian_noise",
+            "params": {
+              "sigma": 12.5
+            },
+            "seed_salts": [
+              0,
+              1,
+              2
+            ]
+          }
+        ],
+        "regions": [
+          {
+            "kind": "grid",
+            "params": {
+              "cols": 4,
+              "rows": 4
+            },
+            "ref": null,
+            "ref_hash": null,
+            "region_id": "grid_4x4",
+            "semantic_group": null
+          }
+        ],
+        "runtime": {
+          "allow_nondeterministic": false,
+          "fail_fast": false,
+          "global_seed": 20260820,
+          "num_workers": 12,
+          "retry_failed": true,
+          "target_batch_size": 128,
+          "variants_per_chunk": 128
+        },
+        "sha256_canonical": "376d0d2d8257e07c86da08dbbb0fc07d430fee1b06606b6cb8f26a3b9f470eb8",
+        "skeleton_source": null,
+        "source_provenance": {
+          "kind": "imagenet",
+          "loader_parameters": {},
+          "manifest": "/workspace/data/phase3/imagenet/val_10_per_class.txt",
+          "manifest_hash": "bfa620c787cfea0d17e613ff06b10bdef9215d0b2ba0abbceb2aba28283fdb87"
+        }
+      },
+      "run_manifest": {
+        "code_version": "0.1.0",
+        "counts_by_status": {
+          "load_failed": 0,
+          "ok": 1610000,
+          "predict_failed": 0,
+          "prepare_failed": 0,
+          "skipped_oom": 0
+        },
+        "environment": {
+          "cuda_version": "12.9",
+          "gpu_names": [
+            "NVIDIA GeForce RTX 4090"
+          ],
+          "platform": "Linux-7.0.0-28-generic-x86_64-with-glibc2.35",
+          "python_version": "3.11.13",
+          "torch_version": "2.8.0+cu129"
+        },
+        "finished_at": "2026-08-21T07:42:50.030785Z",
+        "resume_events": 0,
+        "run_duration_s": 6203.85982,
+        "schema_version": "1.0.0",
+        "sha256": "311531660e305c8cc170275213c246954f431dd0c422911d9b7b07b2e4ce62ff",
+        "started_at": "2026-08-21T05:59:26.170965Z"
+      }
+    },
+    "imagenet_mnv2_100_crop_free_k1": {
+      "adapter_spec": {
+        "adapter_kind": "timm",
+        "class_names": null,
+        "deterministic": true,
+        "input_layout": "THWC_uint8",
+        "mask_transform_available": true,
+        "max_batch_size": 96,
+        "model_id": "timm:mobilenetv2_100.ra_in1k:pretrained=true",
+        "model_name": "mobilenetv2_100.ra_in1k",
+        "output_kind": "logits",
+        "preprocessing_desc": "{\"geometry_mode\": \"squash\", \"input_size\": [3, 224, 224], \"interpolation\": \"bicubic\", \"kind\": \"timm\", \"mean\": [0.485, 0.456, 0.406], \"std\": [0.229, 0.224, 0.225]}",
+        "preprocessing_fingerprint": "d8a816490e39b1bd19df7349f41bc98fbd5007822132c02e5cf0a18c883bbd06",
+        "weights_hash": null,
+        "weights_id": "timm/mobilenetv2_100.ra_in1k"
+      },
+      "analysis_manifest": {
+        "available_analyses": {
+          "control_comparison": true,
+          "fill_strategy_stability": true,
+          "jitter_stability": false,
+          "seed_stability": true
+        },
+        "computed_at": "2026-08-21T15:02:40.774300+00:00",
+        "grade_distribution_all_metrics": {
+          "low": 33772,
+          "moderate": 955535,
+          "unreliable": 450693
+        },
+        "n_bootstrap": 1000,
+        "random_seed": 0,
+        "schema_version": "1.0.0",
+        "sha256": "a815d1fc2c4dff124bf02e4658c03f6084d366a94ca85cc99ded127b8579662f",
+        "thresholds": {
+          "area_match_tolerance": 0.05,
+          "seed_cv_threshold": 0.2,
+          "z_vs_control_threshold": 2.0
+        }
+      },
+      "bytes": {
+        "analysis": 121113442,
+        "dump_total": 8124788019,
+        "imagenet_mnv2_100_crop_free": 8124788019,
+        "metrics": 136905662
+      },
+      "checks": {
+        "all_items_ok": true,
+        "analysis_from_these_metrics": true,
+        "analysis_predates_last_analysis_or_metrics_commit": true,
+        "metrics_from_this_dump": true,
+        "n_controls_matches_registry": true,
+        "run_finished": true,
+        "source_manifest_unchanged": true
+      },
+      "config": {
+        "path": "experiments/real_dataset_case_study/configs/imagenet_mnv2_100_crop_free.yaml",
+        "recorded_config_source": "experiments/real_dataset_case_study/configs/imagenet_mnv2_100_crop_free.yaml",
+        "revision": "486007a^",
+        "sha256_at_revision": "5dddac57e8b107c330cd77d5bff3013c52ffccf31ba1c54f8ecb8dfce5390a4e",
+        "sha256_current": "d6c49be041f9e5575dff100659772e283436e5321c0e44f772ef0d0805608e23"
+      },
+      "dataset": "imagenet",
+      "margin_drop": {
+        "flag_rates": {
+          "area_matched": {
+            "true": 1.0
+          },
+          "ci_excludes_zero": {
+            "true": 1.0
+          },
+          "exceeds_control": {
+            "unavailable": 1.0
+          },
+          "multi_strategy": {
+            "false": 6e-06,
+            "true": 0.999994
+          },
+          "seed_stable": {
+            "false": 0.8227,
+            "true": 0.177281,
+            "unavailable": 1.9e-05
+          },
+          "sign_consistent": {
+            "false": 0.611431,
+            "true": 0.388569
+          }
+        },
+        "grade_counts": {
+          "moderate": 62171,
+          "unreliable": 97829
+        },
+        "grade_pct": {
+          "moderate": 38.8569,
+          "unreliable": 61.1431
+        },
+        "n_anchors": 160000
+      },
+      "metrics_manifest": {
+        "computed_at": "2026-08-21T14:52:28.674768+00:00",
+        "exclusion_summary": {
+          "clean_status_counts": {
+            "load_failed": 0,
+            "ok": 10000,
+            "predict_failed": 0,
+            "prepare_failed": 0,
+            "skipped_oom": 0
+          },
+          "items_excluded_perturbed_failed": 0,
+          "perturbed_status_counts": {
+            "load_failed": 0,
+            "ok": 1600000,
+            "predict_failed": 0,
+            "prepare_failed": 0,
+            "skipped_oom": 0
+          },
+          "samples_excluded_clean_failed": 0,
+          "total_clean_samples": 10000,
+          "total_perturbed_items": 1600000
+        },
+        "metric_config": {
+          "primary_metric": "margin_drop",
+          "topk": 5
+        },
+        "schema_version": "1.1.0",
+        "sha256": "886d3ab588730093cabe1f9241cc97bf893d3c5c34631498e40accc1f47cd5e8"
+      },
+      "model": "mobilenetv2_100",
+      "n_controls": 1,
+      "name": "imagenet_mnv2_100_crop_free_k1",
+      "paths": {
+        "analysis": "experiments/real_dataset_case_study/results/imagenet_mnv2_100_crop_free/analysis",
+        "dump": "experiments/real_dataset_case_study/results/imagenet_mnv2_100_crop_free",
+        "metrics": "experiments/real_dataset_case_study/results/imagenet_mnv2_100_crop_free/metrics"
+      },
+      "preprocessing_fingerprint": "d8a816490e39b1bd19df7349f41bc98fbd5007822132c02e5cf0a18c883bbd06",
+      "protocol": "crop_free",
+      "resolved_config": {
+        "controls": [
+          {
+            "match_area_of": "grid_4x4",
+            "n_samples": 1
+          }
+        ],
+        "dataset_stats": {
+          "channel_mean": [
+            123.675,
+            116.28,
+            103.53
+          ]
+        },
+        "perturbations": [
+          {
+            "invert_mask": false,
+            "op": "mean_fill",
+            "params": {
+              "value": [
+                123.675,
+                116.28,
+                103.53
+              ]
+            },
+            "seed_salts": [
+              0
+            ]
+          },
+          {
+            "invert_mask": false,
+            "op": "blur",
+            "params": {
+              "sigma": 3.0
+            },
+            "seed_salts": [
+              0
+            ]
+          },
+          {
+            "invert_mask": false,
+            "op": "gaussian_noise",
+            "params": {
+              "sigma": 12.5
+            },
+            "seed_salts": [
+              0,
+              1,
+              2
+            ]
+          }
+        ],
+        "regions": [
+          {
+            "kind": "grid",
+            "params": {
+              "cols": 4,
+              "rows": 4
+            },
+            "ref": null,
+            "ref_hash": null,
+            "region_id": "grid_4x4",
+            "semantic_group": null
+          }
+        ],
+        "runtime": {
+          "allow_nondeterministic": false,
+          "fail_fast": false,
+          "global_seed": 20260820,
+          "num_workers": 12,
+          "retry_failed": true,
+          "target_batch_size": 96,
+          "variants_per_chunk": 96
+        },
+        "sha256_canonical": "5059dd1ce3d337a24cead346836b6e4b8b49b994e7d64ba51016a9df258e096f",
+        "skeleton_source": null,
+        "source_provenance": {
+          "kind": "imagenet",
+          "loader_parameters": {
+            "root": "/workspace/data/imagenet/ILSVRC/Data/CLS-LOC/val"
+          },
+          "manifest": "/workspace/data/phase3/imagenet/val_10_per_class.txt",
+          "manifest_hash": "bfa620c787cfea0d17e613ff06b10bdef9215d0b2ba0abbceb2aba28283fdb87"
+        }
+      },
+      "run_manifest": {
+        "code_version": "0.1.0",
+        "counts_by_status": {
+          "load_failed": 0,
+          "ok": 1610000,
+          "predict_failed": 0,
+          "prepare_failed": 0,
+          "skipped_oom": 0
+        },
+        "environment": {
+          "cuda_version": "12.9",
+          "gpu_names": [
+            "NVIDIA GeForce RTX 4090"
+          ],
+          "platform": "Linux-7.0.0-28-generic-x86_64-with-glibc2.35",
+          "python_version": "3.11.13",
+          "torch_version": "2.8.0+cu129"
+        },
+        "finished_at": "2026-08-21T14:39:55.559925Z",
+        "resume_events": 0,
+        "run_duration_s": 5618.278832,
+        "schema_version": "1.0.0",
+        "sha256": "2e76e7458b88df0a3cb9435b9d6f5810fae93d3019df57495976e6082076b65d",
+        "started_at": "2026-08-21T13:06:17.281093Z"
+      }
+    },
+    "imagenet_mnv2_100_exact_k1": {
+      "adapter_spec": {
+        "adapter_kind": "timm",
+        "class_names": null,
+        "deterministic": true,
+        "input_layout": "THWC_uint8",
+        "mask_transform_available": true,
+        "max_batch_size": 96,
+        "model_id": "timm:mobilenetv2_100.ra_in1k:pretrained=true",
+        "model_name": "mobilenetv2_100.ra_in1k",
+        "output_kind": "logits",
+        "preprocessing_desc": "{\"crop_mode\": \"center\", \"crop_pct\": 0.875, \"input_size\": [3, 224, 224], \"interpolation\": \"bicubic\", \"mean\": [0.485, 0.456, 0.406], \"std\": [0.229, 0.224, 0.225]}",
+        "preprocessing_fingerprint": "fa2a97c526a01911268753632336e5c959e28f6d6b16e438bc7fbc8218f8fc7f",
+        "weights_hash": null,
+        "weights_id": "timm/mobilenetv2_100.ra_in1k"
+      },
+      "analysis_manifest": {
+        "available_analyses": {
+          "control_comparison": true,
+          "fill_strategy_stability": true,
+          "jitter_stability": false,
+          "seed_stability": true
+        },
+        "computed_at": "2026-08-21T13:01:24.300167+00:00",
+        "grade_distribution_all_metrics": {
+          "low": 43682,
+          "moderate": 966503,
+          "unreliable": 429815
+        },
+        "n_bootstrap": 1000,
+        "random_seed": 0,
+        "schema_version": "1.0.0",
+        "sha256": "28232f3b0771ea795127971c38c09843e1dc7f263b5cf419b7df30861a34bafb",
+        "thresholds": {
+          "area_match_tolerance": 0.05,
+          "seed_cv_threshold": 0.2,
+          "z_vs_control_threshold": 2.0
+        }
+      },
+      "bytes": {
+        "analysis": 120994450,
+        "dump_total": 8117719382,
+        "imagenet_mnv2_100_exact": 8117719382,
+        "metrics": 136622237
+      },
+      "checks": {
+        "all_items_ok": true,
+        "analysis_from_these_metrics": true,
+        "analysis_predates_last_analysis_or_metrics_commit": true,
+        "metrics_from_this_dump": true,
+        "n_controls_matches_registry": true,
+        "run_finished": true,
+        "source_manifest_unchanged": true
+      },
+      "config": {
+        "path": "experiments/real_dataset_case_study/configs/imagenet_mnv2_100_exact.yaml",
+        "recorded_config_source": "experiments/real_dataset_case_study/configs/imagenet_mnv2_100_exact.yaml",
+        "revision": "486007a^",
+        "sha256_at_revision": "8ae543c4f4517959b2e5ee74fde1f749be8ad4f7cc1d4549abde59b2d30f142b",
+        "sha256_current": "a95fcfecc40c19a85a7e2e69a1d34f38b055aa4a4a359a6c100d6241b401eaab"
+      },
+      "dataset": "imagenet",
+      "margin_drop": {
+        "flag_rates": {
+          "area_matched": {
+            "false": 0.919656,
+            "true": 0.080344
+          },
+          "ci_excludes_zero": {
+            "true": 1.0
+          },
+          "exceeds_control": {
+            "unavailable": 1.0
+          },
+          "multi_strategy": {
+            "true": 1.0
+          },
+          "seed_stable": {
+            "false": 0.818381,
+            "true": 0.181606,
+            "unavailable": 1.3e-05
+          },
+          "sign_consistent": {
+            "false": 0.592025,
+            "true": 0.407975
+          }
+        },
+        "grade_counts": {
+          "moderate": 65276,
+          "unreliable": 94724
+        },
+        "grade_pct": {
+          "moderate": 40.7975,
+          "unreliable": 59.2025
+        },
+        "n_anchors": 160000
+      },
+      "metrics_manifest": {
+        "computed_at": "2026-08-21T12:51:16.524546+00:00",
+        "exclusion_summary": {
+          "clean_status_counts": {
+            "load_failed": 0,
+            "ok": 10000,
+            "predict_failed": 0,
+            "prepare_failed": 0,
+            "skipped_oom": 0
+          },
+          "items_excluded_perturbed_failed": 0,
+          "perturbed_status_counts": {
+            "load_failed": 0,
+            "ok": 1600000,
+            "predict_failed": 0,
+            "prepare_failed": 0,
+            "skipped_oom": 0
+          },
+          "samples_excluded_clean_failed": 0,
+          "total_clean_samples": 10000,
+          "total_perturbed_items": 1600000
+        },
+        "metric_config": {
+          "primary_metric": "margin_drop",
+          "topk": 5
+        },
+        "schema_version": "1.1.0",
+        "sha256": "faead271339891f7f4d5d1817595158db565ac6c0297d90790bffae184145720"
+      },
+      "model": "mobilenetv2_100",
+      "n_controls": 1,
+      "name": "imagenet_mnv2_100_exact_k1",
+      "paths": {
+        "analysis": "experiments/real_dataset_case_study/results/imagenet_mnv2_100_exact/analysis",
+        "dump": "experiments/real_dataset_case_study/results/imagenet_mnv2_100_exact",
+        "metrics": "experiments/real_dataset_case_study/results/imagenet_mnv2_100_exact/metrics"
+      },
+      "preprocessing_fingerprint": "fa2a97c526a01911268753632336e5c959e28f6d6b16e438bc7fbc8218f8fc7f",
+      "protocol": "exact",
+      "resolved_config": {
+        "controls": [
+          {
+            "match_area_of": "grid_4x4",
+            "n_samples": 1
+          }
+        ],
+        "dataset_stats": {
+          "channel_mean": [
+            123.675,
+            116.28,
+            103.53
+          ]
+        },
+        "perturbations": [
+          {
+            "invert_mask": false,
+            "op": "mean_fill",
+            "params": {
+              "value": [
+                123.675,
+                116.28,
+                103.53
+              ]
+            },
+            "seed_salts": [
+              0
+            ]
+          },
+          {
+            "invert_mask": false,
+            "op": "blur",
+            "params": {
+              "sigma": 3.0
+            },
+            "seed_salts": [
+              0
+            ]
+          },
+          {
+            "invert_mask": false,
+            "op": "gaussian_noise",
+            "params": {
+              "sigma": 12.5
+            },
+            "seed_salts": [
+              0,
+              1,
+              2
+            ]
+          }
+        ],
+        "regions": [
+          {
+            "kind": "grid",
+            "params": {
+              "cols": 4,
+              "rows": 4
+            },
+            "ref": null,
+            "ref_hash": null,
+            "region_id": "grid_4x4",
+            "semantic_group": null
+          }
+        ],
+        "runtime": {
+          "allow_nondeterministic": false,
+          "fail_fast": false,
+          "global_seed": 20260820,
+          "num_workers": 12,
+          "retry_failed": true,
+          "target_batch_size": 96,
+          "variants_per_chunk": 96
+        },
+        "sha256_canonical": "a791b520ff1e48a44df4a4b850f85ba84844980ab9e2bec535c08ebddb5d5a28",
+        "skeleton_source": null,
+        "source_provenance": {
+          "kind": "imagenet",
+          "loader_parameters": {
+            "root": "/workspace/data/imagenet/ILSVRC/Data/CLS-LOC/val"
+          },
+          "manifest": "/workspace/data/phase3/imagenet/val_10_per_class.txt",
+          "manifest_hash": "bfa620c787cfea0d17e613ff06b10bdef9215d0b2ba0abbceb2aba28283fdb87"
+        }
+      },
+      "run_manifest": {
+        "code_version": "0.1.0",
+        "counts_by_status": {
+          "load_failed": 0,
+          "ok": 1610000,
+          "predict_failed": 0,
+          "prepare_failed": 0,
+          "skipped_oom": 0
+        },
+        "environment": {
+          "cuda_version": "12.9",
+          "gpu_names": [
+            "NVIDIA GeForce RTX 4090"
+          ],
+          "platform": "Linux-7.0.0-28-generic-x86_64-with-glibc2.35",
+          "python_version": "3.11.13",
+          "torch_version": "2.8.0+cu129"
+        },
+        "finished_at": "2026-08-21T12:38:49.834873Z",
+        "resume_events": 0,
+        "run_duration_s": 5941.73757,
+        "schema_version": "1.0.0",
+        "sha256": "a5bd2e66fbc885e7d45822032ee101bd45b13808e937e395175ba5b59049ef1e",
+        "started_at": "2026-08-21T10:59:48.097303Z"
+      }
+    }
+  },
+  "last_commit_touching_ssat_analysis_or_metrics": "2026-08-28T15:26:33+09:00",
+  "original_small_store_findings": [
+    "ntu60_tsm_crop_free: metrics_from_this_dump"
+  ],
+  "original_small_stores": {
+    "ntu60_tsm_crop_free": {
+      "adapter_spec": {
+        "adapter_kind": "torchvision_tsm",
+        "class_names": null,
+        "deterministic": true,
+        "input_layout": "THWC_uint8",
+        "mask_transform_available": true,
+        "max_batch_size": 64,
+        "model_id": "torchvision_tsm:tsm_resnet50:segments=8:classes=60:weights=checkpoint:native_tsm_r50_xsub_epoch45.pt",
+        "model_name": "tsm_resnet50",
+        "output_kind": "logits",
+        "preprocessing_desc": "Resize(size=(224, 224)) -> ToFloat(scale=1.0) -> Normalize(mean=(123.675, 116.28, 103.53), std=(58.395, 57.12, 57.375)) -> ChannelsFirst()",
+        "preprocessing_fingerprint": "4ff37ee203f8a5db64aeb5bdbf054a2e5ea1be4bf8be8e1acaa4f9fb9c5aa9c2",
+        "weights_hash": "b7b53db426b6f81cd3ff3f1729dd5a837c3e59018bb76aa34a2e160a7a72371a",
+        "weights_id": "checkpoint:native_tsm_r50_xsub_epoch45.pt"
+      },
+      "analysis_manifest": {
+        "available_analyses": {
+          "control_comparison": false,
+          "fill_strategy_stability": true,
+          "jitter_stability": false,
+          "seed_stability": true
+        },
+        "computed_at": "2026-08-21T19:00:18.734844+00:00",
+        "grade_distribution_all_metrics": {
+          "low": 50454,
+          "moderate": 18028,
+          "unreliable": 39518
+        },
+        "n_bootstrap": 1000,
+        "random_seed": 0,
+        "schema_version": "1.0.0",
+        "sha256": "9a10c133e3ff6a6f710765697d72a231a8662ea7d2a504566bdfe9fbb62b4137",
+        "thresholds": {
+          "area_match_tolerance": 0.05,
+          "seed_cv_threshold": 0.2,
+          "z_vs_control_threshold": 2.0
+        }
+      },
+      "bytes": {
+        "analysis": 5691312,
+        "dump_total": 287229729,
+        "metrics": 6457499,
+        "ntu60_tsm_crop_free": 287229729
+      },
+      "checks": {
+        "all_items_ok": true,
+        "analysis_from_these_metrics": true,
+        "analysis_predates_last_analysis_or_metrics_commit": true,
+        "metrics_from_this_dump": false,
+        "n_controls_matches_registry": true,
+        "run_finished": true,
+        "source_manifest_unchanged": true
+      },
+      "config": {
+        "path": "experiments/real_dataset_case_study/configs/ntu60_tsm_crop_free.yaml",
+        "recorded_config_source": "experiments/real_dataset_case_study/configs/ntu60_tsm_crop_free.yaml",
+        "revision": null,
+        "sha256_current": "0977fc7bc5e3ff3496b7d4d2c7ddbf089006dd36d062b5461ad4d6ae024311a9"
+      },
+      "dataset": "ntu60",
+      "margin_drop": {
+        "flag_rates": {
+          "area_matched": {
+            "unavailable": 1.0
+          },
+          "ci_excludes_zero": {
+            "false": 0.00375,
+            "true": 0.99625
+          },
+          "exceeds_control": {
+            "unavailable": 1.0
+          },
+          "multi_strategy": {
+            "true": 1.0
+          },
+          "seed_stable": {
+            "false": 0.8805,
+            "true": 0.115667,
+            "unavailable": 0.003833
+          },
+          "sign_consistent": {
+            "false": 0.634417,
+            "true": 0.365583
+          }
+        },
+        "grade_counts": {
+          "low": 45,
+          "moderate": 4342,
+          "unreliable": 7613
+        },
+        "grade_pct": {
+          "low": 0.375,
+          "moderate": 36.1833,
+          "unreliable": 63.4417
+        },
+        "n_anchors": 12000
+      },
+      "metrics_manifest": {
+        "computed_at": "2026-08-21T18:59:57.368488+00:00",
+        "exclusion_summary": {
+          "clean_status_counts": {
+            "load_failed": 0,
+            "ok": 1200,
+            "predict_failed": 0,
+            "prepare_failed": 0,
+            "skipped_oom": 0
+          },
+          "items_excluded_perturbed_failed": 0,
+          "perturbed_status_counts": {
+            "load_failed": 0,
+            "ok": 60000,
+            "predict_failed": 0,
+            "prepare_failed": 0,
+            "skipped_oom": 0
+          },
+          "samples_excluded_clean_failed": 0,
+          "total_clean_samples": 1200,
+          "total_perturbed_items": 60000
+        },
+        "metric_config": {
+          "primary_metric": "margin_drop",
+          "topk": 5
+        },
+        "schema_version": "1.1.0",
+        "sha256": "9693b4c6e7f4ac0844b20265f4b2f65e99e54ee5ef3c0f8128edb4aba079a625"
+      },
+      "model": "tsm_resnet50",
+      "n_controls": 0,
+      "name": "ntu60_tsm_crop_free",
+      "paths": {
+        "analysis": "experiments/real_dataset_case_study/results/ntu60_tsm_crop_free/analysis",
+        "dump": "experiments/real_dataset_case_study/results/ntu60_tsm_crop_free",
+        "metrics": "experiments/real_dataset_case_study/results/ntu60_tsm_crop_free/metrics"
+      },
+      "preprocessing_fingerprint": "4ff37ee203f8a5db64aeb5bdbf054a2e5ea1be4bf8be8e1acaa4f9fb9c5aa9c2",
+      "protocol": "crop_free",
+      "resolved_config": {
+        "controls": [],
+        "dataset_stats": {
+          "channel_mean": [
+            123.675,
+            116.28,
+            103.53
+          ]
+        },
+        "perturbations": [
+          {
+            "invert_mask": false,
+            "op": "mean_fill",
+            "params": {
+              "value": [
+                123.675,
+                116.28,
+                103.53
+              ]
+            },
+            "seed_salts": [
+              0
+            ]
+          },
+          {
+            "invert_mask": false,
+            "op": "blur",
+            "params": {
+              "sigma": 3.0
+            },
+            "seed_salts": [
+              0
+            ]
+          },
+          {
+            "invert_mask": false,
+            "op": "gaussian_noise",
+            "params": {
+              "sigma": 12.5
+            },
+            "seed_salts": [
+              0,
+              1,
+              2
+            ]
+          }
+        ],
+        "regions": [
+          {
+            "kind": "skeleton_parts",
+            "params": {
+              "bbox_scale": 1.15,
+              "body_part": "head"
+            },
+            "ref": null,
+            "ref_hash": null,
+            "region_id": "head",
+            "semantic_group": "head"
+          },
+          {
+            "kind": "skeleton_parts",
+            "params": {
+              "bbox_scale": 1.15,
+              "body_part": "torso"
+            },
+            "ref": null,
+            "ref_hash": null,
+            "region_id": "torso",
+            "semantic_group": "torso"
+          },
+          {
+            "kind": "skeleton_parts",
+            "params": {
+              "bbox_scale": 1.15,
+              "body_part": "left_arm"
+            },
+            "ref": null,
+            "ref_hash": null,
+            "region_id": "left_arm",
+            "semantic_group": "arms"
+          },
+          {
+            "kind": "skeleton_parts",
+            "params": {
+              "bbox_scale": 1.15,
+              "body_part": "right_arm"
+            },
+            "ref": null,
+            "ref_hash": null,
+            "region_id": "right_arm",
+            "semantic_group": "arms"
+          },
+          {
+            "kind": "skeleton_parts",
+            "params": {
+              "bbox_scale": 1.15,
+              "body_part": "left_hand"
+            },
+            "ref": null,
+            "ref_hash": null,
+            "region_id": "left_hand",
+            "semantic_group": "hands"
+          },
+          {
+            "kind": "skeleton_parts",
+            "params": {
+              "bbox_scale": 1.15,
+              "body_part": "right_hand"
+            },
+            "ref": null,
+            "ref_hash": null,
+            "region_id": "right_hand",
+            "semantic_group": "hands"
+          },
+          {
+            "kind": "skeleton_parts",
+            "params": {
+              "bbox_scale": 1.15,
+              "body_part": "left_leg"
+            },
+            "ref": null,
+            "ref_hash": null,
+            "region_id": "left_leg",
+            "semantic_group": "legs"
+          },
+          {
+            "kind": "skeleton_parts",
+            "params": {
+              "bbox_scale": 1.15,
+              "body_part": "right_leg"
+            },
+            "ref": null,
+            "ref_hash": null,
+            "region_id": "right_leg",
+            "semantic_group": "legs"
+          },
+          {
+            "kind": "skeleton_parts",
+            "params": {
+              "bbox_scale": 1.15,
+              "body_part": "upper_body"
+            },
+            "ref": null,
+            "ref_hash": null,
+            "region_id": "upper_body",
+            "semantic_group": "upper_body"
+          },
+          {
+            "kind": "skeleton_parts",
+            "params": {
+              "bbox_scale": 1.15,
+              "body_part": "lower_body"
+            },
+            "ref": null,
+            "ref_hash": null,
+            "region_id": "lower_body",
+            "semantic_group": "lower_body"
+          }
+        ],
+        "runtime": {
+          "allow_nondeterministic": false,
+          "fail_fast": false,
+          "global_seed": 20260820,
+          "num_workers": 8,
+          "retry_failed": true,
+          "target_batch_size": 64,
+          "variants_per_chunk": 64
+        },
+        "sha256_canonical": "223eedf52e982a72e2c6dee644f14882cfacd613258809d43e474f7e25f4380a",
+        "skeleton_source": {
+          "bbox_data": "/workspace/data/phase3/ntu60_xsub_test_20/skeleton_bbox.json",
+          "bbox_data_hash": "bd81e601de83d74e1ab5658a600711b63a5d6497b7575c6ae65de5d564e8c83f"
+        },
+        "source_provenance": {
+          "kind": "video_manifest",
+          "loader_parameters": {
+            "num_frames": 8,
+            "sampling": "segment_center"
+          },
+          "manifest": "/workspace/data/phase3/ntu60_xsub_test_20/video_manifest.json",
+          "manifest_hash": "fb087cbfeb26c9c203b224cd845f988956532ec0f1c227ca2f274e834fb830b0"
+        }
+      },
+      "run_manifest": {
+        "code_version": "0.1.0",
+        "counts_by_status": {
+          "load_failed": 0,
+          "ok": 61200,
+          "predict_failed": 0,
+          "prepare_failed": 0,
+          "skipped_oom": 0
+        },
+        "environment": {
+          "cuda_version": "12.9",
+          "gpu_names": [
+            "NVIDIA GeForce RTX 4090"
+          ],
+          "platform": "Linux-7.0.0-28-generic-x86_64-with-glibc2.35",
+          "python_version": "3.11.13",
+          "torch_version": "2.8.0+cu129"
+        },
+        "finished_at": "2026-08-21T18:59:46.950805Z",
+        "resume_events": 0,
+        "run_duration_s": 6828.22798,
+        "schema_version": "1.0.0",
+        "sha256": "98536b7b84e372e200ab5aae46ce66c6a1defb53156bf5ce14ceb2b332c82290",
+        "started_at": "2026-08-21T17:05:58.722825Z"
+      }
+    },
+    "ntu60_tsm_exact": {
+      "adapter_spec": {
+        "adapter_kind": "torchvision_tsm",
+        "class_names": null,
+        "deterministic": true,
+        "input_layout": "THWC_uint8",
+        "mask_transform_available": true,
+        "max_batch_size": 64,
+        "model_id": "torchvision_tsm:tsm_resnet50:segments=8:classes=60:weights=checkpoint:native_tsm_r50_xsub_epoch45.pt",
+        "model_name": "tsm_resnet50",
+        "output_kind": "logits",
+        "preprocessing_desc": "Resize(size=256) -> CenterCrop(size=224) -> ToFloat(scale=1.0) -> Normalize(mean=(123.675, 116.28, 103.53), std=(58.395, 57.12, 57.375)) -> ChannelsFirst()",
+        "preprocessing_fingerprint": "ad64d6576db708f9bffcb580aeac2891fb973a4211a024cb09a601dc66b2421a",
+        "weights_hash": "b7b53db426b6f81cd3ff3f1729dd5a837c3e59018bb76aa34a2e160a7a72371a",
+        "weights_id": "checkpoint:native_tsm_r50_xsub_epoch45.pt"
+      },
+      "analysis_manifest": {
+        "available_analyses": {
+          "control_comparison": false,
+          "fill_strategy_stability": true,
+          "jitter_stability": false,
+          "seed_stability": true
+        },
+        "computed_at": "2026-08-21T17:02:33.451625+00:00",
+        "grade_distribution_all_metrics": {
+          "low": 53167,
+          "moderate": 18469,
+          "unreliable": 36364
+        },
+        "n_bootstrap": 1000,
+        "random_seed": 0,
+        "schema_version": "1.0.0",
+        "sha256": "e08f02068e9bc1878a9fb01ac5ee6a633509488dfeaa43b34d28d6d0c5f00ce1",
+        "thresholds": {
+          "area_match_tolerance": 0.05,
+          "seed_cv_threshold": 0.2,
+          "z_vs_control_threshold": 2.0
+        }
+      },
+      "bytes": {
+        "analysis": 5434358,
+        "dump_total": 228352717,
+        "metrics": 6251103,
+        "ntu60_tsm_exact": 228352717
+      },
+      "checks": {
+        "all_items_ok": true,
+        "analysis_from_these_metrics": true,
+        "analysis_predates_last_analysis_or_metrics_commit": true,
+        "metrics_from_this_dump": true,
+        "n_controls_matches_registry": true,
+        "run_finished": true,
+        "source_manifest_unchanged": true
+      },
+      "config": {
+        "path": "experiments/real_dataset_case_study/configs/ntu60_tsm_exact.yaml",
+        "recorded_config_source": "experiments/real_dataset_case_study/configs/ntu60_tsm_exact.yaml",
+        "revision": null,
+        "sha256_current": "ee83e49ec3be698cd731a3295018950b0cc9e711731d1a9c14bafce57a12c4a2"
+      },
+      "dataset": "ntu60",
+      "margin_drop": {
+        "flag_rates": {
+          "area_matched": {
+            "unavailable": 1.0
+          },
+          "ci_excludes_zero": {
+            "false": 0.010083,
+            "true": 0.989917
+          },
+          "exceeds_control": {
+            "unavailable": 1.0
+          },
+          "multi_strategy": {
+            "true": 1.0
+          },
+          "seed_stable": {
+            "false": 0.818333,
+            "true": 0.171583,
+            "unavailable": 0.010083
+          },
+          "sign_consistent": {
+            "false": 0.60475,
+            "true": 0.39525
+          }
+        },
+        "grade_counts": {
+          "low": 121,
+          "moderate": 4622,
+          "unreliable": 7257
+        },
+        "grade_pct": {
+          "low": 1.0083,
+          "moderate": 38.5167,
+          "unreliable": 60.475
+        },
+        "n_anchors": 12000
+      },
+      "metrics_manifest": {
+        "computed_at": "2026-08-21T17:02:11.935375+00:00",
+        "exclusion_summary": {
+          "clean_status_counts": {
+            "load_failed": 0,
+            "ok": 1200,
+            "predict_failed": 0,
+            "prepare_failed": 0,
+            "skipped_oom": 0
+          },
+          "items_excluded_perturbed_failed": 0,
+          "perturbed_status_counts": {
+            "load_failed": 0,
+            "ok": 60000,
+            "predict_failed": 0,
+            "prepare_failed": 0,
+            "skipped_oom": 0
+          },
+          "samples_excluded_clean_failed": 0,
+          "total_clean_samples": 1200,
+          "total_perturbed_items": 60000
+        },
+        "metric_config": {
+          "primary_metric": "margin_drop",
+          "topk": 5
+        },
+        "schema_version": "1.1.0",
+        "sha256": "672b815f44eab2ebbb615fa393264f566341d57d1d1ba6985d5e024d95939d9c"
+      },
+      "model": "tsm_resnet50",
+      "n_controls": 0,
+      "name": "ntu60_tsm_exact",
+      "paths": {
+        "analysis": "experiments/real_dataset_case_study/results/ntu60_tsm_exact/analysis",
+        "dump": "experiments/real_dataset_case_study/results/ntu60_tsm_exact",
+        "metrics": "experiments/real_dataset_case_study/results/ntu60_tsm_exact/metrics"
+      },
+      "preprocessing_fingerprint": "ad64d6576db708f9bffcb580aeac2891fb973a4211a024cb09a601dc66b2421a",
+      "protocol": "exact",
+      "resolved_config": {
+        "controls": [],
+        "dataset_stats": {
+          "channel_mean": [
+            123.675,
+            116.28,
+            103.53
+          ]
+        },
+        "perturbations": [
+          {
+            "invert_mask": false,
+            "op": "mean_fill",
+            "params": {
+              "value": [
+                123.675,
+                116.28,
+                103.53
+              ]
+            },
+            "seed_salts": [
+              0
+            ]
+          },
+          {
+            "invert_mask": false,
+            "op": "blur",
+            "params": {
+              "sigma": 3.0
+            },
+            "seed_salts": [
+              0
+            ]
+          },
+          {
+            "invert_mask": false,
+            "op": "gaussian_noise",
+            "params": {
+              "sigma": 12.5
+            },
+            "seed_salts": [
+              0,
+              1,
+              2
+            ]
+          }
+        ],
+        "regions": [
+          {
+            "kind": "skeleton_parts",
+            "params": {
+              "bbox_scale": 1.15,
+              "body_part": "head"
+            },
+            "ref": null,
+            "ref_hash": null,
+            "region_id": "head",
+            "semantic_group": "head"
+          },
+          {
+            "kind": "skeleton_parts",
+            "params": {
+              "bbox_scale": 1.15,
+              "body_part": "torso"
+            },
+            "ref": null,
+            "ref_hash": null,
+            "region_id": "torso",
+            "semantic_group": "torso"
+          },
+          {
+            "kind": "skeleton_parts",
+            "params": {
+              "bbox_scale": 1.15,
+              "body_part": "left_arm"
+            },
+            "ref": null,
+            "ref_hash": null,
+            "region_id": "left_arm",
+            "semantic_group": "arms"
+          },
+          {
+            "kind": "skeleton_parts",
+            "params": {
+              "bbox_scale": 1.15,
+              "body_part": "right_arm"
+            },
+            "ref": null,
+            "ref_hash": null,
+            "region_id": "right_arm",
+            "semantic_group": "arms"
+          },
+          {
+            "kind": "skeleton_parts",
+            "params": {
+              "bbox_scale": 1.15,
+              "body_part": "left_hand"
+            },
+            "ref": null,
+            "ref_hash": null,
+            "region_id": "left_hand",
+            "semantic_group": "hands"
+          },
+          {
+            "kind": "skeleton_parts",
+            "params": {
+              "bbox_scale": 1.15,
+              "body_part": "right_hand"
+            },
+            "ref": null,
+            "ref_hash": null,
+            "region_id": "right_hand",
+            "semantic_group": "hands"
+          },
+          {
+            "kind": "skeleton_parts",
+            "params": {
+              "bbox_scale": 1.15,
+              "body_part": "left_leg"
+            },
+            "ref": null,
+            "ref_hash": null,
+            "region_id": "left_leg",
+            "semantic_group": "legs"
+          },
+          {
+            "kind": "skeleton_parts",
+            "params": {
+              "bbox_scale": 1.15,
+              "body_part": "right_leg"
+            },
+            "ref": null,
+            "ref_hash": null,
+            "region_id": "right_leg",
+            "semantic_group": "legs"
+          },
+          {
+            "kind": "skeleton_parts",
+            "params": {
+              "bbox_scale": 1.15,
+              "body_part": "upper_body"
+            },
+            "ref": null,
+            "ref_hash": null,
+            "region_id": "upper_body",
+            "semantic_group": "upper_body"
+          },
+          {
+            "kind": "skeleton_parts",
+            "params": {
+              "bbox_scale": 1.15,
+              "body_part": "lower_body"
+            },
+            "ref": null,
+            "ref_hash": null,
+            "region_id": "lower_body",
+            "semantic_group": "lower_body"
+          }
+        ],
+        "runtime": {
+          "allow_nondeterministic": false,
+          "fail_fast": false,
+          "global_seed": 20260820,
+          "num_workers": 8,
+          "retry_failed": true,
+          "target_batch_size": 64,
+          "variants_per_chunk": 64
+        },
+        "sha256_canonical": "b995bd4ace2fa217d34e71d167708391d5c21991719037a2104b8962455a49c7",
+        "skeleton_source": {
+          "bbox_data": "/workspace/data/phase3/ntu60_xsub_test_20/skeleton_bbox.json",
+          "bbox_data_hash": "bd81e601de83d74e1ab5658a600711b63a5d6497b7575c6ae65de5d564e8c83f"
+        },
+        "source_provenance": {
+          "kind": "video_manifest",
+          "loader_parameters": {
+            "num_frames": 8,
+            "sampling": "segment_center"
+          },
+          "manifest": "/workspace/data/phase3/ntu60_xsub_test_20/video_manifest.json",
+          "manifest_hash": "fb087cbfeb26c9c203b224cd845f988956532ec0f1c227ca2f274e834fb830b0"
+        }
+      },
+      "run_manifest": {
+        "code_version": "0.1.0",
+        "counts_by_status": {
+          "load_failed": 0,
+          "ok": 61200,
+          "predict_failed": 0,
+          "prepare_failed": 0,
+          "skipped_oom": 0
+        },
+        "environment": {
+          "cuda_version": "12.9",
+          "gpu_names": [
+            "NVIDIA GeForce RTX 4090"
+          ],
+          "platform": "Linux-7.0.0-28-generic-x86_64-with-glibc2.35",
+          "python_version": "3.11.13",
+          "torch_version": "2.8.0+cu129"
+        },
+        "finished_at": "2026-08-21T17:02:00.827989Z",
+        "resume_events": 0,
+        "run_duration_s": 6765.757476,
+        "schema_version": "1.0.0",
+        "sha256": "dddba52799f611cae0a231cdb80d24e68d8cff420b5ffdfd9a59ab6872be4347",
+        "started_at": "2026-08-21T15:09:15.070513Z"
+      }
+    },
+    "synthetic_normal": {
+      "adapter_spec": {
+        "adapter_kind": "torchvision",
+        "class_names": null,
+        "deterministic": true,
+        "input_layout": "THWC_uint8",
+        "mask_transform_available": true,
+        "max_batch_size": null,
+        "model_id": "torchvision:squeezenet1_0:weights=checkpoint:m_normal.pt",
+        "model_name": "squeezenet1_0",
+        "output_kind": "logits",
+        "preprocessing_desc": "Resize(size=(224, 224)) -> ToFloat(scale=0.00392156862745098) -> Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225)) -> ChannelsFirst() -> SqueezeTime()",
+        "preprocessing_fingerprint": "63ab8d7faf7497f1066c35959e013be28f1cb2d0af0e7cb09170a81adba1c5ee",
+        "weights_hash": "3c9f0da29df96ca3fdeeffe0079e66a0674140d90516a482473157a1e618735f",
+        "weights_id": "checkpoint:m_normal.pt"
+      },
+      "analysis_manifest": {
+        "available_analyses": {
+          "control_comparison": true,
+          "fill_strategy_stability": true,
+          "jitter_stability": false,
+          "seed_stability": true
+        },
+        "computed_at": "2026-08-14T14:47:40.242122+00:00",
+        "grade_distribution_all_metrics": {
+          "high": 763,
+          "low": 418,
+          "unreliable": 2019
+        },
+        "n_bootstrap": 1000,
+        "random_seed": 0,
+        "schema_version": "1.0.0",
+        "sha256": "7e3db704e0882400593ebe46c714e13c710dfc14516184dd888110c97add3c22",
+        "thresholds": {
+          "area_match_tolerance": 0.05,
+          "seed_cv_threshold": 0.2,
+          "z_vs_control_threshold": 2.0
+        }
+      },
+      "bytes": {
+        "dump_total": 20821828,
+        "normal_A_all_ops_thresholds_crop_free": 1928677
+      },
+      "checks": {
+        "all_items_ok": true,
+        "analysis_from_these_metrics": true,
+        "analysis_predates_last_analysis_or_metrics_commit": true,
+        "metrics_from_this_dump": true,
+        "n_controls_matches_registry": true,
+        "run_finished": true,
+        "source_manifest_unchanged": true
+      },
+      "config": {
+        "path": "experiments/synthetic_shortcut/run_threshold_validation_full.py",
+        "recorded_config_source": null,
+        "revision": null,
+        "sha256_current": "fece7bd669102a1b0deea9d0cd07ba3ec88857e4c0338a8ee516da0fa9622f24"
+      },
+      "dataset": "synthetic",
+      "margin_drop": {
+        "flag_rates": {
+          "area_matched": {
+            "true": 1.0
+          },
+          "ci_excludes_zero": {
+            "true": 1.0
+          },
+          "exceeds_control": {
+            "false": 0.372812,
+            "true": 0.627188
+          },
+          "multi_strategy": {
+            "true": 1.0
+          },
+          "seed_stable": {
+            "false": 0.960313,
+            "true": 0.039688
+          },
+          "sign_consistent": {
+            "false": 0.630938,
+            "true": 0.369063
+          }
+        },
+        "grade_counts": {
+          "high": 763,
+          "low": 418,
+          "unreliable": 2019
+        },
+        "grade_pct": {
+          "high": 23.8438,
+          "low": 13.0625,
+          "unreliable": 63.0938
+        },
+        "n_anchors": 3200
+      },
+      "metrics_manifest": {
+        "computed_at": "2026-08-14T10:28:49.767387+00:00",
+        "exclusion_summary": {
+          "clean_status_counts": {
+            "load_failed": 0,
+            "ok": 200,
+            "predict_failed": 0,
+            "prepare_failed": 0,
+            "skipped_oom": 0
+          },
+          "items_excluded_perturbed_failed": 0,
+          "perturbed_status_counts": {
+            "load_failed": 0,
+            "ok": 144000,
+            "predict_failed": 0,
+            "prepare_failed": 0,
+            "skipped_oom": 0
+          },
+          "samples_excluded_clean_failed": 0,
+          "total_clean_samples": 200,
+          "total_perturbed_items": 144000
+        },
+        "metric_config": {
+          "primary_metric": "margin_drop",
+          "topk": null
+        },
+        "schema_version": "1.0.0",
+        "sha256": "6eaa5dd7b086918ef2ec144f1c1b95c797cbd18565fcc0f663acb08f0e1310e3"
+      },
+      "model": "squeezenet1_0_m_normal",
+      "n_controls": 2,
+      "name": "synthetic_normal",
+      "paths": {
+        "analysis": "experiments/synthetic_shortcut/results_crop_free/analysis/normal_A_all_ops_thresholds_crop_free",
+        "dump": "experiments/synthetic_shortcut/results_crop_free/dumps/normal_A_all_ops_thresholds_crop_free",
+        "metrics": "experiments/synthetic_shortcut/results_crop_free/metrics/normal_A_all_ops_thresholds_crop_free"
+      },
+      "preprocessing_fingerprint": "63ab8d7faf7497f1066c35959e013be28f1cb2d0af0e7cb09170a81adba1c5ee",
+      "protocol": "crop_free",
+      "resolved_config": {
+        "controls": [
+          {
+            "match_area_of": "grid",
+            "n_samples": 2
+          }
+        ],
+        "dataset_stats": {
+          "channel_mean": [
+            125.18542294921875,
+            122.59611487630208,
+            113.81679231770833
+          ]
+        },
+        "perturbations": [
+          {
+            "invert_mask": false,
+            "op": "constant_fill",
+            "params": {
+              "value": 0.0
+            },
+            "seed_salts": [
+              0,
+              1,
+              2
+            ]
+          },
+          {
+            "invert_mask": false,
+            "op": "mean_fill",
+            "params": {
+              "value": [
+                125.18542294921875,
+                122.59611487630208,
+                113.81679231770833
+              ]
+            },
+            "seed_salts": [
+              0,
+              1,
+              2
+            ]
+          },
+          {
+            "invert_mask": false,
+            "op": "blur",
+            "params": {
+              "sigma": 4.0
+            },
+            "seed_salts": [
+              0,
+              1,
+              2
+            ]
+          },
+          {
+            "invert_mask": false,
+            "op": "gaussian_noise",
+            "params": {
+              "sigma": 50.0
+            },
+            "seed_salts": [
+              0,
+              1,
+              2
+            ]
+          },
+          {
+            "invert_mask": false,
+            "op": "patch_shuffle",
+            "params": {
+              "patch_size": 4
+            },
+            "seed_salts": [
+              0,
+              1,
+              2
+            ]
+          }
+        ],
+        "regions": [
+          {
+            "kind": "grid",
+            "params": {
+              "cols": 4,
+              "rows": 4
+            },
+            "ref": null,
+            "ref_hash": null,
+            "region_id": "grid"
+          }
+        ],
+        "runtime": {
+          "allow_nondeterministic": false,
+          "fail_fast": false,
+          "global_seed": 0,
+          "num_workers": 0,
+          "retry_failed": false,
+          "target_batch_size": 32,
+          "variants_per_chunk": 16
+        },
+        "sha256_canonical": "9a84b64f3a91a74c8efb20de186d21f282452ad2b263a973dff0aaf68c0bca34",
+        "skeleton_source": null,
+        "source_provenance": {
+          "kind": "image_manifest",
+          "manifest": "/workspace/experiments/synthetic_shortcut/data/manifests/A_audit.json",
+          "manifest_hash": "bea8066085f2c5de113ae1dd1e5d0ce5610a187bff510c1a6abdf2db02a68896"
+        }
+      },
+      "run_manifest": {
+        "code_version": "1.0.0",
+        "counts_by_status": {
+          "load_failed": 0,
+          "ok": 144200,
+          "predict_failed": 0,
+          "prepare_failed": 0,
+          "skipped_oom": 0
+        },
+        "environment": {
+          "cuda_version": "12.9",
+          "gpu_names": [],
+          "platform": "Linux-7.0.0-28-generic-x86_64-with-glibc2.35",
+          "python_version": "3.11.13",
+          "torch_version": "2.8.0+cu129"
+        },
+        "finished_at": "2026-08-14T10:28:36.746957Z",
+        "resume_events": 0,
+        "run_duration_s": 1521.599978,
+        "schema_version": "1.0.0",
+        "sha256": "709f29fe2edcffc9f96484abfa52cfd9d42f32a1a29f5bc19e37080bbe87e6e3",
+        "started_at": "2026-08-14T10:03:15.146979Z"
+      }
+    },
+    "synthetic_shortcut": {
+      "adapter_spec": {
+        "adapter_kind": "torchvision",
+        "class_names": null,
+        "deterministic": true,
+        "input_layout": "THWC_uint8",
+        "mask_transform_available": true,
+        "max_batch_size": null,
+        "model_id": "torchvision:squeezenet1_0:weights=checkpoint:m_shortcut.pt",
+        "model_name": "squeezenet1_0",
+        "output_kind": "logits",
+        "preprocessing_desc": "Resize(size=(224, 224)) -> ToFloat(scale=0.00392156862745098) -> Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225)) -> ChannelsFirst() -> SqueezeTime()",
+        "preprocessing_fingerprint": "63ab8d7faf7497f1066c35959e013be28f1cb2d0af0e7cb09170a81adba1c5ee",
+        "weights_hash": "f74d6c96f579a4a7197737ba22307d10c87e3461d20b559f2bcdd1f8e2b6f97b",
+        "weights_id": "checkpoint:m_shortcut.pt"
+      },
+      "analysis_manifest": {
+        "available_analyses": {
+          "control_comparison": true,
+          "fill_strategy_stability": true,
+          "jitter_stability": false,
+          "seed_stability": true
+        },
+        "computed_at": "2026-08-14T14:46:59.194979+00:00",
+        "grade_distribution_all_metrics": {
+          "high": 268,
+          "low": 543,
+          "unreliable": 2389
+        },
+        "n_bootstrap": 1000,
+        "random_seed": 0,
+        "schema_version": "1.0.0",
+        "sha256": "f1b808b98fa38d7a62933aae856e504fa33903bce180db7b2be7ac526430f14d",
+        "thresholds": {
+          "area_match_tolerance": 0.05,
+          "seed_cv_threshold": 0.2,
+          "z_vs_control_threshold": 2.0
+        }
+      },
+      "bytes": {
+        "dump_total": 19358754,
+        "shortcut_A_all_ops_thresholds_crop_free": 1835882
+      },
+      "checks": {
+        "all_items_ok": true,
+        "analysis_from_these_metrics": true,
+        "analysis_predates_last_analysis_or_metrics_commit": true,
+        "metrics_from_this_dump": true,
+        "n_controls_matches_registry": true,
+        "run_finished": true,
+        "source_manifest_unchanged": true
+      },
+      "config": {
+        "path": "experiments/synthetic_shortcut/run_threshold_validation_full.py",
+        "recorded_config_source": null,
+        "revision": null,
+        "sha256_current": "fece7bd669102a1b0deea9d0cd07ba3ec88857e4c0338a8ee516da0fa9622f24"
+      },
+      "dataset": "synthetic",
+      "margin_drop": {
+        "flag_rates": {
+          "area_matched": {
+            "true": 1.0
+          },
+          "ci_excludes_zero": {
+            "false": 0.4375,
+            "true": 0.5625
+          },
+          "exceeds_control": {
+            "false": 0.540625,
+            "true": 0.459375
+          },
+          "multi_strategy": {
+            "true": 1.0
+          },
+          "seed_stable": {
+            "false": 0.9125,
+            "true": 0.049063,
+            "unavailable": 0.038437
+          },
+          "sign_consistent": {
+            "false": 0.746563,
+            "true": 0.253437
+          }
+        },
+        "grade_counts": {
+          "high": 268,
+          "low": 543,
+          "unreliable": 2389
+        },
+        "grade_pct": {
+          "high": 8.375,
+          "low": 16.9688,
+          "unreliable": 74.6562
+        },
+        "n_anchors": 3200
+      },
+      "metrics_manifest": {
+        "computed_at": "2026-08-13T09:40:11.793539+00:00",
+        "exclusion_summary": {
+          "clean_status_counts": {
+            "load_failed": 0,
+            "ok": 200,
+            "predict_failed": 0,
+            "prepare_failed": 0,
+            "skipped_oom": 0
+          },
+          "items_excluded_perturbed_failed": 0,
+          "perturbed_status_counts": {
+            "load_failed": 0,
+            "ok": 144000,
+            "predict_failed": 0,
+            "prepare_failed": 0,
+            "skipped_oom": 0
+          },
+          "samples_excluded_clean_failed": 0,
+          "total_clean_samples": 200,
+          "total_perturbed_items": 144000
+        },
+        "metric_config": {
+          "primary_metric": "margin_drop",
+          "topk": null
+        },
+        "schema_version": "1.0.0",
+        "sha256": "2b88335d042dc6ae7c18c5720e725fa46b677f7142fd0dde8951efbfbbc38feb"
+      },
+      "model": "squeezenet1_0_m_shortcut",
+      "n_controls": 2,
+      "name": "synthetic_shortcut",
+      "paths": {
+        "analysis": "experiments/synthetic_shortcut/results_crop_free/analysis/shortcut_A_all_ops_thresholds_crop_free",
+        "dump": "experiments/synthetic_shortcut/results_crop_free/dumps/shortcut_A_all_ops_thresholds_crop_free",
+        "metrics": "experiments/synthetic_shortcut/results_crop_free/metrics/shortcut_A_all_ops_thresholds_crop_free"
+      },
+      "preprocessing_fingerprint": "63ab8d7faf7497f1066c35959e013be28f1cb2d0af0e7cb09170a81adba1c5ee",
+      "protocol": "crop_free",
+      "resolved_config": {
+        "controls": [
+          {
+            "match_area_of": "grid",
+            "n_samples": 2
+          }
+        ],
+        "dataset_stats": {
+          "channel_mean": [
+            125.18542294921875,
+            122.59611487630208,
+            113.81679231770833
+          ]
+        },
+        "perturbations": [
+          {
+            "invert_mask": false,
+            "op": "constant_fill",
+            "params": {
+              "value": 0.0
+            },
+            "seed_salts": [
+              0,
+              1,
+              2
+            ]
+          },
+          {
+            "invert_mask": false,
+            "op": "mean_fill",
+            "params": {
+              "value": [
+                125.18542294921875,
+                122.59611487630208,
+                113.81679231770833
+              ]
+            },
+            "seed_salts": [
+              0,
+              1,
+              2
+            ]
+          },
+          {
+            "invert_mask": false,
+            "op": "blur",
+            "params": {
+              "sigma": 4.0
+            },
+            "seed_salts": [
+              0,
+              1,
+              2
+            ]
+          },
+          {
+            "invert_mask": false,
+            "op": "gaussian_noise",
+            "params": {
+              "sigma": 50.0
+            },
+            "seed_salts": [
+              0,
+              1,
+              2
+            ]
+          },
+          {
+            "invert_mask": false,
+            "op": "patch_shuffle",
+            "params": {
+              "patch_size": 4
+            },
+            "seed_salts": [
+              0,
+              1,
+              2
+            ]
+          }
+        ],
+        "regions": [
+          {
+            "kind": "grid",
+            "params": {
+              "cols": 4,
+              "rows": 4
+            },
+            "ref": null,
+            "ref_hash": null,
+            "region_id": "grid"
+          }
+        ],
+        "runtime": {
+          "allow_nondeterministic": false,
+          "fail_fast": false,
+          "global_seed": 0,
+          "num_workers": 0,
+          "retry_failed": false,
+          "target_batch_size": 32,
+          "variants_per_chunk": 16
+        },
+        "sha256_canonical": "6c886bdb99e739624d1e556cfbd72d5cda3a762ccfd9ab502f3f6ba19ae77f37",
+        "skeleton_source": null,
+        "source_provenance": {
+          "kind": "image_manifest",
+          "manifest": "/workspace/experiments/synthetic_shortcut/data/manifests/A_audit.json",
+          "manifest_hash": "bea8066085f2c5de113ae1dd1e5d0ce5610a187bff510c1a6abdf2db02a68896"
+        }
+      },
+      "run_manifest": {
+        "code_version": "1.0.0",
+        "counts_by_status": {
+          "load_failed": 0,
+          "ok": 144200,
+          "predict_failed": 0,
+          "prepare_failed": 0,
+          "skipped_oom": 0
+        },
+        "environment": {
+          "cuda_version": "12.9",
+          "gpu_names": [
+            "NVIDIA GeForce RTX 4090"
+          ],
+          "platform": "Linux-7.0.0-28-generic-x86_64-with-glibc2.35",
+          "python_version": "3.11.13",
+          "torch_version": "2.8.0+cu129"
+        },
+        "finished_at": "2026-08-13T09:39:58.891149Z",
+        "resume_events": 0,
+        "run_duration_s": 536.731484,
+        "schema_version": "1.0.0",
+        "sha256": "df822d910a09b1b5b0d8f4cd13f523277ad73763d5ee128b0c61055e4c8c43e1",
+        "started_at": "2026-08-13T09:31:02.159665Z"
+      }
+    }
+  },
+  "primary_metric": "margin_drop"
+}

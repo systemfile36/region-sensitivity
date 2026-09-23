@@ -1,0 +1,253 @@
+{
+  "comparison": "identity = item_id sets plus region_params_json/effective_area_px/seed_used equality; logits compared as bitwise float32 equality, with unequal items bucketed by max |diff|",
+  "identity_pass": true,
+  "logits_bitwise_pass": false,
+  "pairs": [
+    {
+      "clean": {
+        "gt_label_equal": true,
+        "logits_bitwise_equal": true,
+        "max_abs_diff": 0.0,
+        "n_k1": 10000,
+        "n_k3": 10000,
+        "sample_ids_equal": true,
+        "status_equal": true
+      },
+      "clean_identity_pass": true,
+      "clean_logits_bitwise_pass": true,
+      "control_logits_bitwise_pass": false,
+      "control_nested_identity_pass": true,
+      "controls_k1_vs_k3_index0": {
+        "max_abs_diff": 0.024023056030273438,
+        "n_bitwise_equal": 490320,
+        "n_context_mismatch": 0,
+        "n_matched": 800000,
+        "n_top1_mismatch": 152,
+        "unequal_by_max_abs_diff": {
+          "gt_1e-1": 0,
+          "le_1e-1": 263008,
+          "le_1e-3": 0,
+          "le_1e-5": 46672
+        }
+      },
+      "elapsed_s": 186.1508501311764,
+      "k1_controls": 800000,
+      "k1_items": 1600000,
+      "k1_items_unmatched_in_k3": 0,
+      "k1_run": "imagenet_mnv2_050_exact_k1",
+      "k1_targets": 800000,
+      "k3_control0_missing_in_k1": 0,
+      "k3_control_gt0_present_in_k1": 0,
+      "k3_control_index_counts": {
+        "0": 800000,
+        "1": 800000,
+        "2": 800000
+      },
+      "k3_controls": 2400000,
+      "k3_run": "imagenet_mnv2_050_exact_k3",
+      "k3_targets": 800000,
+      "k3_targets_missing_in_k1": 0,
+      "target_identity_pass": true,
+      "target_logits_bitwise_pass": false,
+      "targets": {
+        "max_abs_diff": 5.7220458984375e-06,
+        "n_bitwise_equal": 797872,
+        "n_context_mismatch": 0,
+        "n_matched": 800000,
+        "n_top1_mismatch": 0,
+        "unequal_by_max_abs_diff": {
+          "gt_1e-1": 0,
+          "le_1e-1": 0,
+          "le_1e-3": 0,
+          "le_1e-5": 2128
+        }
+      },
+      "top1_unchanged": false
+    },
+    {
+      "clean": {
+        "gt_label_equal": true,
+        "logits_bitwise_equal": true,
+        "max_abs_diff": 0.0,
+        "n_k1": 10000,
+        "n_k3": 10000,
+        "sample_ids_equal": true,
+        "status_equal": true
+      },
+      "clean_identity_pass": true,
+      "clean_logits_bitwise_pass": true,
+      "control_logits_bitwise_pass": false,
+      "control_nested_identity_pass": true,
+      "controls_k1_vs_k3_index0": {
+        "max_abs_diff": 0.0227203369140625,
+        "n_bitwise_equal": 490320,
+        "n_context_mismatch": 0,
+        "n_matched": 800000,
+        "n_top1_mismatch": 160,
+        "unequal_by_max_abs_diff": {
+          "gt_1e-1": 0,
+          "le_1e-1": 263008,
+          "le_1e-3": 0,
+          "le_1e-5": 46672
+        }
+      },
+      "elapsed_s": 187.7254264447838,
+      "k1_controls": 800000,
+      "k1_items": 1600000,
+      "k1_items_unmatched_in_k3": 0,
+      "k1_run": "imagenet_mnv2_050_crop_free_k1",
+      "k1_targets": 800000,
+      "k3_control0_missing_in_k1": 0,
+      "k3_control_gt0_present_in_k1": 0,
+      "k3_control_index_counts": {
+        "0": 800000,
+        "1": 800000,
+        "2": 800000
+      },
+      "k3_controls": 2400000,
+      "k3_run": "imagenet_mnv2_050_crop_free_k3",
+      "k3_targets": 800000,
+      "k3_targets_missing_in_k1": 0,
+      "target_identity_pass": true,
+      "target_logits_bitwise_pass": false,
+      "targets": {
+        "max_abs_diff": 5.7220458984375e-06,
+        "n_bitwise_equal": 797872,
+        "n_context_mismatch": 0,
+        "n_matched": 800000,
+        "n_top1_mismatch": 0,
+        "unequal_by_max_abs_diff": {
+          "gt_1e-1": 0,
+          "le_1e-1": 0,
+          "le_1e-3": 0,
+          "le_1e-5": 2128
+        }
+      },
+      "top1_unchanged": false
+    },
+    {
+      "clean": {
+        "gt_label_equal": true,
+        "logits_bitwise_equal": true,
+        "max_abs_diff": 0.0,
+        "n_k1": 10000,
+        "n_k3": 10000,
+        "sample_ids_equal": true,
+        "status_equal": true
+      },
+      "clean_identity_pass": true,
+      "clean_logits_bitwise_pass": true,
+      "control_logits_bitwise_pass": false,
+      "control_nested_identity_pass": true,
+      "controls_k1_vs_k3_index0": {
+        "max_abs_diff": 3.814697265625e-06,
+        "n_bitwise_equal": 253888,
+        "n_context_mismatch": 0,
+        "n_matched": 800000,
+        "n_top1_mismatch": 1,
+        "unequal_by_max_abs_diff": {
+          "gt_1e-1": 0,
+          "le_1e-1": 0,
+          "le_1e-3": 0,
+          "le_1e-5": 546112
+        }
+      },
+      "elapsed_s": 191.9016139153391,
+      "k1_controls": 800000,
+      "k1_items": 1600000,
+      "k1_items_unmatched_in_k3": 0,
+      "k1_run": "imagenet_mnv2_100_exact_k1",
+      "k1_targets": 800000,
+      "k3_control0_missing_in_k1": 0,
+      "k3_control_gt0_present_in_k1": 0,
+      "k3_control_index_counts": {
+        "0": 800000,
+        "1": 800000,
+        "2": 800000
+      },
+      "k3_controls": 2400000,
+      "k3_run": "imagenet_mnv2_100_exact_k3",
+      "k3_targets": 800000,
+      "k3_targets_missing_in_k1": 0,
+      "target_identity_pass": true,
+      "target_logits_bitwise_pass": true,
+      "targets": {
+        "max_abs_diff": 0.0,
+        "n_bitwise_equal": 800000,
+        "n_context_mismatch": 0,
+        "n_matched": 800000,
+        "n_top1_mismatch": 0,
+        "unequal_by_max_abs_diff": {
+          "gt_1e-1": 0,
+          "le_1e-1": 0,
+          "le_1e-3": 0,
+          "le_1e-5": 0
+        }
+      },
+      "top1_unchanged": false
+    },
+    {
+      "clean": {
+        "gt_label_equal": true,
+        "logits_bitwise_equal": true,
+        "max_abs_diff": 0.0,
+        "n_k1": 10000,
+        "n_k3": 10000,
+        "sample_ids_equal": true,
+        "status_equal": true
+      },
+      "clean_identity_pass": true,
+      "clean_logits_bitwise_pass": true,
+      "control_logits_bitwise_pass": false,
+      "control_nested_identity_pass": true,
+      "controls_k1_vs_k3_index0": {
+        "max_abs_diff": 3.814697265625e-06,
+        "n_bitwise_equal": 253888,
+        "n_context_mismatch": 0,
+        "n_matched": 800000,
+        "n_top1_mismatch": 0,
+        "unequal_by_max_abs_diff": {
+          "gt_1e-1": 0,
+          "le_1e-1": 0,
+          "le_1e-3": 0,
+          "le_1e-5": 546112
+        }
+      },
+      "elapsed_s": 191.7786450861022,
+      "k1_controls": 800000,
+      "k1_items": 1600000,
+      "k1_items_unmatched_in_k3": 0,
+      "k1_run": "imagenet_mnv2_100_crop_free_k1",
+      "k1_targets": 800000,
+      "k3_control0_missing_in_k1": 0,
+      "k3_control_gt0_present_in_k1": 0,
+      "k3_control_index_counts": {
+        "0": 800000,
+        "1": 800000,
+        "2": 800000
+      },
+      "k3_controls": 2400000,
+      "k3_run": "imagenet_mnv2_100_crop_free_k3",
+      "k3_targets": 800000,
+      "k3_targets_missing_in_k1": 0,
+      "target_identity_pass": true,
+      "target_logits_bitwise_pass": true,
+      "targets": {
+        "max_abs_diff": 0.0,
+        "n_bitwise_equal": 800000,
+        "n_context_mismatch": 0,
+        "n_matched": 800000,
+        "n_top1_mismatch": 0,
+        "unequal_by_max_abs_diff": {
+          "gt_1e-1": 0,
+          "le_1e-1": 0,
+          "le_1e-3": 0,
+          "le_1e-5": 0
+        }
+      },
+      "top1_unchanged": true
+    }
+  ],
+  "scope": "all samples",
+  "top1_unchanged": false
+}

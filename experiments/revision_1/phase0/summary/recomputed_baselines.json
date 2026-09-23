@@ -1,0 +1,766 @@
+{
+  "all_identical": false,
+  "runs": {
+    "ntu60_tsm_crop_free": {
+      "all_identical": true,
+      "recomputed": "/workspace/experiments/revision_1/results/phase0/recomputed/ntu60_tsm_crop_free",
+      "reliability_identical": true,
+      "stored": {
+        "analysis": "/workspace/experiments/real_dataset_case_study/results/ntu60_tsm_crop_free/analysis",
+        "metrics": "/workspace/experiments/real_dataset_case_study/results/ntu60_tsm_crop_free/metrics"
+      },
+      "tables": {
+        "analysis/control_comparison": {
+          "differing_columns": {},
+          "identical": true,
+          "keys_equal": true,
+          "metrics_compared": [
+            "flip_correct_to_wrong",
+            "flip_wrong_to_correct",
+            "gt_logit_drop",
+            "gt_prob_drop",
+            "gt_rank_worsening",
+            "loss_increase",
+            "margin_drop",
+            "pred_changed",
+            "topk_exit"
+          ],
+          "n_recomputed": 324000,
+          "n_recomputed_total": 324000,
+          "n_stored": 324000
+        },
+        "analysis/intervals": {
+          "differing_columns": {},
+          "identical": true,
+          "keys_equal": true,
+          "metrics_compared": [
+            "flip_correct_to_wrong",
+            "flip_wrong_to_correct",
+            "gt_logit_drop",
+            "gt_prob_drop",
+            "gt_rank_worsening",
+            "loss_increase",
+            "margin_drop",
+            "pred_changed",
+            "topk_exit"
+          ],
+          "n_recomputed": 108000,
+          "n_recomputed_total": 108000,
+          "n_stored": 108000
+        },
+        "analysis/rank_correlation": {
+          "differing_columns": {},
+          "identical": true,
+          "keys_equal": true,
+          "n_recomputed": 3,
+          "n_recomputed_total": 3,
+          "n_stored": 3
+        },
+        "analysis/reliability": {
+          "differing_columns": {},
+          "identical": true,
+          "keys_equal": true,
+          "metrics_compared": [
+            "flip_correct_to_wrong",
+            "flip_wrong_to_correct",
+            "gt_logit_drop",
+            "gt_prob_drop",
+            "gt_rank_worsening",
+            "loss_increase",
+            "margin_drop",
+            "pred_changed",
+            "topk_exit"
+          ],
+          "n_recomputed": 108000,
+          "n_recomputed_total": 108000,
+          "n_stored": 108000
+        },
+        "analysis/seed_stability": {
+          "differing_columns": {},
+          "identical": true,
+          "keys_equal": true,
+          "metrics_compared": [
+            "flip_correct_to_wrong",
+            "flip_wrong_to_correct",
+            "gt_logit_drop",
+            "gt_prob_drop",
+            "gt_rank_worsening",
+            "loss_increase",
+            "margin_drop",
+            "pred_changed",
+            "topk_exit"
+          ],
+          "n_recomputed": 324000,
+          "n_recomputed_total": 324000,
+          "n_stored": 324000
+        },
+        "analysis/strategy_profile": {
+          "differing_columns": {},
+          "identical": true,
+          "keys_equal": true,
+          "n_recomputed": 3,
+          "n_recomputed_total": 3,
+          "n_stored": 3
+        },
+        "analysis/strategy_stability": {
+          "differing_columns": {},
+          "identical": true,
+          "keys_equal": true,
+          "metrics_compared": [
+            "flip_correct_to_wrong",
+            "flip_wrong_to_correct",
+            "gt_logit_drop",
+            "gt_prob_drop",
+            "gt_rank_worsening",
+            "loss_increase",
+            "margin_drop",
+            "pred_changed",
+            "topk_exit"
+          ],
+          "n_recomputed": 108000,
+          "n_recomputed_total": 108000,
+          "n_stored": 108000
+        },
+        "metrics/class_metrics": {
+          "differing_columns": {},
+          "identical": true,
+          "keys_equal": true,
+          "metrics_compared": [
+            "flip_correct_to_wrong",
+            "flip_wrong_to_correct",
+            "gt_logit_drop",
+            "gt_prob_drop",
+            "gt_rank_worsening",
+            "loss_increase",
+            "margin_drop",
+            "pred_changed",
+            "topk_exit"
+          ],
+          "n_recomputed": 540,
+          "n_recomputed_total": 540,
+          "n_stored": 540
+        },
+        "metrics/item_metrics": {
+          "differing_columns": {},
+          "identical": true,
+          "keys_equal": true,
+          "metrics_compared": [
+            "flip_correct_to_wrong",
+            "flip_wrong_to_correct",
+            "gt_logit_drop",
+            "gt_prob_drop",
+            "gt_rank_worsening",
+            "loss_increase",
+            "margin_drop",
+            "pred_changed",
+            "topk_exit"
+          ],
+          "n_recomputed": 540000,
+          "n_recomputed_total": 540000,
+          "n_stored": 540000
+        },
+        "metrics/region_metrics": {
+          "differing_columns": {},
+          "identical": true,
+          "keys_equal": true,
+          "metrics_compared": [
+            "flip_correct_to_wrong",
+            "flip_wrong_to_correct",
+            "gt_logit_drop",
+            "gt_prob_drop",
+            "gt_rank_worsening",
+            "loss_increase",
+            "margin_drop",
+            "pred_changed",
+            "topk_exit"
+          ],
+          "n_recomputed": 108000,
+          "n_recomputed_total": 108000,
+          "n_stored": 108000
+        },
+        "metrics/sample_metrics": {
+          "differing_columns": {},
+          "identical": true,
+          "keys_equal": true,
+          "metrics_compared": [
+            "flip_correct_to_wrong",
+            "flip_wrong_to_correct",
+            "gt_logit_drop",
+            "gt_prob_drop",
+            "gt_rank_worsening",
+            "loss_increase",
+            "margin_drop",
+            "pred_changed",
+            "topk_exit"
+          ],
+          "n_recomputed": 10800,
+          "n_recomputed_total": 10800,
+          "n_stored": 10800
+        },
+        "metrics/spatial_profile": {
+          "differing_columns": {},
+          "identical": true,
+          "keys_equal": true,
+          "metrics_compared": [
+            "flip_correct_to_wrong",
+            "flip_wrong_to_correct",
+            "gt_logit_drop",
+            "gt_prob_drop",
+            "gt_rank_worsening",
+            "loss_increase",
+            "margin_drop",
+            "pred_changed",
+            "topk_exit"
+          ],
+          "n_recomputed": 108000,
+          "n_recomputed_total": 108000,
+          "n_stored": 108000
+        }
+      }
+    },
+    "ntu60_tsm_exact": {
+      "all_identical": true,
+      "recomputed": "/workspace/experiments/revision_1/results/phase0/recomputed/ntu60_tsm_exact",
+      "reliability_identical": true,
+      "stored": {
+        "analysis": "/workspace/experiments/real_dataset_case_study/results/ntu60_tsm_exact/analysis",
+        "metrics": "/workspace/experiments/real_dataset_case_study/results/ntu60_tsm_exact/metrics"
+      },
+      "tables": {
+        "analysis/control_comparison": {
+          "differing_columns": {},
+          "identical": true,
+          "keys_equal": true,
+          "metrics_compared": [
+            "flip_correct_to_wrong",
+            "flip_wrong_to_correct",
+            "gt_logit_drop",
+            "gt_prob_drop",
+            "gt_rank_worsening",
+            "loss_increase",
+            "margin_drop",
+            "pred_changed",
+            "topk_exit"
+          ],
+          "n_recomputed": 324000,
+          "n_recomputed_total": 324000,
+          "n_stored": 324000
+        },
+        "analysis/intervals": {
+          "differing_columns": {},
+          "identical": true,
+          "keys_equal": true,
+          "metrics_compared": [
+            "flip_correct_to_wrong",
+            "flip_wrong_to_correct",
+            "gt_logit_drop",
+            "gt_prob_drop",
+            "gt_rank_worsening",
+            "loss_increase",
+            "margin_drop",
+            "pred_changed",
+            "topk_exit"
+          ],
+          "n_recomputed": 108000,
+          "n_recomputed_total": 108000,
+          "n_stored": 108000
+        },
+        "analysis/rank_correlation": {
+          "differing_columns": {},
+          "identical": true,
+          "keys_equal": true,
+          "n_recomputed": 3,
+          "n_recomputed_total": 3,
+          "n_stored": 3
+        },
+        "analysis/reliability": {
+          "differing_columns": {},
+          "identical": true,
+          "keys_equal": true,
+          "metrics_compared": [
+            "flip_correct_to_wrong",
+            "flip_wrong_to_correct",
+            "gt_logit_drop",
+            "gt_prob_drop",
+            "gt_rank_worsening",
+            "loss_increase",
+            "margin_drop",
+            "pred_changed",
+            "topk_exit"
+          ],
+          "n_recomputed": 108000,
+          "n_recomputed_total": 108000,
+          "n_stored": 108000
+        },
+        "analysis/seed_stability": {
+          "differing_columns": {},
+          "identical": true,
+          "keys_equal": true,
+          "metrics_compared": [
+            "flip_correct_to_wrong",
+            "flip_wrong_to_correct",
+            "gt_logit_drop",
+            "gt_prob_drop",
+            "gt_rank_worsening",
+            "loss_increase",
+            "margin_drop",
+            "pred_changed",
+            "topk_exit"
+          ],
+          "n_recomputed": 324000,
+          "n_recomputed_total": 324000,
+          "n_stored": 324000
+        },
+        "analysis/strategy_profile": {
+          "differing_columns": {},
+          "identical": true,
+          "keys_equal": true,
+          "n_recomputed": 3,
+          "n_recomputed_total": 3,
+          "n_stored": 3
+        },
+        "analysis/strategy_stability": {
+          "differing_columns": {},
+          "identical": true,
+          "keys_equal": true,
+          "metrics_compared": [
+            "flip_correct_to_wrong",
+            "flip_wrong_to_correct",
+            "gt_logit_drop",
+            "gt_prob_drop",
+            "gt_rank_worsening",
+            "loss_increase",
+            "margin_drop",
+            "pred_changed",
+            "topk_exit"
+          ],
+          "n_recomputed": 108000,
+          "n_recomputed_total": 108000,
+          "n_stored": 108000
+        },
+        "metrics/class_metrics": {
+          "differing_columns": {},
+          "identical": true,
+          "keys_equal": true,
+          "metrics_compared": [
+            "flip_correct_to_wrong",
+            "flip_wrong_to_correct",
+            "gt_logit_drop",
+            "gt_prob_drop",
+            "gt_rank_worsening",
+            "loss_increase",
+            "margin_drop",
+            "pred_changed",
+            "topk_exit"
+          ],
+          "n_recomputed": 540,
+          "n_recomputed_total": 540,
+          "n_stored": 540
+        },
+        "metrics/item_metrics": {
+          "differing_columns": {},
+          "identical": true,
+          "keys_equal": true,
+          "metrics_compared": [
+            "flip_correct_to_wrong",
+            "flip_wrong_to_correct",
+            "gt_logit_drop",
+            "gt_prob_drop",
+            "gt_rank_worsening",
+            "loss_increase",
+            "margin_drop",
+            "pred_changed",
+            "topk_exit"
+          ],
+          "n_recomputed": 540000,
+          "n_recomputed_total": 540000,
+          "n_stored": 540000
+        },
+        "metrics/region_metrics": {
+          "differing_columns": {},
+          "identical": true,
+          "keys_equal": true,
+          "metrics_compared": [
+            "flip_correct_to_wrong",
+            "flip_wrong_to_correct",
+            "gt_logit_drop",
+            "gt_prob_drop",
+            "gt_rank_worsening",
+            "loss_increase",
+            "margin_drop",
+            "pred_changed",
+            "topk_exit"
+          ],
+          "n_recomputed": 108000,
+          "n_recomputed_total": 108000,
+          "n_stored": 108000
+        },
+        "metrics/sample_metrics": {
+          "differing_columns": {},
+          "identical": true,
+          "keys_equal": true,
+          "metrics_compared": [
+            "flip_correct_to_wrong",
+            "flip_wrong_to_correct",
+            "gt_logit_drop",
+            "gt_prob_drop",
+            "gt_rank_worsening",
+            "loss_increase",
+            "margin_drop",
+            "pred_changed",
+            "topk_exit"
+          ],
+          "n_recomputed": 10800,
+          "n_recomputed_total": 10800,
+          "n_stored": 10800
+        },
+        "metrics/spatial_profile": {
+          "differing_columns": {},
+          "identical": true,
+          "keys_equal": true,
+          "metrics_compared": [
+            "flip_correct_to_wrong",
+            "flip_wrong_to_correct",
+            "gt_logit_drop",
+            "gt_prob_drop",
+            "gt_rank_worsening",
+            "loss_increase",
+            "margin_drop",
+            "pred_changed",
+            "topk_exit"
+          ],
+          "n_recomputed": 108000,
+          "n_recomputed_total": 108000,
+          "n_stored": 108000
+        }
+      }
+    },
+    "synthetic_normal": {
+      "all_identical": false,
+      "recomputed": "/workspace/experiments/revision_1/results/phase0/recomputed/synthetic_normal",
+      "reliability_identical": false,
+      "stored": {
+        "analysis": "/workspace/experiments/synthetic_shortcut/results_crop_free/analysis/normal_A_all_ops_thresholds_crop_free",
+        "metrics": "/workspace/experiments/synthetic_shortcut/results_crop_free/metrics/normal_A_all_ops_thresholds_crop_free"
+      },
+      "tables": {
+        "analysis/control_comparison": {
+          "differing_columns": {},
+          "identical": true,
+          "keys_equal": true,
+          "metrics_compared": [
+            "margin_drop"
+          ],
+          "n_recomputed": 16000,
+          "n_recomputed_total": 144000,
+          "n_stored": 16000
+        },
+        "analysis/intervals": {
+          "differing_columns": {
+            "ci_high": {
+              "max_abs_diff": 0.01788900967439011,
+              "nan_mismatch": 0
+            },
+            "ci_low": {
+              "max_abs_diff": 0.010378649099667875,
+              "nan_mismatch": 0
+            }
+          },
+          "identical": false,
+          "keys_equal": true,
+          "metrics_compared": [
+            "margin_drop"
+          ],
+          "n_recomputed": 16,
+          "n_recomputed_total": 144,
+          "n_stored": 16
+        },
+        "analysis/rank_correlation": {
+          "differing_columns": {},
+          "identical": true,
+          "keys_equal": true,
+          "n_recomputed": 10,
+          "n_recomputed_total": 10,
+          "n_stored": 10
+        },
+        "analysis/reliability": {
+          "differing_columns": {
+            "reliability_reasons": {
+              "n_unequal": 3000
+            }
+          },
+          "identical": false,
+          "keys_equal": true,
+          "metrics_compared": [
+            "margin_drop"
+          ],
+          "n_recomputed": 3200,
+          "n_recomputed_total": 28800,
+          "n_stored": 3200
+        },
+        "analysis/seed_stability": {
+          "differing_columns": {
+            "seed_cv": {
+              "max_abs_diff": 7.275957614183426e-12,
+              "nan_mismatch": 0
+            },
+            "seed_std": {
+              "max_abs_diff": 8.881784197001252e-16,
+              "nan_mismatch": 0
+            }
+          },
+          "identical": false,
+          "keys_equal": true,
+          "metrics_compared": [
+            "margin_drop"
+          ],
+          "n_recomputed": 48000,
+          "n_recomputed_total": 432000,
+          "n_stored": 48000
+        },
+        "analysis/strategy_profile": {
+          "differing_columns": {},
+          "identical": true,
+          "keys_equal": true,
+          "n_recomputed": 5,
+          "n_recomputed_total": 5,
+          "n_stored": 5
+        },
+        "analysis/strategy_stability": {
+          "differing_columns": {},
+          "identical": true,
+          "keys_equal": true,
+          "metrics_compared": [
+            "margin_drop"
+          ],
+          "n_recomputed": 3200,
+          "n_recomputed_total": 28800,
+          "n_stored": 3200
+        },
+        "metrics/class_metrics": {
+          "differing_columns": {},
+          "identical": true,
+          "keys_equal": true,
+          "metrics_compared": [
+            "margin_drop"
+          ],
+          "n_recomputed": 10,
+          "n_recomputed_total": 90,
+          "n_stored": 10
+        },
+        "metrics/item_metrics": {
+          "differing_columns": {},
+          "identical": true,
+          "keys_equal": true,
+          "metrics_compared": [
+            "margin_drop"
+          ],
+          "n_recomputed": 144000,
+          "n_recomputed_total": 1296000,
+          "n_stored": 144000
+        },
+        "metrics/region_metrics": {
+          "differing_columns": {},
+          "identical": true,
+          "keys_equal": true,
+          "metrics_compared": [
+            "margin_drop"
+          ],
+          "n_recomputed": 16,
+          "n_recomputed_total": 144,
+          "n_stored": 16
+        },
+        "metrics/sample_metrics": {
+          "differing_columns": {},
+          "identical": true,
+          "keys_equal": true,
+          "metrics_compared": [
+            "margin_drop"
+          ],
+          "n_recomputed": 200,
+          "n_recomputed_total": 1800,
+          "n_stored": 200
+        },
+        "metrics/spatial_profile": {
+          "differing_columns": {},
+          "identical": true,
+          "keys_equal": true,
+          "metrics_compared": [
+            "margin_drop"
+          ],
+          "n_recomputed": 3200,
+          "n_recomputed_total": 28800,
+          "n_stored": 3200
+        }
+      }
+    },
+    "synthetic_shortcut": {
+      "all_identical": false,
+      "recomputed": "/workspace/experiments/revision_1/results/phase0/recomputed/synthetic_shortcut",
+      "reliability_identical": false,
+      "stored": {
+        "analysis": "/workspace/experiments/synthetic_shortcut/results_crop_free/analysis/shortcut_A_all_ops_thresholds_crop_free",
+        "metrics": "/workspace/experiments/synthetic_shortcut/results_crop_free/metrics/shortcut_A_all_ops_thresholds_crop_free"
+      },
+      "tables": {
+        "analysis/control_comparison": {
+          "differing_columns": {},
+          "identical": true,
+          "keys_equal": true,
+          "metrics_compared": [
+            "margin_drop"
+          ],
+          "n_recomputed": 16000,
+          "n_recomputed_total": 144000,
+          "n_stored": 16000
+        },
+        "analysis/intervals": {
+          "differing_columns": {
+            "ci_high": {
+              "max_abs_diff": 0.0038859957218170312,
+              "nan_mismatch": 0
+            },
+            "ci_low": {
+              "max_abs_diff": 0.006027819665273049,
+              "nan_mismatch": 0
+            },
+            "excludes_zero": {
+              "n_unequal": 1
+            }
+          },
+          "identical": false,
+          "keys_equal": true,
+          "metrics_compared": [
+            "margin_drop"
+          ],
+          "n_recomputed": 16,
+          "n_recomputed_total": 144,
+          "n_stored": 16
+        },
+        "analysis/rank_correlation": {
+          "differing_columns": {},
+          "identical": true,
+          "keys_equal": true,
+          "n_recomputed": 10,
+          "n_recomputed_total": 10,
+          "n_stored": 10
+        },
+        "analysis/reliability": {
+          "differing_columns": {
+            "ci_excludes_zero": {
+              "n_unequal": 200
+            },
+            "reliability_grade": {
+              "n_unequal": 8
+            },
+            "reliability_reasons": {
+              "n_unequal": 3200
+            }
+          },
+          "identical": false,
+          "keys_equal": true,
+          "metrics_compared": [
+            "margin_drop"
+          ],
+          "n_recomputed": 3200,
+          "n_recomputed_total": 28800,
+          "n_stored": 3200
+        },
+        "analysis/seed_stability": {
+          "differing_columns": {
+            "seed_cv": {
+              "max_abs_diff": 9.094947017729282e-13,
+              "nan_mismatch": 0
+            },
+            "seed_std": {
+              "max_abs_diff": 1.7763568394002505e-15,
+              "nan_mismatch": 0
+            }
+          },
+          "identical": false,
+          "keys_equal": true,
+          "metrics_compared": [
+            "margin_drop"
+          ],
+          "n_recomputed": 48000,
+          "n_recomputed_total": 432000,
+          "n_stored": 48000
+        },
+        "analysis/strategy_profile": {
+          "differing_columns": {},
+          "identical": true,
+          "keys_equal": true,
+          "n_recomputed": 5,
+          "n_recomputed_total": 5,
+          "n_stored": 5
+        },
+        "analysis/strategy_stability": {
+          "differing_columns": {},
+          "identical": true,
+          "keys_equal": true,
+          "metrics_compared": [
+            "margin_drop"
+          ],
+          "n_recomputed": 3200,
+          "n_recomputed_total": 28800,
+          "n_stored": 3200
+        },
+        "metrics/class_metrics": {
+          "differing_columns": {},
+          "identical": true,
+          "keys_equal": true,
+          "metrics_compared": [
+            "margin_drop"
+          ],
+          "n_recomputed": 10,
+          "n_recomputed_total": 90,
+          "n_stored": 10
+        },
+        "metrics/item_metrics": {
+          "differing_columns": {},
+          "identical": true,
+          "keys_equal": true,
+          "metrics_compared": [
+            "margin_drop"
+          ],
+          "n_recomputed": 144000,
+          "n_recomputed_total": 1296000,
+          "n_stored": 144000
+        },
+        "metrics/region_metrics": {
+          "differing_columns": {},
+          "identical": true,
+          "keys_equal": true,
+          "metrics_compared": [
+            "margin_drop"
+          ],
+          "n_recomputed": 16,
+          "n_recomputed_total": 144,
+          "n_stored": 16
+        },
+        "metrics/sample_metrics": {
+          "differing_columns": {},
+          "identical": true,
+          "keys_equal": true,
+          "metrics_compared": [
+            "margin_drop"
+          ],
+          "n_recomputed": 200,
+          "n_recomputed_total": 1800,
+          "n_stored": 200
+        },
+        "metrics/spatial_profile": {
+          "differing_columns": {},
+          "identical": true,
+          "keys_equal": true,
+          "metrics_compared": [
+            "margin_drop"
+          ],
+          "n_recomputed": 3200,
+          "n_recomputed_total": 28800,
+          "n_stored": 3200
+        }
+      }
+    }
+  }
+}
