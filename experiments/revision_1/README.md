@@ -59,6 +59,22 @@ docker compose exec -e SSAT_CONTAINER_IMAGE_ID="$(docker inspect --format '{{.Id
   region-sensitivity-workspace bash -lc 'python experiments/revision_1/phase0/capture_environment.py'
 ```
 
+## Phase 1A: A1 reliability threshold sensitivity (offline)
+
+Pre-registered in `a1_threshold/protocol.json`; results in
+`a1_threshold/A1_REPORT.md`.
+
+| Step | Command | Output | Time |
+|---|---|---|---|
+| Features | `python experiments/revision_1/a1_threshold/build_features.py --runs all` | `results/a1/features/<run>__margin_drop.{parquet,json}` | ~1 min |
+| Parity gate + sweep | `python experiments/revision_1/a1_threshold/run_sweep.py` | `a1_threshold/summary/*.csv`, `parity.json` | ~15 s |
+| Tables and figures | `python experiments/revision_1/a1_threshold/summarize.py` | `sensitivity_ranking.csv`, `table_a1.*`, `fig_a1_*.pdf` | seconds |
+| Tests | `python -m pytest -q tests/unit/test_rev1_grade_engine.py` | – | seconds |
+
+`build_features.py` fails unless the recomputed 95 % intervals reproduce
+`intervals.parquet`, and `run_sweep.py` stops unless the default-setting grades
+reproduce `reliability.parquet` exactly.
+
 ## Running new audits
 
 `common/run_matrix.py --matrix <matrix.json> --output-root <dir>` runs
@@ -73,3 +89,5 @@ Filled in as experiments complete.
 | Reviewer request | Artifact | Location |
 |---|---|---|
 | Config / seed / environment / commit for every experiment | `baseline_manifest.json`, `environment.json`, each `*.provenance.json` | `phase0/summary/` |
+| Threshold sensitivity figure/table | `fig_a1_z_curve.pdf`, `fig_a1_oat.pdf`, `table_a1.*`, `sensitivity_ranking.csv` | `a1_threshold/summary/` |
+| Reliability grade transition summary | `transitions.csv`, `fig_a1_transitions.pdf`, `agreement.csv` | `a1_threshold/summary/` |

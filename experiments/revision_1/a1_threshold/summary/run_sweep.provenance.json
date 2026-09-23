@@ -1,0 +1,149 @@
+{
+  "argv": [
+    "experiments/revision_1/a1_threshold/run_sweep.py"
+  ],
+  "created_at": "2026-09-23T15:39:48.232454+00:00",
+  "environment": {
+    "container_image_id": null,
+    "cpu_count": 32,
+    "hostname": "9d1042060e60",
+    "mem_total_kb": 131645792,
+    "nvidia_smi": {
+      "compute_processes": [
+        "3134116, [Not Found], 565 MiB"
+      ],
+      "gpus": [
+        "0, NVIDIA GeForce RTX 4090, 580.173.02, 24564 MiB, 2158 MiB"
+      ]
+    },
+    "packages": {
+      "captum": null,
+      "decord": "0.6.0",
+      "numpy": "2.3.2",
+      "pandas": "3.0.5",
+      "pyarrow": "25.0.0",
+      "timm": "1.0.28",
+      "torch": "2.8.0+cu129",
+      "torchvision": "0.23.0+cu129"
+    },
+    "platform": "Linux-7.0.0-28-generic-x86_64-with-glibc2.35",
+    "python_executable": "/opt/conda/bin/python",
+    "python_version": "3.11.13",
+    "ssat_installed_metadata_version": "0.1.0",
+    "torch": {
+      "cuda_available": true,
+      "cuda_version": "12.9",
+      "cudnn_version": 91002,
+      "device_names": [
+        "NVIDIA GeForce RTX 4090"
+      ]
+    }
+  },
+  "extra": {
+    "check_parity": true,
+    "runs": [
+      "synthetic_shortcut",
+      "synthetic_normal",
+      "imagenet_mnv2_050_exact_k3",
+      "imagenet_mnv2_050_crop_free_k3",
+      "imagenet_mnv2_100_exact_k3",
+      "imagenet_mnv2_100_crop_free_k3",
+      "ntu60_tsm_exact",
+      "ntu60_tsm_crop_free"
+    ]
+  },
+  "git": {
+    "branch": "revision-1",
+    "describe": "v1.0.0-4-g6ef5dec",
+    "dirty": false,
+    "dirty_files": [],
+    "sha": "6ef5decc9a7c36175cc94b2ff79eb3eea1d7fb99"
+  },
+  "inputs": {
+    "features:imagenet_mnv2_050_crop_free_k3": {
+      "exists": true,
+      "path": "experiments/revision_1/results/a1/features/imagenet_mnv2_050_crop_free_k3__margin_drop.parquet",
+      "sha256": "e07c658fbd1bf57f7a4986de40f999a048ba85852feb0bcd3a3bde7bc8eaec47"
+    },
+    "features:imagenet_mnv2_050_exact_k3": {
+      "exists": true,
+      "path": "experiments/revision_1/results/a1/features/imagenet_mnv2_050_exact_k3__margin_drop.parquet",
+      "sha256": "57ed16d23721f0d2cc4cc8ccbb31352358bbd839ff272bf30a2333ac1214bf4c"
+    },
+    "features:imagenet_mnv2_100_crop_free_k3": {
+      "exists": true,
+      "path": "experiments/revision_1/results/a1/features/imagenet_mnv2_100_crop_free_k3__margin_drop.parquet",
+      "sha256": "9091e8691ce7b7ab72eb39a1c4df817d5854fb30532606e7202e75d53e543e70"
+    },
+    "features:imagenet_mnv2_100_exact_k3": {
+      "exists": true,
+      "path": "experiments/revision_1/results/a1/features/imagenet_mnv2_100_exact_k3__margin_drop.parquet",
+      "sha256": "d6aec3f23b573153200dac670a1f940ee84089249d4be747c880e3a8c95bb0cb"
+    },
+    "features:ntu60_tsm_crop_free": {
+      "exists": true,
+      "path": "experiments/revision_1/results/a1/features/ntu60_tsm_crop_free__margin_drop.parquet",
+      "sha256": "bc91d3cd745192da9c0099e7c633890ef180f39ff77a5139b316cd975912ff41"
+    },
+    "features:ntu60_tsm_exact": {
+      "exists": true,
+      "path": "experiments/revision_1/results/a1/features/ntu60_tsm_exact__margin_drop.parquet",
+      "sha256": "7dc7b0c91886d8bdebebdaa0ea861fcd98d0b1fb1e31a11b9568528da206dc1c"
+    },
+    "features:synthetic_normal": {
+      "exists": true,
+      "path": "experiments/revision_1/results/a1/features/synthetic_normal__margin_drop.parquet",
+      "sha256": "e780e158e44eb562b2d490e9aa834ef00ecc48769a19a7e539df85a1d3013aad"
+    },
+    "features:synthetic_shortcut": {
+      "exists": true,
+      "path": "experiments/revision_1/results/a1/features/synthetic_shortcut__margin_drop.parquet",
+      "sha256": "0a3030b293440b53f78ed62565216eaa6f4527adccf51ac8ccc86cc719a113a8"
+    },
+    "features_meta:imagenet_mnv2_050_crop_free_k3": {
+      "exists": true,
+      "path": "experiments/revision_1/results/a1/features/imagenet_mnv2_050_crop_free_k3__margin_drop.json",
+      "sha256": "7ac0efe7714613a118c9b0156433611951c6592e94e2cc94b04a9efcb721a82d"
+    },
+    "features_meta:imagenet_mnv2_050_exact_k3": {
+      "exists": true,
+      "path": "experiments/revision_1/results/a1/features/imagenet_mnv2_050_exact_k3__margin_drop.json",
+      "sha256": "a37bdc5fe8ec9d9a8d0f057149cb967a3b43d081f03b31321300764dc3c7469b"
+    },
+    "features_meta:imagenet_mnv2_100_crop_free_k3": {
+      "exists": true,
+      "path": "experiments/revision_1/results/a1/features/imagenet_mnv2_100_crop_free_k3__margin_drop.json",
+      "sha256": "3ea9460321a928f4cd1e058c7da8d8c35b6fcf886f4a1589959389855c9a716a"
+    },
+    "features_meta:imagenet_mnv2_100_exact_k3": {
+      "exists": true,
+      "path": "experiments/revision_1/results/a1/features/imagenet_mnv2_100_exact_k3__margin_drop.json",
+      "sha256": "ff0c9a8a87381a1b885618c3f4749f731a2fcf8c620945c16602d4044b7d9e11"
+    },
+    "features_meta:ntu60_tsm_crop_free": {
+      "exists": true,
+      "path": "experiments/revision_1/results/a1/features/ntu60_tsm_crop_free__margin_drop.json",
+      "sha256": "9f4dc49de3ca5d99a49d1120f8fd6af178f624fb175d81275c9a69c4c036b67a"
+    },
+    "features_meta:ntu60_tsm_exact": {
+      "exists": true,
+      "path": "experiments/revision_1/results/a1/features/ntu60_tsm_exact__margin_drop.json",
+      "sha256": "ad27adf0035a0c0dea052a44528c3b3712825e99e8f4fc9a020d87769bada8c4"
+    },
+    "features_meta:synthetic_normal": {
+      "exists": true,
+      "path": "experiments/revision_1/results/a1/features/synthetic_normal__margin_drop.json",
+      "sha256": "4ae0933803ab61f899b8a8237acd6f1e943823299b6212f85472431972f791c8"
+    },
+    "features_meta:synthetic_shortcut": {
+      "exists": true,
+      "path": "experiments/revision_1/results/a1/features/synthetic_shortcut__margin_drop.json",
+      "sha256": "df0bf17e1cc6b947aab759fc3097ffa05f3e25da20fcad57826f204b9bdefbca"
+    },
+    "protocol": {
+      "exists": true,
+      "path": "experiments/revision_1/a1_threshold/protocol.json",
+      "sha256": "10baa67c6379cd068d191edc9baad9eb6ad4398216962ec495ef76de00c10278"
+    }
+  }
+}

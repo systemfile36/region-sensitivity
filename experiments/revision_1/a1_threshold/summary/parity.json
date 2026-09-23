@@ -1,0 +1,101 @@
+{
+  "check_parity": true,
+  "runs": [
+    {
+      "ci_excludes_zero": 0,
+      "dataset": "synthetic",
+      "exceeds_control": 0,
+      "grade": 0,
+      "interval_parity_95": true,
+      "metric": "margin_drop",
+      "multi_strategy": 0,
+      "n_anchors": 3200,
+      "run": "synthetic_shortcut",
+      "sign_consistent": 0
+    },
+    {
+      "ci_excludes_zero": 0,
+      "dataset": "synthetic",
+      "exceeds_control": 0,
+      "grade": 0,
+      "interval_parity_95": true,
+      "metric": "margin_drop",
+      "multi_strategy": 0,
+      "n_anchors": 3200,
+      "run": "synthetic_normal",
+      "sign_consistent": 0
+    },
+    {
+      "ci_excludes_zero": 0,
+      "dataset": "imagenet",
+      "exceeds_control": 0,
+      "grade": 0,
+      "interval_parity_95": true,
+      "metric": "margin_drop",
+      "multi_strategy": 0,
+      "n_anchors": 160000,
+      "run": "imagenet_mnv2_050_exact_k3",
+      "sign_consistent": 0
+    },
+    {
+      "ci_excludes_zero": 0,
+      "dataset": "imagenet",
+      "exceeds_control": 0,
+      "grade": 0,
+      "interval_parity_95": true,
+      "metric": "margin_drop",
+      "multi_strategy": 0,
+      "n_anchors": 160000,
+      "run": "imagenet_mnv2_050_crop_free_k3",
+      "sign_consistent": 0
+    },
+    {
+      "ci_excludes_zero": 0,
+      "dataset": "imagenet",
+      "exceeds_control": 0,
+      "grade": 0,
+      "interval_parity_95": true,
+      "metric": "margin_drop",
+      "multi_strategy": 0,
+      "n_anchors": 160000,
+      "run": "imagenet_mnv2_100_exact_k3",
+      "sign_consistent": 0
+    },
+    {
+      "ci_excludes_zero": 0,
+      "dataset": "imagenet",
+      "exceeds_control": 0,
+      "grade": 0,
+      "interval_parity_95": true,
+      "metric": "margin_drop",
+      "multi_strategy": 0,
+      "n_anchors": 160000,
+      "run": "imagenet_mnv2_100_crop_free_k3",
+      "sign_consistent": 0
+    },
+    {
+      "ci_excludes_zero": 0,
+      "dataset": "ntu60",
+      "exceeds_control": 0,
+      "grade": 0,
+      "interval_parity_95": true,
+      "metric": "margin_drop",
+      "multi_strategy": 0,
+      "n_anchors": 12000,
+      "run": "ntu60_tsm_exact",
+      "sign_consistent": 0
+    },
+    {
+      "ci_excludes_zero": 0,
+      "dataset": "ntu60",
+      "exceeds_control": 0,
+      "grade": 0,
+      "interval_parity_95": true,
+      "metric": "margin_drop",
+      "multi_strategy": 0,
+      "n_anchors": 12000,
+      "run": "ntu60_tsm_crop_free",
+      "sign_consistent": 0
+    }
+  ]
+}
