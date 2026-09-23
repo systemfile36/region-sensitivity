@@ -1,0 +1,118 @@
+{
+  "argv": [
+    "experiments/revision_1/b1_preprocessing/compare_protocols.py"
+  ],
+  "created_at": "2026-09-23T15:57:10.452090+00:00",
+  "environment": {
+    "container_image_id": null,
+    "cpu_count": 32,
+    "hostname": "9d1042060e60",
+    "mem_total_kb": 131645792,
+    "nvidia_smi": {
+      "compute_processes": [
+        "3134116, [Not Found], 565 MiB"
+      ],
+      "gpus": [
+        "0, NVIDIA GeForce RTX 4090, 580.173.02, 24564 MiB, 2175 MiB"
+      ]
+    },
+    "packages": {
+      "captum": null,
+      "decord": "0.6.0",
+      "numpy": "2.3.2",
+      "pandas": "3.0.5",
+      "pyarrow": "25.0.0",
+      "timm": "1.0.28",
+      "torch": "2.8.0+cu129",
+      "torchvision": "0.23.0+cu129"
+    },
+    "platform": "Linux-7.0.0-28-generic-x86_64-with-glibc2.35",
+    "python_executable": "/opt/conda/bin/python",
+    "python_version": "3.11.13",
+    "ssat_installed_metadata_version": "0.1.0",
+    "torch": {
+      "cuda_available": true,
+      "cuda_version": "12.9",
+      "cudnn_version": 91002,
+      "device_names": [
+        "NVIDIA GeForce RTX 4090"
+      ]
+    }
+  },
+  "extra": {},
+  "git": {
+    "branch": "revision-1",
+    "describe": "v1.0.0-9-g7bdd739",
+    "dirty": false,
+    "dirty_files": [],
+    "sha": "7bdd739798f305abf95bac42b065d1fbf786128b"
+  },
+  "inputs": {
+    "cell_area": {
+      "exists": true,
+      "path": "experiments/revision_1/b1_preprocessing/summary/cell_area.csv",
+      "sha256": "7a1e1b1eb2ad7a50a5676df162e832445acc349f1d889bdec1311eb0f5d77adb"
+    },
+    "imagenet_mnv2_050_crop_free_k3:analysis": {
+      "exists": true,
+      "manifest_sha256": {
+        "analysis_manifest.json": "12a6ef77386dd60ca10500c014820a6a5d9e20938409e9de4b9fae13fc5cdeb7"
+      },
+      "path": "experiments/real_dataset_case_study/results_control_3/imagenet_mnv2_050_crop_free/analysis"
+    },
+    "imagenet_mnv2_050_crop_free_k3:metrics": {
+      "exists": true,
+      "manifest_sha256": {
+        "metrics_manifest.json": "1b5efaa61f39d2cd54210daa2f6bfb76e3d898ae34e50f6f347a5b0146250f0a"
+      },
+      "path": "experiments/real_dataset_case_study/results_control_3/imagenet_mnv2_050_crop_free/metrics"
+    },
+    "imagenet_mnv2_050_exact_k3:analysis": {
+      "exists": true,
+      "manifest_sha256": {
+        "analysis_manifest.json": "c961e6c017399fba12d0dcddd64a8a943a15cadf0d9694d0f23be9d1cd80f66f"
+      },
+      "path": "experiments/real_dataset_case_study/results_control_3/imagenet_mnv2_050_exact/analysis"
+    },
+    "imagenet_mnv2_050_exact_k3:metrics": {
+      "exists": true,
+      "manifest_sha256": {
+        "metrics_manifest.json": "652756b373c95b140ea710dc6f50cb248eba6586ce75e7bbf7bfc0ee0b425cb8"
+      },
+      "path": "experiments/real_dataset_case_study/results_control_3/imagenet_mnv2_050_exact/metrics"
+    },
+    "imagenet_mnv2_100_crop_free_k3:analysis": {
+      "exists": true,
+      "manifest_sha256": {
+        "analysis_manifest.json": "038ab9959002cdce168825484879bf86ffeb25c8bb04db811a8d27d29f2d2a2b"
+      },
+      "path": "experiments/real_dataset_case_study/results_control_3/imagenet_mnv2_100_crop_free/analysis"
+    },
+    "imagenet_mnv2_100_crop_free_k3:metrics": {
+      "exists": true,
+      "manifest_sha256": {
+        "metrics_manifest.json": "69e20fd91768b7dc8c89760ea729107e8180be9f7c2847d9d6386169b07bcd4a"
+      },
+      "path": "experiments/real_dataset_case_study/results_control_3/imagenet_mnv2_100_crop_free/metrics"
+    },
+    "imagenet_mnv2_100_exact_k3:analysis": {
+      "exists": true,
+      "manifest_sha256": {
+        "analysis_manifest.json": "105bcb6ff15ad24bd1231385568be285637693368fec726d5d0e80fc45be61ff"
+      },
+      "path": "experiments/real_dataset_case_study/results_control_3/imagenet_mnv2_100_exact/analysis"
+    },
+    "imagenet_mnv2_100_exact_k3:metrics": {
+      "exists": true,
+      "manifest_sha256": {
+        "metrics_manifest.json": "d5a7a9511f9d1573768e00f20dc733d02c258d5b234a8505e112c711dd97d671"
+      },
+      "path": "experiments/real_dataset_case_study/results_control_3/imagenet_mnv2_100_exact/metrics"
+    },
+    "protocol": {
+      "exists": true,
+      "path": "experiments/revision_1/b1_preprocessing/protocol.json",
+      "sha256": "73903d9598a287641f13318584162db521021ac170e1f59e1407616dbcc63f30"
+    }
+  }
+}

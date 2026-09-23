@@ -1,0 +1,4 @@
+run_a,run_b,quantile,target_rho,sample_id,rho
+imagenet_mnv2_050_exact_k3,imagenet_mnv2_050_crop_free_k3,10,-0.03823529411764706,ILSVRC2012_val_00000978.JPEG,-0.03823529411764706
+imagenet_mnv2_050_exact_k3,imagenet_mnv2_050_crop_free_k3,50,0.3838235294117647,ILSVRC2012_val_00002204.JPEG,0.38235294117647056
+imagenet_mnv2_050_exact_k3,imagenet_mnv2_050_crop_free_k3,90,0.7088235294117647,ILSVRC2012_val_00001722.JPEG,0.7088235294117647
