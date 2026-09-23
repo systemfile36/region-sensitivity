@@ -1,0 +1,146 @@
+{
+  "experiment": "A1",
+  "title": "Reliability grade threshold sensitivity",
+  "registered_on": "2026-09-24",
+  "plan": {
+    "experiment_plan": "docs/internal/revision_1/SSAT_minor_revision_experiment_plan.md section 4",
+    "implementation_plan": "docs/internal/revision_1/SSAT_minor_revision_implementation_plan.md section 3"
+  },
+  "inference": "none; grades are recomputed from the stored analysis/metrics stores of the Phase 0 baseline runs",
+  "runs": [
+    "synthetic_shortcut",
+    "synthetic_normal",
+    "imagenet_mnv2_050_exact_k3",
+    "imagenet_mnv2_050_crop_free_k3",
+    "imagenet_mnv2_100_exact_k3",
+    "imagenet_mnv2_100_crop_free_k3",
+    "ntu60_tsm_exact",
+    "ntu60_tsm_crop_free"
+  ],
+  "run_registry": "experiments/revision_1/common/runs.py BASELINE_RUNS",
+  "primary_metric": "margin_drop",
+  "secondary_metrics": {
+    "metrics": [
+      "gt_logit_drop",
+      "gt_prob_drop",
+      "loss_increase",
+      "gt_rank_worsening",
+      "pred_changed",
+      "topk_exit",
+      "flip_correct_to_wrong",
+      "flip_wrong_to_correct"
+    ],
+    "rule": "Computed only after the margin_drop results are final, with the same settings; appendix only."
+  },
+  "grade_rule": {
+    "source": "ssat/analysis/reliability.py _grade (v1.0.0)",
+    "rule": "sign_consistent FALSE -> unreliable; sign_consistent TRUE and exceeds_control, multi_strategy, ci_excludes_zero all TRUE -> high; sign_consistent TRUE, at least one of the three TRUE and none FALSE -> moderate; otherwise low",
+    "unavailable": {
+      "sign_consistent, multi_strategy": "no fill-strategy row for the anchor",
+      "exceeds_control": "no condition with control_available TRUE, n_controls >= 2, and effective std != 0",
+      "ci_excludes_zero": "no interval row for the anchor's region_key"
+    }
+  },
+  "parameters": {
+    "z_threshold": {
+      "symbol": "tau_z",
+      "default": 2.0,
+      "oat": [1.0, 1.5, 2.0, 2.5, 3.0, 4.0],
+      "curve": {"start": 0.0, "stop": 6.0, "step": 0.05},
+      "definition": "exceeds_control = max over evaluable conditions of z_c > tau_z"
+    },
+    "sign_alpha": {
+      "symbol": "alpha",
+      "default": 0.0,
+      "oat": [0.0, 0.01, 0.05, 0.10, 0.25],
+      "definition": "epsilon = alpha * S_run; an operator value v has sign +1 if v > epsilon, -1 if v < -epsilon, else 0. Only the sign function changes; sign_consistent and multi_strategy keep the v1.0.0 rules, so (+,+,0) is inconsistent and (0,0,0) is consistent.",
+      "scale": "S_run = median of |v| over every target (anchor, operator) value in strategy_stability for the run and metric (zeros included)"
+    },
+    "min_multi_strategy": {
+      "symbol": "m",
+      "default": 2,
+      "oat": {"synthetic": [2, 3, 4, 5], "imagenet": [2, 3], "ntu60": [2, 3]},
+      "definition": "multi_strategy = count of the most common operator sign >= m"
+    },
+    "ci_level": {
+      "default": "95",
+      "oat": ["90", "95", "99", "999"],
+      "percentiles": {"90": [5.0, 95.0], "95": [2.5, 97.5], "99": [0.5, 99.5], "999": [0.05, 99.95]},
+      "method": "ssat.analysis.interval percentile bootstrap over per-sample region means, n_bootstrap 1000, random_seed 0",
+      "rng_stream": "One generator seeded 0 is consumed across (region_key, metric) pairs in sorted order over every metric in the stored analysis, exactly as compute_intervals does; one set of resample means per region is used for all four levels.",
+      "definition": "ci_excludes_zero = ci_low > 0 or ci_high < 0"
+    },
+    "ddof": {
+      "symbol": "d",
+      "default": 0,
+      "oat": [0, 1],
+      "definition": "std_d = control_std0 * sqrt(n / (n - d)), n = n_controls of the condition"
+    },
+    "std_floor_beta": {
+      "symbol": "beta",
+      "default": 0.0,
+      "oat": [0.0, 0.10, 0.25],
+      "definition": "std_eff = max(std_d, beta * B_run); z_c = excess_c / std_eff for n_controls >= 2 and std_eff != 0",
+      "scale": "B_run = median of control_std (ddof 0) over control_comparison rows of the run and metric with control_available TRUE and n_controls >= 2 (zeros included)"
+    }
+  },
+  "presets": {
+    "lenient": {"z_threshold": 1.5, "sign_alpha": 0.0, "min_multi_strategy": 2, "ci_level": "90", "ddof": 0, "std_floor_beta": 0.0},
+    "default": {"z_threshold": 2.0, "sign_alpha": 0.0, "min_multi_strategy": 2, "ci_level": "95", "ddof": 0, "std_floor_beta": 0.0},
+    "conservative": {"z_threshold": 3.0, "sign_alpha": 0.05, "min_multi_strategy": 2, "ci_level": "99", "ddof": 1, "std_floor_beta": 0.10}
+  },
+  "applicability": {
+    "ntu60": "No matched controls, so exceeds_control is UNAVAILABLE and tau_z, d, beta are not applicable; only alpha, m, and CI level are swept, and presets apply only their alpha/m/CI components.",
+    "scales": "S_run and B_run are computed once per run and metric from the default feature table and do not depend on the swept setting."
+  },
+  "structurally_inert": {
+    "seed_cv_threshold": {
+      "values": [0.1, 0.2, 0.3, 0.5],
+      "report": "seed_stable TRUE/FALSE/UNAVAILABLE rates only; the flag does not enter the grade"
+    },
+    "area_match_tolerance": {
+      "values": [0.05, 0.10, 0.20],
+      "report": "share of control/target effective-area ratios within tolerance, reported by B1 (control_area_ratio.csv); the flag does not enter the grade"
+    }
+  },
+  "parity_gate": {
+    "unit_test": "tests/unit/test_rev1_grade_engine.py compares grade_anchors(default) with the ssat analyze output on small dumps, including the UNAVAILABLE paths (no control, zero control std, one control, no strategy row).",
+    "real_runs": "run_sweep.py --check-parity: for every run, the default-setting flags (sign_consistent, exceeds_control, multi_strategy, ci_excludes_zero) and grade must equal reliability.parquet with zero mismatches, and the recomputed 95% intervals must match intervals.parquet (excludes_zero and point_estimate exactly, bounds within 1e-12). The sweep does not run otherwise."
+  },
+  "outputs": {
+    "summary_dir": "experiments/revision_1/a1_threshold/summary",
+    "tables": [
+      "grade_distribution.csv",
+      "agreement.csv",
+      "transitions.csv",
+      "flag_rates.csv",
+      "by_cell.csv",
+      "z_curve.csv",
+      "boundary_mass.csv",
+      "sensitivity_ranking.csv",
+      "synthetic_gt.csv",
+      "seed_cv_flag_rates.csv",
+      "table_a1.csv",
+      "table_a1.tex"
+    ],
+    "figures": {
+      "fig_a1_z_curve.pdf": "grade share vs tau_z curve; panels synthetic_shortcut, synthetic_normal, and the four ImageNet runs; vertical line at 2.0; max_z histogram inset",
+      "fig_a1_oat.pdf": "agreement and >=2-grade change per parameter value (tornado form), one panel per dataset",
+      "fig_a1_transitions.pdf": "default->lenient and default->conservative transition heatmaps for imagenet_mnv2_050_exact_k3 and synthetic_shortcut"
+    },
+    "report": "A1_REPORT.md"
+  },
+  "summaries": {
+    "agreement": "Per run and setting, against the default setting on the same anchors: agreement, linear weighted kappa over the ordinal grade order unreliable < low < moderate < high, unchanged / 1-step / >=2-step shares, up / down shares.",
+    "boundary_mass": {"deltas": [0.25, 0.5], "definition": "share of anchors with an evaluable max_z in [tau - delta, tau + delta] at tau = 2.0"},
+    "sensitivity_ranking": "Per run, each parameter's maximum disagreement (1 - agreement) over its registered OAT values; parameters ranked by that value.",
+    "by_cell": "For the 4x4 grid runs (ImageNet, synthetic), agreement and HIGH share per cell and per cell type (corner r0c0,r0c3,r3c0,r3c3; center r1c1,r1c2,r2c1,r2c2; edge the other eight), for the OAT settings and presets.",
+    "synthetic_gt": "Over the tau_z curve, the alpha OAT values, and the presets: HIGH share of the patch anchors (cell r0/c0) and of the other 15 cells in synthetic_shortcut, and the same two shares in synthetic_normal. Descriptive only; no threshold is chosen from it."
+  },
+  "optional_analyses": {
+    "zero_abstain": "Implementation plan section 3.7: with alpha > 0, zero signs abstain (sign_consistent TRUE if the non-zero signs agree and at least one exists, UNAVAILABLE if all are zero; multi_strategy counts the dominant non-zero sign). Reported as a design alternative only."
+  },
+  "resampling": "none beyond the bootstrap above (random_seed 0)",
+  "representative_cases": "none; A1 reports aggregate tables and figures only",
+  "subsets": "none; every anchor of every run is used"
+}
