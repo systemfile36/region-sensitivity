@@ -48,6 +48,7 @@ came from them.
 | P0-5 | `SSAT_CONTAINER_IMAGE_ID=<id> python experiments/revision_1/phase0/capture_environment.py --note ...` | `environment.json` | seconds |
 | P0-6 | `python -m pytest -q tests/unit/test_rev1_common.py` | – | seconds |
 | P0-7 | `python experiments/revision_1/phase0/recompute_small_baselines.py` | `recomputed_baselines.json` (+ stores in `results/phase0/recomputed/`) | ~3 min |
+| Images | `python experiments/revision_1/phase0/verify_imagenet_images.py` | `imagenet_images.json` | seconds |
 
 P0-7 must run before any experiment that reads the NTU or synthetic
 baselines. Findings are summarized in `phase0/PHASE0_REPORT.md`.
@@ -89,9 +90,20 @@ after the A2 K=20 dumps exist.
 | Tests | `python -m pytest -q tests/unit/test_rev1_b1.py` | – | seconds |
 
 `area_tables.py` fails unless its anchor-level area ratios reproduce the stored
-`area_matched` flag exactly. The ImageNet JPEGs are currently missing from
-`data/imagenet/` (`deviations.md` D-004); the example images were extracted
-from the ImageNet zip and are checked against the dumps' `content_hash`.
+`area_matched` flag exactly. The example images are checked against the
+dumps' `content_hash` (`deviations.md` D-004, D-005).
+
+## Phase 2: A2 matched-control count ablation (GPU)
+
+Pre-registered in `a2_control_count/protocol.json`. Three K=20 runs
+(ImageNet mnv2_050 crop-free = primary, ImageNet mnv2_050 exact, synthetic
+shortcut) on 2,000 ImageNet samples (2 per class) and the 200 synthetic
+samples; the K ablation is computed offline from them.
+
+| Step | Command | Output | Time |
+|---|---|---|---|
+| Inputs | `python experiments/revision_1/a2_control_count/make_inputs.py [--check]` | `data/revision_1/imagenet/val_2_per_class_a2.txt`, `configs/synthetic_shortcut_k20.yaml` | ~10 s |
+| Runs | `python experiments/revision_1/common/run_matrix.py --matrix experiments/revision_1/a2_control_count/matrix.json --output-root experiments/revision_1/results/a2 --skip-report` | `results/a2/<run>/` | ~3.5 h per ImageNet run (+ metrics/analyze) |
 
 ## Running new audits
 

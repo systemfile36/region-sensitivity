@@ -126,3 +126,26 @@ because it reads raw images and dumps rather than `summary/` files only. Its
 output `fig_b1_examples.pdf` goes to `results/b1/` (untracked) instead of
 `summary/`, because it embeds ImageNet photographs that the ImageNet terms of
 access do not allow us to redistribute in the repository.
+
+## D-005 (2026-09-24, Phase 2 start): ImageNet images restored; A2 run mechanics
+
+Recorded before any A2 run started.
+
+**Images restored.** `data/imagenet/ILSVRC/Data/CLS-LOC/val/` (all 50,000
+validation JPEGs) was extracted from
+`/media/limdongha/LARGE_DATA/imagenet-object-localization-challenge.zip` with
+the author's approval. Train and test images were not extracted; no config
+reads them. New check `phase0/verify_imagenet_images.py`
+(`phase0/summary/imagenet_images.json`): every one of the 10,000 audited
+files matches the `content_hash` recorded by all four ImageNet baseline
+dumps.
+
+**Synthetic K=20 run.** Implementation plan section 5.2 names a
+`run_synthetic_k20.py` that calls `_build_config` in-process. Instead,
+`a2_control_count/make_inputs.py` writes that config (only
+`controls[0].n_samples` changed, 2 -> 20) to
+`configs/synthetic_shortcut_k20.yaml`, and the run goes through the same
+`run_matrix.py` as the ImageNet runs, so it gets the same `ssat metrics` /
+`ssat analyze` defaults as the P0-7 synthetic baseline stores and a timing
+record in `run_matrix_log.jsonl`. `run_threshold_validation_full.py` is not
+modified.
