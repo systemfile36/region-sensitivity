@@ -152,18 +152,51 @@ ORIGINAL_SMALL_RUNS: dict[str, RunRef] = {
 """The NTU/synthetic runs with their originally stored metrics/analysis (P0-7 input)."""
 
 
+A2_DIR = REVISION_DIR / "a2_control_count"
+A2_RESULTS_DIR = REVISION_RESULTS_DIR / "a2"
+
+
+def _a2(name: str, config: str, dataset: Dataset, model: str, protocol: Protocol) -> RunRef:
+    return RunRef.co_located(
+        name,
+        A2_RESULTS_DIR / name,
+        dataset=dataset,
+        model=model,
+        protocol=protocol,
+        n_controls=20,
+        config=A2_DIR / "configs" / config,
+    )
+
+
+A2_RUNS: dict[str, RunRef] = {
+    run.name: run
+    for run in (
+        _a2("a2_imagenet_mnv2_050_cf_k20", "imagenet_mnv2_050_crop_free_k20.yaml", "imagenet", "mobilenetv2_050", "crop_free"),
+        _a2("a2_imagenet_mnv2_050_exact_k20", "imagenet_mnv2_050_exact_k20.yaml", "imagenet", "mobilenetv2_050", "exact"),
+        _a2("a2_synthetic_shortcut_k20", "synthetic_shortcut_k20.yaml", "synthetic", "squeezenet1_0_m_shortcut", "crop_free"),
+    )
+}
+"""A2's K=20 runs (``a2_control_count/matrix.json``)."""
+
+A2_BASELINES: dict[str, str] = {
+    "a2_imagenet_mnv2_050_cf_k20": "imagenet_mnv2_050_crop_free_k3",
+    "a2_imagenet_mnv2_050_exact_k20": "imagenet_mnv2_050_exact_k3",
+    "a2_synthetic_shortcut_k20": "synthetic_shortcut",
+}
+"""The ``BASELINE_RUNS`` entry each A2 run extends (same config apart from K and samples)."""
+
+
 def get_run(name: str) -> RunRef:
-    """Look up a run in ``BASELINE_RUNS`` or ``K1_PARITY_RUNS``.
+    """Look up a run in ``BASELINE_RUNS``, ``K1_PARITY_RUNS``, or ``A2_RUNS``.
 
     Raises:
-        KeyError: If ``name`` is in neither registry.
+        KeyError: If ``name`` is in none of the registries.
     """
 
-    if name in BASELINE_RUNS:
-        return BASELINE_RUNS[name]
-    if name in K1_PARITY_RUNS:
-        return K1_PARITY_RUNS[name]
-    raise KeyError(f"unknown run {name!r}; known: {sorted({*BASELINE_RUNS, *K1_PARITY_RUNS})}")
+    for registry in (BASELINE_RUNS, K1_PARITY_RUNS, A2_RUNS):
+        if name in registry:
+            return registry[name]
+    raise KeyError(f"unknown run {name!r}; known: {sorted({*BASELINE_RUNS, *K1_PARITY_RUNS, *A2_RUNS})}")
 
 
 def k1_counterpart(run: RunRef) -> RunRef:

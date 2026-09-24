@@ -104,6 +104,18 @@ samples; the K ablation is computed offline from them.
 |---|---|---|---|
 | Inputs | `python experiments/revision_1/a2_control_count/make_inputs.py [--check]` | `data/revision_1/imagenet/val_2_per_class_a2.txt`, `configs/synthetic_shortcut_k20.yaml` | ~10 s |
 | Runs | `python experiments/revision_1/common/run_matrix.py --matrix experiments/revision_1/a2_control_count/matrix.json --output-root experiments/revision_1/results/a2 --skip-report` | `results/a2/<run>/` | ~3.5 h per ImageNet run (+ metrics/analyze) |
+| Nested parity | `python experiments/revision_1/a2_control_count/verify_nested.py` | `summary/nested_parity.json` | minutes |
+| Control tensors | `python experiments/revision_1/a2_control_count/build_control_tensor.py --runs all` | `results/a2/tensors/<run>__margin_drop.{npz,json}` | minutes |
+| Ablation | `python experiments/revision_1/a2_control_count/run_ablation.py` | `summary/*.csv`, `ablation_parity.json` (features in `results/a2/features/`) | minutes |
+| Figures | `python experiments/revision_1/a2_control_count/summarize.py` | `fig_a2_{convergence,high_share,flip}.pdf` | seconds |
+| B1-4 | `python experiments/revision_1/b1_preprocessing/eff_area_controls.py` | `b1_preprocessing/summary/eff_area_controls.csv` | minutes |
+| Tests | `python -m pytest -q tests/unit/test_rev1_a2.py` | – | seconds |
+
+`build_control_tensor.py` fails unless the full K=20 control statistics
+reproduce the stored `control_comparison` bit for bit, and `run_ablation.py`
+fails unless prefix K=20 reproduces `reliability.parquet` and prefix K=3
+(K=2 and 3 for synthetic) reproduces the ssat analysis path on the filtered
+items.
 
 ## Running new audits
 

@@ -241,6 +241,37 @@ def grade_anchors(features: pd.DataFrame, params: GradeParams, *, scales: RunSca
     )
 
 
+def with_control_stats(
+    features: pd.DataFrame, target: np.ndarray, mean: np.ndarray, std0: np.ndarray, n: int | np.ndarray
+) -> pd.DataFrame:
+    """Return a copy of ``features`` whose ``cond<i>__*`` columns use other control statistics.
+
+    Args:
+        features: Feature table whose rows align with the arrays' first axis.
+        target: Target anchor values, shape ``(anchors, conditions)``.
+        mean: Control means, same shape; NaN marks a condition without controls.
+        std0: Control stds with ddof 0, same shape.
+        n: Number of controls behind each statistic (scalar or same shape).
+
+    Raises:
+        ValueError: If the arrays do not match the feature table's conditions.
+    """
+
+    indices = condition_indices(features)
+    shape = (len(features), len(indices))
+    if mean.shape != shape or target.shape != shape or std0.shape != shape:
+        raise ValueError(f"control statistics of shape {mean.shape} do not fit {shape[0]} anchors x {shape[1]} conditions")
+    counts = np.broadcast_to(np.asarray(n, dtype=np.int64), shape)
+    replaced = features.copy()
+    for column, index in enumerate(indices):
+        replaced[f"cond{index}__excess"] = target[:, column] - mean[:, column]
+        replaced[f"cond{index}__control_mean"] = mean[:, column]
+        replaced[f"cond{index}__std0"] = std0[:, column]
+        replaced[f"cond{index}__n"] = counts[:, column]
+        replaced[f"cond{index}__available"] = np.isfinite(mean[:, column])
+    return replaced
+
+
 def flag_labels(codes: np.ndarray | pd.Series) -> np.ndarray:
     """Map flag codes to ``FlagValue`` strings."""
 
