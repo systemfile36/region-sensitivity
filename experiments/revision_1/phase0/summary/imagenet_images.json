@@ -1,0 +1,36 @@
+{
+  "all_match": true,
+  "image_root": "data/imagenet/ILSVRC/Data/CLS-LOC/val",
+  "n_audited_samples": 10000,
+  "n_files_in_root": 50000,
+  "runs": {
+    "imagenet_mnv2_050_crop_free_k3": {
+      "mismatched_head": [],
+      "missing_head": [],
+      "n_mismatched": 0,
+      "n_missing": 0,
+      "n_samples": 10000
+    },
+    "imagenet_mnv2_050_exact_k3": {
+      "mismatched_head": [],
+      "missing_head": [],
+      "n_mismatched": 0,
+      "n_missing": 0,
+      "n_samples": 10000
+    },
+    "imagenet_mnv2_100_crop_free_k3": {
+      "mismatched_head": [],
+      "missing_head": [],
+      "n_mismatched": 0,
+      "n_missing": 0,
+      "n_samples": 10000
+    },
+    "imagenet_mnv2_100_exact_k3": {
+      "mismatched_head": [],
+      "missing_head": [],
+      "n_mismatched": 0,
+      "n_missing": 0,
+      "n_samples": 10000
+    }
+  }
+}
