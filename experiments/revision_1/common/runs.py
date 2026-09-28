@@ -186,17 +186,47 @@ A2_BASELINES: dict[str, str] = {
 """The ``BASELINE_RUNS`` entry each A2 run extends (same config apart from K and samples)."""
 
 
+A3_DIR = REVISION_DIR / "a3_multi_arch"
+A3_RESULTS_DIR = REVISION_RESULTS_DIR / "a3"
+
+
+def _a3(model: str, protocol: Protocol) -> RunRef:
+    suffix = "cf" if protocol == "crop_free" else protocol
+    name = f"a3_imagenet_{model}_{suffix}"
+    return RunRef.co_located(
+        name,
+        A3_RESULTS_DIR / name,
+        dataset="imagenet",
+        model=model,
+        protocol=protocol,
+        n_controls=3,
+        config=A3_DIR / "configs" / f"imagenet_{model}_{protocol}.yaml",
+    )
+
+
+A3_RUNS: dict[str, RunRef] = {
+    run.name: run
+    for run in (
+        _a3(model, protocol)
+        for model in ("convnext_tiny", "deit_small")
+        for protocol in ("crop_free", "exact")
+    )
+}
+"""A3's new-architecture runs (``a3_multi_arch/matrix.json``), 10,000 samples with K=3."""
+
+
 def get_run(name: str) -> RunRef:
-    """Look up a run in ``BASELINE_RUNS``, ``K1_PARITY_RUNS``, or ``A2_RUNS``.
+    """Look up a run in ``BASELINE_RUNS``, ``K1_PARITY_RUNS``, ``A2_RUNS``, or ``A3_RUNS``.
 
     Raises:
         KeyError: If ``name`` is in none of the registries.
     """
 
-    for registry in (BASELINE_RUNS, K1_PARITY_RUNS, A2_RUNS):
+    registries = (BASELINE_RUNS, K1_PARITY_RUNS, A2_RUNS, A3_RUNS)
+    for registry in registries:
         if name in registry:
             return registry[name]
-    raise KeyError(f"unknown run {name!r}; known: {sorted({*BASELINE_RUNS, *K1_PARITY_RUNS, *A2_RUNS})}")
+    raise KeyError(f"unknown run {name!r}; known: {sorted(set().union(*registries))}")
 
 
 def k1_counterpart(run: RunRef) -> RunRef:

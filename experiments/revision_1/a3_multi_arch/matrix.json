@@ -1,0 +1,8 @@
+{
+  "runs": [
+    {"name": "a3_imagenet_convnext_tiny_cf", "config": "configs/imagenet_convnext_tiny_crop_free.yaml", "minimum_accuracy": null},
+    {"name": "a3_imagenet_deit_small_cf", "config": "configs/imagenet_deit_small_crop_free.yaml", "minimum_accuracy": null},
+    {"name": "a3_imagenet_convnext_tiny_exact", "config": "configs/imagenet_convnext_tiny_exact.yaml", "minimum_accuracy": 0.75},
+    {"name": "a3_imagenet_deit_small_exact", "config": "configs/imagenet_deit_small_exact.yaml", "minimum_accuracy": 0.72}
+  ]
+}

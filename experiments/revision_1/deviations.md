@@ -149,3 +149,29 @@ dumps.
 `ssat analyze` defaults as the P0-7 synthetic baseline stores and a timing
 record in `run_matrix_log.jsonl`. `run_threshold_validation_full.py` is not
 modified.
+
+## D-006 (2026-09-28, Phase 3 start): DeiT-S fails selection condition 3 and is kept
+
+Recorded before any A3 run started.
+
+The author chose `convnext_tiny.fb_in1k` and
+`deit_small_patch16_224.fb_in1k` (the first-priority candidates of
+implementation plan section 6.1) on 2026-09-24, before
+`a3_multi_arch/inspect_models.py` checked them. The check
+(`a3_multi_arch/summary/model_selection.json`) shows that `deit_small` uses
+`crop_pct` 0.9 instead of mobilenetv2_050's 0.875, so it fails condition 3
+(same official eval geometry). Under exact preprocessing its model-space cell
+areas differ from mobilenetv2_050's for 99.5 % of sample cells (center
+0.94x, corner 1.16x on average). The other two transformer candidates
+(`vit_small_patch16_224.augreg_in21k_ft_in1k`,
+`swin_tiny_patch4_window7_224.ms_in1k`) also use `crop_pct` 0.9, so section
+6.1's fallback ("no candidate passes") applies whichever transformer is
+taken. `deit_small` is kept, and the section 4.5 rule decides the
+comparison: all four models are compared on the crop-free runs (identical
+geometry, verified cell by cell), and `deit_small` exact is reported per
+model with its cell-area table. `convnext_tiny` passes all three conditions,
+and its cell areas equal mobilenetv2_050's in both protocols.
+
+Weights are downloaded into `HF_HOME=/workspace/data/hf_cache`
+(implementation plan section 6.2); their SHA-256 are in
+`model_selection.json`.

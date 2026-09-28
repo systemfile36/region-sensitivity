@@ -118,6 +118,24 @@ fails unless prefix K=20 reproduces `reliability.parquet` and prefix K=3
 (K=2 and 3 for synthetic) reproduces the ssat analysis path on the filtered
 items.
 
+## Phase 3: A3 multi-architecture comparison (GPU)
+
+Pre-registered in `a3_multi_arch/protocol.json`. ConvNeXt-T
+(`convnext_tiny.fb_in1k`) and DeiT-S (`deit_small_patch16_224.fb_in1k`), both
+protocols, on the same 10,000 samples and settings as the MobileNetV2
+baselines (K=3). DeiT-S fails the same-geometry condition (`crop_pct` 0.9),
+so the four-model comparison uses the crop-free runs (`deviations.md` D-006).
+
+| Step | Command | Output | Time |
+|---|---|---|---|
+| Model check | `HF_HOME=/workspace/data/hf_cache python experiments/revision_1/a3_multi_arch/inspect_models.py` | `a3_multi_arch/summary/model_selection.json` | ~2 min |
+| Runs | `HF_HOME=/workspace/data/hf_cache python experiments/revision_1/common/run_matrix.py --matrix experiments/revision_1/a3_multi_arch/matrix.json --output-root experiments/revision_1/results/a3 --skip-report` | `results/a3/<run>/` | ~4-5 h per run (+ metrics/analyze) |
+| Tests | `python -m pytest -q tests/unit/test_rev1_a3.py` | – | seconds |
+
+`inspect_models.py` fails unless mobilenetv2_050's model-space cell areas,
+recomputed from the source image shapes, reproduce the `effective_area_px`
+stored in both mobilenetv2_050 baseline dumps.
+
 ## Running new audits
 
 `common/run_matrix.py --matrix <matrix.json> --output-root <dir>` runs
