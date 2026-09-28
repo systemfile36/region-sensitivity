@@ -1,0 +1,109 @@
+{
+  "a2_imagenet_mnv2_050_cf_k20": {
+    "k20_prefix_vs_reliability_parquet": {
+      "n_anchors": 32000,
+      "n_exceeds_mismatch": 0,
+      "n_grade_mismatch": 0
+    },
+    "prefix_vs_official_path": {
+      "k3": {
+        "n_anchors": 32000,
+        "n_grade_mismatch": 0,
+        "n_missing": 0
+      }
+    },
+    "tensor_stored_parity": {
+      "control_mean_bitwise_equal": 96000,
+      "control_mean_max_abs_diff": 0.0,
+      "control_mean_nan_mismatch": 0,
+      "control_std_bitwise_equal": 96000,
+      "control_std_max_abs_diff": 0.0,
+      "control_std_nan_mismatch": 0,
+      "excess_bitwise_equal": 96000,
+      "excess_max_abs_diff": 0.0,
+      "excess_nan_mismatch": 0,
+      "n_controls_values": [
+        20
+      ],
+      "n_stored": 96000,
+      "n_unmatched": 0,
+      "passed": true,
+      "z_vs_control_bitwise_equal": 96000,
+      "z_vs_control_max_abs_diff": 0.0,
+      "z_vs_control_nan_mismatch": 0
+    }
+  },
+  "a2_imagenet_mnv2_050_exact_k20": {
+    "k20_prefix_vs_reliability_parquet": {
+      "n_anchors": 32000,
+      "n_exceeds_mismatch": 0,
+      "n_grade_mismatch": 0
+    },
+    "prefix_vs_official_path": {
+      "k3": {
+        "n_anchors": 32000,
+        "n_grade_mismatch": 0,
+        "n_missing": 0
+      }
+    },
+    "tensor_stored_parity": {
+      "control_mean_bitwise_equal": 96000,
+      "control_mean_max_abs_diff": 0.0,
+      "control_mean_nan_mismatch": 0,
+      "control_std_bitwise_equal": 96000,
+      "control_std_max_abs_diff": 0.0,
+      "control_std_nan_mismatch": 0,
+      "excess_bitwise_equal": 96000,
+      "excess_max_abs_diff": 0.0,
+      "excess_nan_mismatch": 0,
+      "n_controls_values": [
+        20
+      ],
+      "n_stored": 96000,
+      "n_unmatched": 0,
+      "passed": true,
+      "z_vs_control_bitwise_equal": 96000,
+      "z_vs_control_max_abs_diff": 0.0,
+      "z_vs_control_nan_mismatch": 0
+    }
+  },
+  "a2_synthetic_shortcut_k20": {
+    "k20_prefix_vs_reliability_parquet": {
+      "n_anchors": 3200,
+      "n_exceeds_mismatch": 0,
+      "n_grade_mismatch": 0
+    },
+    "prefix_vs_official_path": {
+      "k2": {
+        "n_anchors": 3200,
+        "n_grade_mismatch": 0,
+        "n_missing": 0
+      },
+      "k3": {
+        "n_anchors": 3200,
+        "n_grade_mismatch": 0,
+        "n_missing": 0
+      }
+    },
+    "tensor_stored_parity": {
+      "control_mean_bitwise_equal": 16000,
+      "control_mean_max_abs_diff": 0.0,
+      "control_mean_nan_mismatch": 0,
+      "control_std_bitwise_equal": 16000,
+      "control_std_max_abs_diff": 0.0,
+      "control_std_nan_mismatch": 0,
+      "excess_bitwise_equal": 16000,
+      "excess_max_abs_diff": 0.0,
+      "excess_nan_mismatch": 0,
+      "n_controls_values": [
+        20
+      ],
+      "n_stored": 16000,
+      "n_unmatched": 0,
+      "passed": true,
+      "z_vs_control_bitwise_equal": 16000,
+      "z_vs_control_max_abs_diff": 0.0,
+      "z_vs_control_nan_mismatch": 0
+    }
+  }
+}

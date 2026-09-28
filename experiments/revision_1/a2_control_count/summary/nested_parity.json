@@ -1,0 +1,241 @@
+{
+  "comparison": "identity = item_id sets plus region_params_json/effective_area_px/seed_used equality on the A2 run's samples; logits compared as bitwise float32 equality, unequal items bucketed by max |diff|",
+  "identity_pass": true,
+  "logits_bitwise_pass": false,
+  "runs": [
+    {
+      "baseline": "imagenet_mnv2_050_crop_free_k3",
+      "baseline_controls": 480000,
+      "baseline_items": 640000,
+      "baseline_items_missing_in_candidate": 0,
+      "baseline_k": 3,
+      "baseline_targets": 160000,
+      "candidate_control_index_counts": {
+        "0": 160000,
+        "1": 160000,
+        "10": 160000,
+        "11": 160000,
+        "12": 160000,
+        "13": 160000,
+        "14": 160000,
+        "15": 160000,
+        "16": 160000,
+        "17": 160000,
+        "18": 160000,
+        "19": 160000,
+        "2": 160000,
+        "3": 160000,
+        "4": 160000,
+        "5": 160000,
+        "6": 160000,
+        "7": 160000,
+        "8": 160000,
+        "9": 160000
+      },
+      "candidate_items": 3360000,
+      "candidate_nested_controls_missing_in_baseline": 0,
+      "candidate_new_controls_present_in_baseline": 0,
+      "candidate_targets_missing_in_baseline": 0,
+      "clean": {
+        "gt_label_equal": true,
+        "logits_bitwise_equal": false,
+        "max_abs_diff": 0.05485725402832031,
+        "n_baseline": 2000,
+        "n_candidate": 2000,
+        "n_top1_mismatch": 1,
+        "sample_ids_equal": true,
+        "status_equal": true
+      },
+      "clean_logits_bitwise_pass": false,
+      "control_logits_bitwise_pass": false,
+      "elapsed_s": 142.07592060789466,
+      "identity_pass": true,
+      "n_samples": 2000,
+      "nested_controls": {
+        "max_abs_diff": 7.62939453125e-06,
+        "n_bitwise_equal": 371392,
+        "n_context_mismatch": 0,
+        "n_matched": 480000,
+        "n_top1_mismatch": 0,
+        "unequal_by_max_abs_diff": {
+          "gt_1e-1": 0,
+          "le_1e-1": 0,
+          "le_1e-3": 0,
+          "le_1e-5": 108608
+        }
+      },
+      "run": "a2_imagenet_mnv2_050_cf_k20",
+      "target_logits_bitwise_pass": true,
+      "targets": {
+        "max_abs_diff": 0.0,
+        "n_bitwise_equal": 160000,
+        "n_context_mismatch": 0,
+        "n_matched": 160000,
+        "n_top1_mismatch": 0,
+        "unequal_by_max_abs_diff": {
+          "gt_1e-1": 0,
+          "le_1e-1": 0,
+          "le_1e-3": 0,
+          "le_1e-5": 0
+        }
+      },
+      "top1_unchanged": false
+    },
+    {
+      "baseline": "imagenet_mnv2_050_exact_k3",
+      "baseline_controls": 480000,
+      "baseline_items": 640000,
+      "baseline_items_missing_in_candidate": 0,
+      "baseline_k": 3,
+      "baseline_targets": 160000,
+      "candidate_control_index_counts": {
+        "0": 160000,
+        "1": 160000,
+        "10": 160000,
+        "11": 160000,
+        "12": 160000,
+        "13": 160000,
+        "14": 160000,
+        "15": 160000,
+        "16": 160000,
+        "17": 160000,
+        "18": 160000,
+        "19": 160000,
+        "2": 160000,
+        "3": 160000,
+        "4": 160000,
+        "5": 160000,
+        "6": 160000,
+        "7": 160000,
+        "8": 160000,
+        "9": 160000
+      },
+      "candidate_items": 3360000,
+      "candidate_nested_controls_missing_in_baseline": 0,
+      "candidate_new_controls_present_in_baseline": 0,
+      "candidate_targets_missing_in_baseline": 0,
+      "clean": {
+        "gt_label_equal": true,
+        "logits_bitwise_equal": false,
+        "max_abs_diff": 0.03808403015136719,
+        "n_baseline": 2000,
+        "n_candidate": 2000,
+        "n_top1_mismatch": 0,
+        "sample_ids_equal": true,
+        "status_equal": true
+      },
+      "clean_logits_bitwise_pass": false,
+      "control_logits_bitwise_pass": false,
+      "elapsed_s": 140.12071485910565,
+      "identity_pass": true,
+      "n_samples": 2000,
+      "nested_controls": {
+        "max_abs_diff": 7.62939453125e-06,
+        "n_bitwise_equal": 371392,
+        "n_context_mismatch": 0,
+        "n_matched": 480000,
+        "n_top1_mismatch": 0,
+        "unequal_by_max_abs_diff": {
+          "gt_1e-1": 0,
+          "le_1e-1": 0,
+          "le_1e-3": 0,
+          "le_1e-5": 108608
+        }
+      },
+      "run": "a2_imagenet_mnv2_050_exact_k20",
+      "target_logits_bitwise_pass": true,
+      "targets": {
+        "max_abs_diff": 0.0,
+        "n_bitwise_equal": 160000,
+        "n_context_mismatch": 0,
+        "n_matched": 160000,
+        "n_top1_mismatch": 0,
+        "unequal_by_max_abs_diff": {
+          "gt_1e-1": 0,
+          "le_1e-1": 0,
+          "le_1e-3": 0,
+          "le_1e-5": 0
+        }
+      },
+      "top1_unchanged": true
+    },
+    {
+      "baseline": "synthetic_shortcut",
+      "baseline_controls": 96000,
+      "baseline_items": 144000,
+      "baseline_items_missing_in_candidate": 0,
+      "baseline_k": 2,
+      "baseline_targets": 48000,
+      "candidate_control_index_counts": {
+        "0": 48000,
+        "1": 48000,
+        "10": 48000,
+        "11": 48000,
+        "12": 48000,
+        "13": 48000,
+        "14": 48000,
+        "15": 48000,
+        "16": 48000,
+        "17": 48000,
+        "18": 48000,
+        "19": 48000,
+        "2": 48000,
+        "3": 48000,
+        "4": 48000,
+        "5": 48000,
+        "6": 48000,
+        "7": 48000,
+        "8": 48000,
+        "9": 48000
+      },
+      "candidate_items": 1008000,
+      "candidate_nested_controls_missing_in_baseline": 0,
+      "candidate_new_controls_present_in_baseline": 0,
+      "candidate_targets_missing_in_baseline": 0,
+      "clean": {
+        "gt_label_equal": true,
+        "logits_bitwise_equal": true,
+        "max_abs_diff": 0.0,
+        "n_baseline": 200,
+        "n_candidate": 200,
+        "n_top1_mismatch": 0,
+        "sample_ids_equal": true,
+        "status_equal": true
+      },
+      "clean_logits_bitwise_pass": true,
+      "control_logits_bitwise_pass": true,
+      "elapsed_s": 9.1858648378402,
+      "identity_pass": true,
+      "n_samples": 200,
+      "nested_controls": {
+        "max_abs_diff": 0.0,
+        "n_bitwise_equal": 96000,
+        "n_context_mismatch": 0,
+        "n_matched": 96000,
+        "n_top1_mismatch": 0,
+        "unequal_by_max_abs_diff": {
+          "gt_1e-1": 0,
+          "le_1e-1": 0,
+          "le_1e-3": 0,
+          "le_1e-5": 0
+        }
+      },
+      "run": "a2_synthetic_shortcut_k20",
+      "target_logits_bitwise_pass": true,
+      "targets": {
+        "max_abs_diff": 0.0,
+        "n_bitwise_equal": 48000,
+        "n_context_mismatch": 0,
+        "n_matched": 48000,
+        "n_top1_mismatch": 0,
+        "unequal_by_max_abs_diff": {
+          "gt_1e-1": 0,
+          "le_1e-1": 0,
+          "le_1e-3": 0,
+          "le_1e-5": 0
+        }
+      },
+      "top1_unchanged": true
+    }
+  ]
+}

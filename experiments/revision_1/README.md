@@ -95,7 +95,8 @@ dumps' `content_hash` (`deviations.md` D-004, D-005).
 
 ## Phase 2: A2 matched-control count ablation (GPU)
 
-Pre-registered in `a2_control_count/protocol.json`. Three K=20 runs
+Pre-registered in `a2_control_count/protocol.json`; results in
+`a2_control_count/A2_REPORT.md` (B1-4 in `b1_preprocessing/B1_REPORT.md`). Three K=20 runs
 (ImageNet mnv2_050 crop-free = primary, ImageNet mnv2_050 exact, synthetic
 shortcut) on 2,000 ImageNet samples (2 per class) and the 200 synthetic
 samples; the K ablation is computed offline from them.
@@ -134,4 +135,6 @@ Filled in as experiments complete.
 | Threshold sensitivity figure/table | `fig_a1_z_curve.pdf`, `fig_a1_oat.pdf`, `table_a1.*`, `sensitivity_ranking.csv` | `a1_threshold/summary/` |
 | Reliability grade transition summary | `transitions.csv`, `fig_a1_transitions.pdf`, `agreement.csv` | `a1_threshold/summary/` |
 | Preprocessing: nominal vs effective area | `cell_area.csv`, `within_sample_area_ratio.csv`, `control_area_ratio.csv`, `fig_b1_area.pdf` | `b1_preprocessing/summary/` |
-| Preprocessing: ranking and grade change | `ranking_change.csv`, `grade_transition_exact_to_cf.csv`, `yardstick.csv`, `fig_b1_rank.pdf` | `b1_preprocessing/summary/` |
+| Preprocessing: ranking and grade change | `ranking_change.csv`, `grade_transition_exact_to_cf.csv`, `yardstick.csv`, `fig_b1_rank.pdf`, `eff_area_controls.csv` | `b1_preprocessing/summary/` |
+| 3/5/10/20 control-count ablation | `grade_vs_k.csv`, `control_mean_convergence.csv`, `effect_convergence.csv`, `ranking_vs_k.csv`, `fig_a2_convergence.pdf`, `fig_a2_high_share.pdf` | `a2_control_count/summary/` |
+| Control-count stability / variance, cost | `replicate_variability.csv`, `fig_a2_flip.pdf`, `marginal_gain.csv` | `a2_control_count/summary/` |

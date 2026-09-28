@@ -3,8 +3,8 @@
 Pre-registered settings: `protocol.json` (commit `fab776b`, before any B1
 table was computed). Additions made after the first area table are listed in
 `../deviations.md` D-004. B1-1 to B1-3 use only the stored K=3 runs; B1-4
-(P_exact with effective-area-matched controls) is registered and runs after
-the A2 K=20 dumps exist. Primary metric: `margin_drop`. All numbers are for
+(P_exact with effective-area-matched controls) uses the A2 K=20 runs on
+their 2,000-sample subset. Primary metric: `margin_drop`. All B1-1 to B1-3 numbers are for
 all 10,000 samples unless stated; the "both runs correct" population gives the
 same picture (`ranking_change.csv`, `grade_change.csv`).
 
@@ -81,6 +81,46 @@ models, so the area tables hold for both MobileNetV2 widths.
 - By cell type, HIGH moves from center to corners (center 21.9 % -> 19.5 %,
   corner 9.5 % -> 11.5 % for mnv2_050), and the cell's area ratio correlates
   with its grade change rate (Spearman 0.78 / 0.64 across the 16 cells).
+
+## B1-4: effective-area-matched controls (`eff_area_controls.csv`)
+
+Run after A2, on its 2,000-sample subset and the two mnv2_050 K=20 runs:
+
+- (a) P_exact with control_index 0-2
+- (b) P_exact with all 20 controls
+- (c) P_exact_EA: only control items within +-5 % of the target's effective
+  area; control anchors average their eligible items; z needs at least 3
+  such anchors
+- (d) P_cf with all 20 controls
+
+| | all | corner | edge | center |
+|---|---|---|---|---|
+| Eligible control items | 14.7 % | 0.04 % | 4.0 % | 50.7 % |
+| (anchor, condition) with >= 3 eligible controls, out of 20 | 34.1 % | 0.0 % | 18.4 % | 99.5 % |
+| (anchor, condition) with no eligible control | 45.2 % | 98.7 % | 41.1 % | 0.2 % |
+| HIGH (a) exact K=3 | 14.4 % | 9.2 % | 13.4 % | 21.6 % |
+| HIGH (b) exact K=20 | 5.8 % | 1.7 % | 4.1 % | 13.5 % |
+| HIGH (c) exact EA | 3.5 % | 0 % | 2.6 % | 8.7 % |
+| `exceeds_control` UNAVAILABLE (c) | 52.8 % | 100 % | 55.4 % | 0.2 % |
+| HIGH (d) crop-free K=20 | 6.8 % | 3.9 % | 5.8 % | 11.6 % |
+
+- **Effective-area matching is not a workable correction under P_exact.**
+  Even with 20 source-plane controls per target, corner targets essentially
+  never get an area-matched control, and 53 % of all anchors lose
+  `exceeds_control` (they become MODERATE: 21.6 %). Only center cells can be
+  area-matched.
+- **Where it is possible, it lowers HIGH.** For center cells, matched controls
+  change the grade of 6 % of anchors relative to (b) (agreement 93.8 %), and
+  HIGH falls from 13.5 % to 8.7 %. The unmatched controls of an enlarged
+  center cell are smaller than the target, so their effect is weaker, which
+  inflates the target's excess.
+- **The protocol gap is not closed by EA.** Agreement with crop-free (d) is
+  52.7 % for (b) and 44.9 % for (c), versus 90.8 % between (a) and (b).
+  Anchor-level grades depend much more on the preprocessing protocol than on
+  K or on area matching.
+- **Consequence for the recommendation.** Crop-free region definitions,
+  which keep every cell and control at 1/16 of the input, remain the
+  recommended setting. Post-hoc effective-area filtering is not a substitute.
 
 ## Representative cases (`representative_cases.csv`; figure `results/b1/fig_b1_examples.pdf`, untracked because it embeds ImageNet images)
 

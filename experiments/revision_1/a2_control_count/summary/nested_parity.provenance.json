@@ -1,8 +1,8 @@
 {
   "argv": [
-    "experiments/revision_1/phase0/verify_imagenet_images.py"
+    "experiments/revision_1/a2_control_count/verify_nested.py"
   ],
-  "created_at": "2026-09-28T05:57:54.682908+00:00",
+  "created_at": "2026-09-28T05:53:48.653403+00:00",
   "environment": {
     "container_image_id": null,
     "cpu_count": 32,
@@ -30,9 +30,7 @@
       "device_names": []
     }
   },
-  "extra": {
-    "image_root": "data/imagenet/ILSVRC/Data/CLS-LOC/val"
-  },
+  "extra": {},
   "git": {
     "branch": "revision-1",
     "describe": "v1.0.0-14-gbe0b318",
@@ -41,6 +39,27 @@
     "sha": "be0b3188c9f2e7e9613a0f846434c6c94a38236d"
   },
   "inputs": {
+    "a2_imagenet_mnv2_050_cf_k20": {
+      "exists": true,
+      "manifest_sha256": {
+        "run_manifest.json": "d794c4a782e8af08574e6b6afde26aac764b05a17aac2b59001295d1a4a9f296"
+      },
+      "path": "experiments/revision_1/results/a2/a2_imagenet_mnv2_050_cf_k20"
+    },
+    "a2_imagenet_mnv2_050_exact_k20": {
+      "exists": true,
+      "manifest_sha256": {
+        "run_manifest.json": "fd4692afc17d256f5fcba13605e62d67c8e8e942de3848b37f6f986930961b2c"
+      },
+      "path": "experiments/revision_1/results/a2/a2_imagenet_mnv2_050_exact_k20"
+    },
+    "a2_synthetic_shortcut_k20": {
+      "exists": true,
+      "manifest_sha256": {
+        "run_manifest.json": "2bbe835b41570d604eb91e05d8d042584932a7091f60c222812b1d0586e25e8c"
+      },
+      "path": "experiments/revision_1/results/a2/a2_synthetic_shortcut_k20"
+    },
     "imagenet_mnv2_050_crop_free_k3": {
       "exists": true,
       "manifest_sha256": {
@@ -55,19 +74,12 @@
       },
       "path": "experiments/real_dataset_case_study/results_control_3/imagenet_mnv2_050_exact"
     },
-    "imagenet_mnv2_100_crop_free_k3": {
+    "synthetic_shortcut": {
       "exists": true,
       "manifest_sha256": {
-        "run_manifest.json": "aed5876ae0669e354613c11ac313edb538d148267ab77f046346a38cf42544c3"
+        "run_manifest.json": "df822d910a09b1b5b0d8f4cd13f523277ad73763d5ee128b0c61055e4c8c43e1"
       },
-      "path": "experiments/real_dataset_case_study/results_control_3/imagenet_mnv2_100_crop_free"
-    },
-    "imagenet_mnv2_100_exact_k3": {
-      "exists": true,
-      "manifest_sha256": {
-        "run_manifest.json": "ba8791401ac90ffbf811a7736d76adbde43e74b6da3bb607e48a408df86eea28"
-      },
-      "path": "experiments/real_dataset_case_study/results_control_3/imagenet_mnv2_100_exact"
+      "path": "experiments/synthetic_shortcut/results_crop_free/dumps/shortcut_A_all_ops_thresholds_crop_free"
     }
   }
 }
