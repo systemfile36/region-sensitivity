@@ -1,0 +1,675 @@
+{
+  "candidates": {
+    "convnext_tiny.fb_in1k": {
+      "adapter": {
+        "crop_free": {
+          "geometry_mode": "squash",
+          "model_id": "timm:convnext_tiny.fb_in1k:pretrained=true",
+          "preprocessing_desc": "{\"geometry_mode\": \"squash\", \"input_size\": [3, 224, 224], \"interpolation\": \"bicubic\", \"kind\": \"timm\", \"mean\": [0.485, 0.456, 0.406], \"std\": [0.229, 0.224, 0.225]}",
+          "preprocessing_fingerprint": "d8a816490e39b1bd19df7349f41bc98fbd5007822132c02e5cf0a18c883bbd06",
+          "weights_id": "timm/convnext_tiny.fb_in1k"
+        },
+        "exact": {
+          "geometry_mode": "model_default",
+          "model_id": "timm:convnext_tiny.fb_in1k:pretrained=true",
+          "preprocessing_desc": "{\"crop_mode\": \"center\", \"crop_pct\": 0.875, \"input_size\": [3, 224, 224], \"interpolation\": \"bicubic\", \"mean\": [0.485, 0.456, 0.406], \"std\": [0.229, 0.224, 0.225]}",
+          "preprocessing_fingerprint": "fa2a97c526a01911268753632336e5c959e28f6d6b16e438bc7fbc8218f8fc7f",
+          "weights_id": "timm/convnext_tiny.fb_in1k"
+        }
+      },
+      "area_vs_reference": {
+        "crop_free": {
+          "by_cell_type": {
+            "center": {
+              "mean_area_fraction": 0.06250758928571429,
+              "mean_ratio_to_reference": 1.0
+            },
+            "corner": {
+              "mean_area_fraction": 0.06249241071428571,
+              "mean_ratio_to_reference": 1.0
+            },
+            "edge": {
+              "mean_area_fraction": 0.0625,
+              "mean_ratio_to_reference": 1.0
+            }
+          },
+          "n_sample_cells_differ": 0,
+          "share_sample_cells_differ": 0.0
+        },
+        "exact": {
+          "by_cell_type": {
+            "center": {
+              "mean_area_fraction": 0.10809914202008929,
+              "mean_ratio_to_reference": 1.0
+            },
+            "corner": {
+              "mean_area_fraction": 0.026069008091517857,
+              "mean_ratio_to_reference": 1.0
+            },
+            "edge": {
+              "mean_area_fraction": 0.05791592494419643,
+              "mean_ratio_to_reference": 1.0
+            }
+          },
+          "n_sample_cells_differ": 0,
+          "share_sample_cells_differ": 0.0
+        }
+      },
+      "condition_1_timm_1_0_imagenet_1k": true,
+      "condition_2_params_le_50M_and_224": true,
+      "condition_3_geometry_equal_reference": true,
+      "condition_3_mismatched_fields": {},
+      "data_config": {
+        "crop_mode": "center",
+        "crop_pct": 0.875,
+        "input_size": [
+          3,
+          224,
+          224
+        ],
+        "interpolation": "bicubic",
+        "mean": [
+          0.485,
+          0.456,
+          0.406
+        ],
+        "std": [
+          0.229,
+          0.224,
+          0.225
+        ]
+      },
+      "hf_hub_id": "timm/convnext_tiny.fb_in1k",
+      "n_parameters": 28589128,
+      "num_classes": 1000,
+      "passes": true,
+      "priority": 1,
+      "role": "cnn",
+      "weights": {
+        "filename": "model.safetensors",
+        "sha256": "08b9dc9c3a3a29421de7996761e176501896d1ae7fc3085cf56a643772329276",
+        "size_bytes": 114374272,
+        "snapshot_revision": "b43a6303c9fcf176d2d707478a128c2c91e93528"
+      }
+    },
+    "deit_small_patch16_224.fb_in1k": {
+      "adapter": {
+        "crop_free": {
+          "geometry_mode": "squash",
+          "model_id": "timm:deit_small_patch16_224.fb_in1k:pretrained=true",
+          "preprocessing_desc": "{\"geometry_mode\": \"squash\", \"input_size\": [3, 224, 224], \"interpolation\": \"bicubic\", \"kind\": \"timm\", \"mean\": [0.485, 0.456, 0.406], \"std\": [0.229, 0.224, 0.225]}",
+          "preprocessing_fingerprint": "d8a816490e39b1bd19df7349f41bc98fbd5007822132c02e5cf0a18c883bbd06",
+          "weights_id": "timm/deit_small_patch16_224.fb_in1k"
+        },
+        "exact": {
+          "geometry_mode": "model_default",
+          "model_id": "timm:deit_small_patch16_224.fb_in1k:pretrained=true",
+          "preprocessing_desc": "{\"crop_mode\": \"center\", \"crop_pct\": 0.9, \"input_size\": [3, 224, 224], \"interpolation\": \"bicubic\", \"mean\": [0.485, 0.456, 0.406], \"std\": [0.229, 0.224, 0.225]}",
+          "preprocessing_fingerprint": "10a98a9d12c59ea77d6dafb418a9d90f5ea0b25fe4223c1de46dbb8dd4b324ae",
+          "weights_id": "timm/deit_small_patch16_224.fb_in1k"
+        }
+      },
+      "area_vs_reference": {
+        "crop_free": {
+          "by_cell_type": {
+            "center": {
+              "mean_area_fraction": 0.06250758928571429,
+              "mean_ratio_to_reference": 1.0
+            },
+            "corner": {
+              "mean_area_fraction": 0.06249241071428571,
+              "mean_ratio_to_reference": 1.0
+            },
+            "edge": {
+              "mean_area_fraction": 0.0625,
+              "mean_ratio_to_reference": 1.0
+            }
+          },
+          "n_sample_cells_differ": 0,
+          "share_sample_cells_differ": 0.0
+        },
+        "exact": {
+          "by_cell_type": {
+            "center": {
+              "mean_area_fraction": 0.10157255410953443,
+              "mean_ratio_to_reference": 0.9395427608136789
+            },
+            "corner": {
+              "mean_area_fraction": 0.029694987145248725,
+              "mean_ratio_to_reference": 1.1567139075600101
+            },
+            "edge": {
+              "mean_area_fraction": 0.059366229372608416,
+              "mean_ratio_to_reference": 1.0428197666597112
+            }
+          },
+          "n_sample_cells_differ": 159189,
+          "share_sample_cells_differ": 0.99493125
+        }
+      },
+      "condition_1_timm_1_0_imagenet_1k": true,
+      "condition_2_params_le_50M_and_224": true,
+      "condition_3_geometry_equal_reference": false,
+      "condition_3_mismatched_fields": {
+        "crop_pct": {
+          "candidate": 0.9,
+          "reference": 0.875
+        }
+      },
+      "data_config": {
+        "crop_mode": "center",
+        "crop_pct": 0.9,
+        "input_size": [
+          3,
+          224,
+          224
+        ],
+        "interpolation": "bicubic",
+        "mean": [
+          0.485,
+          0.456,
+          0.406
+        ],
+        "std": [
+          0.229,
+          0.224,
+          0.225
+        ]
+      },
+      "hf_hub_id": "timm/deit_small_patch16_224.fb_in1k",
+      "n_parameters": 22050664,
+      "num_classes": 1000,
+      "passes": false,
+      "priority": 1,
+      "role": "transformer",
+      "weights": {
+        "filename": "model.safetensors",
+        "sha256": "1e747b4a8d0df2cfbd3c450e8c97685d867448ab0c2ddbfb34b6885f5cb23e5b",
+        "size_bytes": 88216496,
+        "snapshot_revision": "91327a9c99f98fe6b524cd4d397b7226b80e1365"
+      }
+    },
+    "resnet50.a1_in1k": {
+      "adapter": {
+        "crop_free": {
+          "geometry_mode": "squash",
+          "model_id": "timm:resnet50.a1_in1k:pretrained=true",
+          "preprocessing_desc": "{\"geometry_mode\": \"squash\", \"input_size\": [3, 224, 224], \"interpolation\": \"bicubic\", \"kind\": \"timm\", \"mean\": [0.485, 0.456, 0.406], \"std\": [0.229, 0.224, 0.225]}",
+          "preprocessing_fingerprint": "d8a816490e39b1bd19df7349f41bc98fbd5007822132c02e5cf0a18c883bbd06",
+          "weights_id": "timm/resnet50.a1_in1k"
+        },
+        "exact": {
+          "geometry_mode": "model_default",
+          "model_id": "timm:resnet50.a1_in1k:pretrained=true",
+          "preprocessing_desc": "{\"crop_mode\": \"center\", \"crop_pct\": 0.95, \"input_size\": [3, 224, 224], \"interpolation\": \"bicubic\", \"mean\": [0.485, 0.456, 0.406], \"std\": [0.229, 0.224, 0.225]}",
+          "preprocessing_fingerprint": "c267a5b5058a1e23535de16b0ab8d7b9c70a03d1496bc3e3604a951c0b958134",
+          "weights_id": "timm/resnet50.a1_in1k"
+        }
+      },
+      "area_vs_reference": {
+        "crop_free": {
+          "by_cell_type": {
+            "center": {
+              "mean_area_fraction": 0.06250758928571429,
+              "mean_ratio_to_reference": 1.0
+            },
+            "corner": {
+              "mean_area_fraction": 0.06249241071428571,
+              "mean_ratio_to_reference": 1.0
+            },
+            "edge": {
+              "mean_area_fraction": 0.0625,
+              "mean_ratio_to_reference": 1.0
+            }
+          },
+          "n_sample_cells_differ": 0,
+          "share_sample_cells_differ": 0.0
+        },
+        "exact": {
+          "by_cell_type": {
+            "center": {
+              "mean_area_fraction": 0.09128464305644132,
+              "mean_ratio_to_reference": 0.844398232096344
+            },
+            "corner": {
+              "mean_area_fraction": 0.036182410913584186,
+              "mean_ratio_to_reference": 1.4370891607295373
+            },
+            "edge": {
+              "mean_area_fraction": 0.06126647301498724,
+              "mean_ratio_to_reference": 1.1044903145001976
+            }
+          },
+          "n_sample_cells_differ": 159509,
+          "share_sample_cells_differ": 0.99693125
+        }
+      },
+      "condition_1_timm_1_0_imagenet_1k": true,
+      "condition_2_params_le_50M_and_224": true,
+      "condition_3_geometry_equal_reference": false,
+      "condition_3_mismatched_fields": {
+        "crop_pct": {
+          "candidate": 0.95,
+          "reference": 0.875
+        }
+      },
+      "data_config": {
+        "crop_mode": "center",
+        "crop_pct": 0.95,
+        "input_size": [
+          3,
+          224,
+          224
+        ],
+        "interpolation": "bicubic",
+        "mean": [
+          0.485,
+          0.456,
+          0.406
+        ],
+        "std": [
+          0.229,
+          0.224,
+          0.225
+        ]
+      },
+      "hf_hub_id": "timm/resnet50.a1_in1k",
+      "n_parameters": 25557032,
+      "num_classes": 1000,
+      "passes": false,
+      "priority": 2,
+      "role": "cnn",
+      "weights": {
+        "filename": "model.safetensors",
+        "sha256": "773525d5821de224f8f30c33377b7a795d7863e08522698200d3217d3f2a41bb",
+        "size_bytes": 102469840,
+        "snapshot_revision": "767268603ca0cb0bfe326fa87277f19c419566ef"
+      }
+    },
+    "resnet50.tv2_in1k": {
+      "adapter": {
+        "crop_free": {
+          "geometry_mode": "squash",
+          "model_id": "timm:resnet50.tv2_in1k:pretrained=true",
+          "preprocessing_desc": "{\"geometry_mode\": \"squash\", \"input_size\": [3, 176, 176], \"interpolation\": \"bilinear\", \"kind\": \"timm\", \"mean\": [0.485, 0.456, 0.406], \"std\": [0.229, 0.224, 0.225]}",
+          "preprocessing_fingerprint": "8cbf91e975ef5b409c82695c98df57e0decbcd56392f5908a514e5ad722fd361",
+          "weights_id": "timm/resnet50.tv2_in1k"
+        },
+        "exact": {
+          "geometry_mode": "model_default",
+          "model_id": "timm:resnet50.tv2_in1k:pretrained=true",
+          "preprocessing_desc": "{\"crop_mode\": \"center\", \"crop_pct\": 0.875, \"input_size\": [3, 176, 176], \"interpolation\": \"bilinear\", \"mean\": [0.485, 0.456, 0.406], \"std\": [0.229, 0.224, 0.225]}",
+          "preprocessing_fingerprint": "e2289748b62b48c8d26639cb0f87fb4a1c47b1e393c65a06b0c30ac7722622bd",
+          "weights_id": "timm/resnet50.tv2_in1k"
+        }
+      },
+      "area_vs_reference": {
+        "crop_free": {
+          "by_cell_type": {
+            "center": {
+              "mean_area_fraction": 0.06249552476110537,
+              "mean_ratio_to_reference": 0.6172299411521422
+            },
+            "corner": {
+              "mean_area_fraction": 0.06250447362474174,
+              "mean_ratio_to_reference": 0.6174685860672423
+            },
+            "edge": {
+              "mean_area_fraction": 0.06250000080707645,
+              "mean_ratio_to_reference": 0.6173492160036222
+            }
+          },
+          "n_sample_cells_differ": 160000,
+          "share_sample_cells_differ": 1.0
+        },
+        "exact": {
+          "by_cell_type": {
+            "center": {
+              "mean_area_fraction": 0.10814078480113637,
+              "mean_ratio_to_reference": 0.6175581203548666
+            },
+            "corner": {
+              "mean_area_fraction": 0.026054137073863635,
+              "mean_ratio_to_reference": 0.6181740587716421
+            },
+            "edge": {
+              "mean_area_fraction": 0.0579025390625,
+              "mean_ratio_to_reference": 0.6178477191664936
+            }
+          },
+          "n_sample_cells_differ": 159124,
+          "share_sample_cells_differ": 0.994525
+        }
+      },
+      "condition_1_timm_1_0_imagenet_1k": true,
+      "condition_2_params_le_50M_and_224": false,
+      "condition_3_geometry_equal_reference": false,
+      "condition_3_mismatched_fields": {
+        "input_size": {
+          "candidate": [
+            3,
+            176,
+            176
+          ],
+          "reference": [
+            3,
+            224,
+            224
+          ]
+        },
+        "interpolation": {
+          "candidate": "bilinear",
+          "reference": "bicubic"
+        }
+      },
+      "data_config": {
+        "crop_mode": "center",
+        "crop_pct": 0.875,
+        "input_size": [
+          3,
+          176,
+          176
+        ],
+        "interpolation": "bilinear",
+        "mean": [
+          0.485,
+          0.456,
+          0.406
+        ],
+        "std": [
+          0.229,
+          0.224,
+          0.225
+        ]
+      },
+      "hf_hub_id": "timm/resnet50.tv2_in1k",
+      "n_parameters": 25557032,
+      "num_classes": 1000,
+      "passes": false,
+      "priority": 3,
+      "role": "cnn",
+      "weights": {
+        "filename": "model.safetensors",
+        "sha256": "30f57ada2f100011a4bd38000df906d6354688a8ca599be580337151c3c5f6a3",
+        "size_bytes": 102469840,
+        "snapshot_revision": "10eea9779fc8a753af919714889bd7f60fba412d"
+      }
+    },
+    "swin_tiny_patch4_window7_224.ms_in1k": {
+      "adapter": {
+        "crop_free": {
+          "geometry_mode": "squash",
+          "model_id": "timm:swin_tiny_patch4_window7_224.ms_in1k:pretrained=true",
+          "preprocessing_desc": "{\"geometry_mode\": \"squash\", \"input_size\": [3, 224, 224], \"interpolation\": \"bicubic\", \"kind\": \"timm\", \"mean\": [0.485, 0.456, 0.406], \"std\": [0.229, 0.224, 0.225]}",
+          "preprocessing_fingerprint": "d8a816490e39b1bd19df7349f41bc98fbd5007822132c02e5cf0a18c883bbd06",
+          "weights_id": "timm/swin_tiny_patch4_window7_224.ms_in1k"
+        },
+        "exact": {
+          "geometry_mode": "model_default",
+          "model_id": "timm:swin_tiny_patch4_window7_224.ms_in1k:pretrained=true",
+          "preprocessing_desc": "{\"crop_mode\": \"center\", \"crop_pct\": 0.9, \"input_size\": [3, 224, 224], \"interpolation\": \"bicubic\", \"mean\": [0.485, 0.456, 0.406], \"std\": [0.229, 0.224, 0.225]}",
+          "preprocessing_fingerprint": "10a98a9d12c59ea77d6dafb418a9d90f5ea0b25fe4223c1de46dbb8dd4b324ae",
+          "weights_id": "timm/swin_tiny_patch4_window7_224.ms_in1k"
+        }
+      },
+      "area_vs_reference": {
+        "crop_free": {
+          "by_cell_type": {
+            "center": {
+              "mean_area_fraction": 0.06250758928571429,
+              "mean_ratio_to_reference": 1.0
+            },
+            "corner": {
+              "mean_area_fraction": 0.06249241071428571,
+              "mean_ratio_to_reference": 1.0
+            },
+            "edge": {
+              "mean_area_fraction": 0.0625,
+              "mean_ratio_to_reference": 1.0
+            }
+          },
+          "n_sample_cells_differ": 0,
+          "share_sample_cells_differ": 0.0
+        },
+        "exact": {
+          "by_cell_type": {
+            "center": {
+              "mean_area_fraction": 0.10157255410953443,
+              "mean_ratio_to_reference": 0.9395427608136789
+            },
+            "corner": {
+              "mean_area_fraction": 0.029694987145248725,
+              "mean_ratio_to_reference": 1.1567139075600101
+            },
+            "edge": {
+              "mean_area_fraction": 0.059366229372608416,
+              "mean_ratio_to_reference": 1.0428197666597112
+            }
+          },
+          "n_sample_cells_differ": 159189,
+          "share_sample_cells_differ": 0.99493125
+        }
+      },
+      "condition_1_timm_1_0_imagenet_1k": true,
+      "condition_2_params_le_50M_and_224": true,
+      "condition_3_geometry_equal_reference": false,
+      "condition_3_mismatched_fields": {
+        "crop_pct": {
+          "candidate": 0.9,
+          "reference": 0.875
+        }
+      },
+      "data_config": {
+        "crop_mode": "center",
+        "crop_pct": 0.9,
+        "input_size": [
+          3,
+          224,
+          224
+        ],
+        "interpolation": "bicubic",
+        "mean": [
+          0.485,
+          0.456,
+          0.406
+        ],
+        "std": [
+          0.229,
+          0.224,
+          0.225
+        ]
+      },
+      "hf_hub_id": "timm/swin_tiny_patch4_window7_224.ms_in1k",
+      "n_parameters": 28288354,
+      "num_classes": 1000,
+      "passes": false,
+      "priority": 3,
+      "role": "transformer",
+      "weights": {
+        "filename": "model.safetensors",
+        "sha256": "fb01861f793143135fa0d6cd97b1631e4b33eaa3ee162bbea9e62de1c76ebac1",
+        "size_bytes": 114286722,
+        "snapshot_revision": "4cc3a7275b50b53a7bec45f32c236ebe64227cff"
+      }
+    },
+    "vit_small_patch16_224.augreg_in21k_ft_in1k": {
+      "adapter": {
+        "crop_free": {
+          "geometry_mode": "squash",
+          "model_id": "timm:vit_small_patch16_224.augreg_in21k_ft_in1k:pretrained=true",
+          "preprocessing_desc": "{\"geometry_mode\": \"squash\", \"input_size\": [3, 224, 224], \"interpolation\": \"bicubic\", \"kind\": \"timm\", \"mean\": [0.5, 0.5, 0.5], \"std\": [0.5, 0.5, 0.5]}",
+          "preprocessing_fingerprint": "5c4ee13e1f4031e13381867b73ed7dd705a9bcefd4bc615c818477584e80b913",
+          "weights_id": "timm/vit_small_patch16_224.augreg_in21k_ft_in1k"
+        },
+        "exact": {
+          "geometry_mode": "model_default",
+          "model_id": "timm:vit_small_patch16_224.augreg_in21k_ft_in1k:pretrained=true",
+          "preprocessing_desc": "{\"crop_mode\": \"center\", \"crop_pct\": 0.9, \"input_size\": [3, 224, 224], \"interpolation\": \"bicubic\", \"mean\": [0.5, 0.5, 0.5], \"std\": [0.5, 0.5, 0.5]}",
+          "preprocessing_fingerprint": "bb5070606303da69c86249f3abfdab9d7cf7603ac76968f0e9358e6b950a2595",
+          "weights_id": "timm/vit_small_patch16_224.augreg_in21k_ft_in1k"
+        }
+      },
+      "area_vs_reference": {
+        "crop_free": {
+          "by_cell_type": {
+            "center": {
+              "mean_area_fraction": 0.06250758928571429,
+              "mean_ratio_to_reference": 1.0
+            },
+            "corner": {
+              "mean_area_fraction": 0.06249241071428571,
+              "mean_ratio_to_reference": 1.0
+            },
+            "edge": {
+              "mean_area_fraction": 0.0625,
+              "mean_ratio_to_reference": 1.0
+            }
+          },
+          "n_sample_cells_differ": 0,
+          "share_sample_cells_differ": 0.0
+        },
+        "exact": {
+          "by_cell_type": {
+            "center": {
+              "mean_area_fraction": 0.10157255410953443,
+              "mean_ratio_to_reference": 0.9395427608136789
+            },
+            "corner": {
+              "mean_area_fraction": 0.029694987145248725,
+              "mean_ratio_to_reference": 1.1567139075600101
+            },
+            "edge": {
+              "mean_area_fraction": 0.059366229372608416,
+              "mean_ratio_to_reference": 1.0428197666597112
+            }
+          },
+          "n_sample_cells_differ": 159189,
+          "share_sample_cells_differ": 0.99493125
+        }
+      },
+      "condition_1_timm_1_0_imagenet_1k": true,
+      "condition_2_params_le_50M_and_224": true,
+      "condition_3_geometry_equal_reference": false,
+      "condition_3_mismatched_fields": {
+        "crop_pct": {
+          "candidate": 0.9,
+          "reference": 0.875
+        }
+      },
+      "data_config": {
+        "crop_mode": "center",
+        "crop_pct": 0.9,
+        "input_size": [
+          3,
+          224,
+          224
+        ],
+        "interpolation": "bicubic",
+        "mean": [
+          0.5,
+          0.5,
+          0.5
+        ],
+        "std": [
+          0.5,
+          0.5,
+          0.5
+        ]
+      },
+      "hf_hub_id": "timm/vit_small_patch16_224.augreg_in21k_ft_in1k",
+      "n_parameters": 22050664,
+      "num_classes": 1000,
+      "passes": false,
+      "priority": 2,
+      "role": "transformer",
+      "weights": {
+        "filename": "model.safetensors",
+        "sha256": "79c03c635cdfd798a364a9d8c4e5c0b7255b975ea2c9616046d4f77ab01435aa",
+        "size_bytes": 88216496,
+        "snapshot_revision": "7e2c55630205e1266030f18370f4c6ed1a514b52"
+      }
+    }
+  },
+  "reference": {
+    "adapter": {
+      "crop_free": {
+        "geometry_mode": "squash",
+        "model_id": "timm:mobilenetv2_050.lamb_in1k:pretrained=true",
+        "preprocessing_desc": "{\"geometry_mode\": \"squash\", \"input_size\": [3, 224, 224], \"interpolation\": \"bicubic\", \"kind\": \"timm\", \"mean\": [0.485, 0.456, 0.406], \"std\": [0.229, 0.224, 0.225]}",
+        "preprocessing_fingerprint": "d8a816490e39b1bd19df7349f41bc98fbd5007822132c02e5cf0a18c883bbd06",
+        "weights_id": "timm/mobilenetv2_050.lamb_in1k"
+      },
+      "exact": {
+        "geometry_mode": "model_default",
+        "model_id": "timm:mobilenetv2_050.lamb_in1k:pretrained=true",
+        "preprocessing_desc": "{\"crop_mode\": \"center\", \"crop_pct\": 0.875, \"input_size\": [3, 224, 224], \"interpolation\": \"bicubic\", \"mean\": [0.485, 0.456, 0.406], \"std\": [0.229, 0.224, 0.225]}",
+        "preprocessing_fingerprint": "fa2a97c526a01911268753632336e5c959e28f6d6b16e438bc7fbc8218f8fc7f",
+        "weights_id": "timm/mobilenetv2_050.lamb_in1k"
+      }
+    },
+    "data_config": {
+      "crop_mode": "center",
+      "crop_pct": 0.875,
+      "input_size": [
+        3,
+        224,
+        224
+      ],
+      "interpolation": "bicubic",
+      "mean": [
+        0.485,
+        0.456,
+        0.406
+      ],
+      "std": [
+        0.229,
+        0.224,
+        0.225
+      ]
+    },
+    "hf_hub_id": "timm/mobilenetv2_050.lamb_in1k",
+    "model": "mobilenetv2_050.lamb_in1k",
+    "n_parameters": 1968680,
+    "num_classes": 1000,
+    "stored_area_check": {
+      "crop_free": {
+        "n_mismatch": 0,
+        "n_sample_cells": 160000,
+        "run": "imagenet_mnv2_050_crop_free_k3"
+      },
+      "exact": {
+        "n_mismatch": 0,
+        "n_sample_cells": 160000,
+        "run": "imagenet_mnv2_050_exact_k3"
+      }
+    },
+    "weights": {
+      "filename": "model.safetensors",
+      "sha256": "54a6cb107ea51bc3ecfed1230e4660163d1ef0b01bf895b14326f5bdbd679487",
+      "size_bytes": 7976780,
+      "snapshot_revision": "8990230b131c231ad38b217b23cf9d2e7e70e8d0"
+    }
+  },
+  "reference_area_check_pass": true,
+  "rule": "implementation plan section 6.1: (1) timm 1.0.x standard ImageNet-1k pretrained checkpoint, (2) <= 50M parameters and 224 input, (3) official eval geometry equal to mobilenetv2_050 (input_size, crop_pct, crop_mode, interpolation); the first passing candidate in priority order is adopted; if none passes, architecture comparison uses crop-free results only (section 4.5).",
+  "selection": {
+    "cnn": {
+      "cross_model_comparison": "exact and crop_free",
+      "first_passing_candidate": "convnext_tiny.fb_in1k",
+      "selected": "convnext_tiny.fb_in1k",
+      "selected_passes_all_conditions": true
+    },
+    "transformer": {
+      "cross_model_comparison": "crop_free only; exact results are per-model reference (implementation plan sections 4.5, 6.1)",
+      "first_passing_candidate": null,
+      "selected": "deit_small_patch16_224.fb_in1k",
+      "selected_passes_all_conditions": false
+    }
+  },
+  "source_shapes": {
+    "from_run": "imagenet_mnv2_050_exact_k3",
+    "n_distinct": 1516,
+    "n_samples": 10000
+  },
+  "timm_version": "1.0.28"
+}
