@@ -19,6 +19,7 @@ import matplotlib
 
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # noqa: E402
+from matplotlib.ticker import NullFormatter  # noqa: E402
 import pandas as pd  # noqa: E402
 
 from experiments.revision_1.common.provenance import write_provenance  # noqa: E402
@@ -41,6 +42,13 @@ def _runs(frame: pd.DataFrame) -> list[str]:
     return [run for run in RUN_LABELS if run in present] + [run for run in present if run not in RUN_LABELS]
 
 
+def _log_k_axis(ax: plt.Axes, ticks: list[int]) -> None:
+    ax.set_xscale("log")
+    ax.set_xticks(ticks)
+    ax.set_xticklabels([str(tick) for tick in ticks])
+    ax.xaxis.set_minor_formatter(NullFormatter())
+
+
 def _band(ax: plt.Axes, rows: pd.DataFrame, stat: str, color: str, label: str, *, prefix: pd.DataFrame | None = None) -> None:
     rows = rows.sort_values("k")
     ax.plot(rows["k"], rows[f"{stat}_mean"], "-o", color=color, label=label, ms=3)
@@ -61,9 +69,7 @@ def plot_convergence(convergence: pd.DataFrame, grades: pd.DataFrame, path: Path
         left.fill_between(rows["k"], rows["replicate_median_p05"], rows["replicate_median_p95"], color=color, alpha=0.2, lw=0)
         prefix = convergence[(convergence["run"] == run) & (convergence["scheme"] == "prefix")].sort_values("k")
         left.plot(prefix["k"], prefix["median"], "x", color=color, ms=5)
-    left.set_xscale("log")
-    left.set_xticks([1, 2, 3, 5, 10])
-    left.set_xticklabels(["1", "2", "3", "5", "10"])
+    _log_k_axis(left, [1, 2, 3, 5, 10])
     left.set_xlabel("K (controls per target)")
     left.set_ylabel("median |mu_K - mu_20| / sigma_20")
     left.set_title("Control baseline convergence")
@@ -72,9 +78,7 @@ def plot_convergence(convergence: pd.DataFrame, grades: pd.DataFrame, path: Path
         rows = selected[selected["run"] == run]
         _band(right, rows[rows["scheme"] == "global_random"], "agreement", RUN_COLORS.get(run, "k"), RUN_LABELS.get(run, run),
               prefix=rows[rows["scheme"] == "prefix"])
-    right.set_xscale("log")
-    right.set_xticks([2, 3, 5, 10, 20])
-    right.set_xticklabels(["2", "3", "5", "10", "20"])
+    _log_k_axis(right, [2, 3, 5, 10, 20])
     right.set_xlabel("K (controls per target)")
     right.set_ylabel("grade agreement with K=20")
     right.set_title("Reliability grade (ddof 0)")
@@ -98,9 +102,7 @@ def plot_high_share(grades: pd.DataFrame, path: Path) -> None:
             ax.plot(rows["k"], rows["high_share_mean"], style, color=RUN_COLORS.get(run, "k"), ms=3,
                     label=f"{RUN_LABELS.get(run, run)}, ddof {ddof}")
             ax.fill_between(rows["k"], rows["high_share_p05"], rows["high_share_p95"], color=RUN_COLORS.get(run, "k"), alpha=0.12, lw=0)
-    ax.set_xscale("log")
-    ax.set_xticks([2, 3, 5, 10, 20])
-    ax.set_xticklabels(["2", "3", "5", "10", "20"])
+    _log_k_axis(ax, [2, 3, 5, 10, 20])
     ax.set_xlabel("K (controls per target)")
     ax.set_ylabel("HIGH share")
     ax.grid(alpha=0.3)
@@ -120,9 +122,7 @@ def plot_flip(variability: pd.DataFrame, path: Path) -> None:
         left.plot(rows["k"], rows["flip_pairwise_mean"], "-o", color=RUN_COLORS.get(run, "k"), label=RUN_LABELS.get(run, run), ms=3)
         right.plot(rows["k"], rows["flip_pairwise_share_gt0"], "-o", color=RUN_COLORS.get(run, "k"), ms=3)
     for ax, label in ((left, "mean P(two random subsets disagree)"), (right, "share of anchors whose grade can flip")):
-        ax.set_xscale("log")
-        ax.set_xticks([2, 3, 5, 10])
-        ax.set_xticklabels(["2", "3", "5", "10"])
+        _log_k_axis(ax, [2, 3, 5, 10])
         ax.set_xlabel("K (controls per target)")
         ax.set_ylabel(label)
         ax.grid(alpha=0.3)
