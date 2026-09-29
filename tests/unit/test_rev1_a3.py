@@ -22,6 +22,7 @@ from experiments.revision_1.a3_multi_arch.compare_models import (
     populations,
 )
 from experiments.revision_1.a3_multi_arch.inspect_models import cell_type, grid_masks
+from experiments.revision_1.a3_multi_arch.operator_profiles import operator_profile, profile_rows
 from experiments.revision_1.common.agreement import GRADE_ORDER
 from experiments.revision_1.common.runs import A3_DIR, A3_RUNS, BASELINE_RUNS, RunRef, get_run
 from ssat.core.region.mask_generators import GridMaskGenerator
@@ -145,6 +146,23 @@ def test_summarize_writes_figures(tmp_path: Path) -> None:
     assert summarize.main(["--summary-dir", str(tmp_path)]) == 0
     for name in ("fig_a3_profiles.pdf", "fig_a3_grades.pdf", "fig_a3_similarity.pdf"):
         assert (tmp_path / name).stat().st_size > 0
+
+
+def test_operator_profile_averages_available_targets_only() -> None:
+    values = pd.DataFrame({
+        "region_instance_id": ["grid_4x4/r0/c0", "grid_4x4/r0/c0", "grid_4x4/r1/c1", "grid_4x4/r0/c0", "grid_4x4/r1/c1"],
+        "perturb_op": ["blur", "blur", "blur", "noise", "noise"],
+        "is_control": [False, False, False, True, False],
+        "available": [True, True, True, True, False],
+        "degradation": [0.1, 0.3, 0.5, 9.0, 9.0],
+    })
+    profile = operator_profile(values)
+    assert list(profile.index) == ["blur"]
+    assert profile.loc["blur", "r0/c0"] == pytest.approx(0.2) and profile.loc["blur", "r1/c1"] == pytest.approx(0.5)
+    two = pd.DataFrame({"r0/c0": [1.0, 3.0], "r0/c1": [2.0, 2.0], "r1/c0": [3.0, 1.0]}, index=["a", "b"])
+    rows = pd.DataFrame(profile_rows(two, {}))
+    assert rows.loc[rows["kind"] == "spearman", "value"].item() == pytest.approx(-1.0)
+    assert rows.loc[(rows["kind"] == "range") & (rows["perturb_op"] == "a"), "value"].item() == pytest.approx(2.0)
 
 
 def test_cell_types() -> None:

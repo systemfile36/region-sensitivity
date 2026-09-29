@@ -175,3 +175,14 @@ and its cell areas equal mobilenetv2_050's in both protocols.
 Weights are downloaded into `HF_HOME=/workspace/data/hf_cache`
 (implementation plan section 6.2); their SHA-256 are in
 `model_selection.json`.
+
+## D-007 (2026-09-29, Phase 3 analysis): post-hoc per-operator profile table
+
+Added after the pre-registered `strategy_rank_corr.csv` was computed. For
+`deit_small` crop-free the operator-pair Spearman over the 16 cells was
+negative for `gaussian_noise` (-0.41 with `blur`, -0.44 with `mean_fill`),
+while it is 0.64-0.99 in every other run. To show why, the new script
+`a3_multi_arch/operator_profiles.py` writes `summary/operator_profile.csv`
+(per run and operator: 16-cell mean target `margin_drop`, its range, and the
+pairwise Spearman). The table is descriptive and changes no pre-registered
+output.
