@@ -1,0 +1,108 @@
+{
+  "argv": [
+    "experiments/revision_1/a3_multi_arch/operator_profiles.py"
+  ],
+  "created_at": "2026-09-29T05:23:43.015957+00:00",
+  "environment": {
+    "container_image_id": null,
+    "cpu_count": 32,
+    "hostname": "9d1042060e60",
+    "mem_total_kb": 131645792,
+    "nvidia_smi": {
+      "compute_processes": [
+        "3134116, [Not Found], 399 MiB"
+      ],
+      "gpus": [
+        "0, NVIDIA GeForce RTX 4090, 580.173.02, 24564 MiB, 2275 MiB"
+      ]
+    },
+    "packages": {
+      "captum": null,
+      "decord": "0.6.0",
+      "numpy": "2.3.2",
+      "pandas": "3.0.5",
+      "pyarrow": "25.0.0",
+      "timm": "1.0.28",
+      "torch": "2.8.0+cu129",
+      "torchvision": "0.23.0+cu129"
+    },
+    "platform": "Linux-7.0.0-28-generic-x86_64-with-glibc2.35",
+    "python_executable": "/opt/conda/bin/python",
+    "python_version": "3.11.13",
+    "ssat_installed_metadata_version": "0.1.0",
+    "torch": {
+      "cuda_available": true,
+      "cuda_version": "12.9",
+      "cudnn_version": 91002,
+      "device_names": [
+        "NVIDIA GeForce RTX 4090"
+      ]
+    }
+  },
+  "extra": {},
+  "git": {
+    "branch": "revision-1",
+    "describe": "v1.0.0-20-g688d19a",
+    "dirty": false,
+    "dirty_files": [],
+    "sha": "688d19a7416341876fd09ca1f9ccf542131c992b"
+  },
+  "inputs": {
+    "a3_imagenet_convnext_tiny_cf:metrics": {
+      "exists": true,
+      "manifest_sha256": {
+        "metrics_manifest.json": "9d8a7c329ce86b28bdbeea65af128bf74b4a385a2d2d66f0b25653c455bdef7b"
+      },
+      "path": "experiments/revision_1/results/a3/a3_imagenet_convnext_tiny_cf/metrics"
+    },
+    "a3_imagenet_convnext_tiny_exact:metrics": {
+      "exists": true,
+      "manifest_sha256": {
+        "metrics_manifest.json": "58a376c9558c439b1c7095938d98f1a8578090890db64113b45481a8ce03afee"
+      },
+      "path": "experiments/revision_1/results/a3/a3_imagenet_convnext_tiny_exact/metrics"
+    },
+    "a3_imagenet_deit_small_cf:metrics": {
+      "exists": true,
+      "manifest_sha256": {
+        "metrics_manifest.json": "0b9753feab1aa3b3cad7ebfbd6c9d05047e04734a2f7efaf2ccbb8dec0b98d92"
+      },
+      "path": "experiments/revision_1/results/a3/a3_imagenet_deit_small_cf/metrics"
+    },
+    "a3_imagenet_deit_small_exact:metrics": {
+      "exists": true,
+      "manifest_sha256": {
+        "metrics_manifest.json": "f79fa6c3e311222308f6c316672b1b0a0285b1f561cd94156f24d04fbacad0e7"
+      },
+      "path": "experiments/revision_1/results/a3/a3_imagenet_deit_small_exact/metrics"
+    },
+    "imagenet_mnv2_050_crop_free_k3:metrics": {
+      "exists": true,
+      "manifest_sha256": {
+        "metrics_manifest.json": "1b5efaa61f39d2cd54210daa2f6bfb76e3d898ae34e50f6f347a5b0146250f0a"
+      },
+      "path": "experiments/real_dataset_case_study/results_control_3/imagenet_mnv2_050_crop_free/metrics"
+    },
+    "imagenet_mnv2_050_exact_k3:metrics": {
+      "exists": true,
+      "manifest_sha256": {
+        "metrics_manifest.json": "652756b373c95b140ea710dc6f50cb248eba6586ce75e7bbf7bfc0ee0b425cb8"
+      },
+      "path": "experiments/real_dataset_case_study/results_control_3/imagenet_mnv2_050_exact/metrics"
+    },
+    "imagenet_mnv2_100_crop_free_k3:metrics": {
+      "exists": true,
+      "manifest_sha256": {
+        "metrics_manifest.json": "69e20fd91768b7dc8c89760ea729107e8180be9f7c2847d9d6386169b07bcd4a"
+      },
+      "path": "experiments/real_dataset_case_study/results_control_3/imagenet_mnv2_100_crop_free/metrics"
+    },
+    "imagenet_mnv2_100_exact_k3:metrics": {
+      "exists": true,
+      "manifest_sha256": {
+        "metrics_manifest.json": "d5a7a9511f9d1573768e00f20dc733d02c258d5b234a8505e112c711dd97d671"
+      },
+      "path": "experiments/real_dataset_case_study/results_control_3/imagenet_mnv2_100_exact/metrics"
+    }
+  }
+}

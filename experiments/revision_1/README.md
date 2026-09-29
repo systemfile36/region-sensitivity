@@ -133,7 +133,10 @@ so the four-model comparison uses the crop-free runs (`deviations.md` D-006).
 | Run checks | `HF_HOME=/workspace/data/hf_cache python experiments/revision_1/a3_multi_arch/verify_runs.py` | `summary/run_checks.json` | minutes |
 | Tables | `python experiments/revision_1/a3_multi_arch/compare_models.py` | `summary/*.csv` | minutes |
 | Figures | `python experiments/revision_1/a3_multi_arch/summarize.py` | `fig_a3_{profiles,grades,similarity}.pdf` | seconds |
+| Operator profiles (post hoc, D-007) | `python experiments/revision_1/a3_multi_arch/operator_profiles.py` | `summary/operator_profile.csv` | ~5 min |
 | Tests | `python -m pytest -q tests/unit/test_rev1_a3.py` | – | seconds |
+
+Results are in `a3_multi_arch/A3_REPORT.md`.
 
 `inspect_models.py` fails unless mobilenetv2_050's model-space cell areas,
 recomputed from the source image shapes, reproduce the `effective_area_px`
@@ -161,3 +164,6 @@ Filled in as experiments complete.
 | Preprocessing: ranking and grade change | `ranking_change.csv`, `grade_transition_exact_to_cf.csv`, `yardstick.csv`, `fig_b1_rank.pdf`, `eff_area_controls.csv` | `b1_preprocessing/summary/` |
 | 3/5/10/20 control-count ablation | `grade_vs_k.csv`, `control_mean_convergence.csv`, `effect_convergence.csv`, `ranking_vs_k.csv`, `fig_a2_convergence.pdf`, `fig_a2_high_share.pdf` | `a2_control_count/summary/` |
 | Control-count stability / variance, cost | `replicate_variability.csv`, `fig_a2_flip.pdf`, `marginal_gain.csv` | `a2_control_count/summary/` |
+| Model info and evaluated samples per architecture | `model_selection.json`, `model_info.csv`, `run_checks.json` | `a3_multi_arch/summary/` |
+| Per-architecture sensitivity and reliability | `region_profile.csv`, `top_region_share.csv`, `grade_distribution.csv`, `flag_rates.csv`, `fig_a3_profiles.pdf`, `fig_a3_grades.pdf` | `a3_multi_arch/summary/` |
+| Cross-architecture ranking comparison, common vs specific patterns | `cross_model.csv`, `common_patterns.csv`, `strategy_rank_corr.csv`, `operator_profile.csv`, `fig_a3_similarity.pdf` | `a3_multi_arch/summary/` |
