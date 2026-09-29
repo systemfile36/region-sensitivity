@@ -144,6 +144,26 @@ stored in both mobilenetv2_050 baseline dumps. `verify_runs.py` fails unless
 each new run has the baseline's items, seeds, and images, the recorded
 weights, and the expected effective areas.
 
+## Phase 4: A4 computational scaling (GPU, dedicated time)
+
+Pre-registered in `a4_scaling/protocol.json`. Reference workload
+mobilenetv2_050 exact; four axes (samples, regions, controls,
+perturbations) around N=1,000 / 500, 4x4, V=5, K=3; 3 repeats (1 for
+N >= 2,000). Nothing else may run on the host during the sweep (~20 h,
+`deviations.md` D-008).
+
+| Step | Command | Output | Time |
+|---|---|---|---|
+| Inputs | `python experiments/revision_1/a4_scaling/make_inputs.py [--check]` | `data/revision_1/imagenet/a4_N{50,...,4000}.txt` | seconds |
+| Components | `python experiments/revision_1/a4_scaling/profile_components.py` | `summary/components.json` | ~4 min |
+| Sweep | `python experiments/revision_1/a4_scaling/run_scaling.py all --repeats 3` (`--dry-run` lists the schedule) | `results/a4/{measurements,warmups,estimates}.jsonl`, `results/a4/logs/` | ~20 h |
+| Fits and tables | `python experiments/revision_1/a4_scaling/fit_scaling.py` | `summary/*.csv` | seconds |
+| Figures | `python experiments/revision_1/a4_scaling/summarize.py` | `fig_a4_{samples,regions,controls,perturbations,memory}.pdf` | seconds |
+| Tests | `python -m pytest -q tests/unit/test_rev1_a4.py` | – | seconds |
+
+`run_scaling.py` skips measurements already in `measurements.jsonl`, so an
+interrupted sweep resumes where it stopped.
+
 ## Running new audits
 
 `common/run_matrix.py --matrix <matrix.json> --output-root <dir>` runs

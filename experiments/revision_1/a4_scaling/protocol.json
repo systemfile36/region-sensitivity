@@ -1,0 +1,71 @@
+{
+  "experiment": "A4",
+  "title": "Computational scaling study",
+  "registered_on": "2026-09-29",
+  "plan": {
+    "experiment_plan": "docs/internal/revision_1/SSAT_minor_revision_experiment_plan.md section 8",
+    "implementation_plan": "docs/internal/revision_1/SSAT_minor_revision_implementation_plan.md section 7"
+  },
+  "decisions": {
+    "scope": "standard plan: all four axes measured, 3 repeats (1 for N >= 2,000), plus the optional component breakdown (section 7.4)",
+    "budget": "15,030,750 items in the sweep; at the observed ~260-290 items/s about 16 h of `ssat run` plus about 4 h of metrics/analyze/report/estimate, i.e. about 20 h (the plan's ~10 h underestimates the item total; deviations.md D-008)"
+  },
+  "reference_workload": {
+    "model": "mobilenetv2_050.lamb_in1k, exact protocol (geometry_mode model_default)",
+    "base_config": "experiments/real_dataset_case_study/configs/imagenet_mnv2_050_exact.yaml",
+    "fixed": "global_seed 20260820, dataset_stats.channel_mean, adapter (max_batch_size 128), runtime (num_workers 12, variants_per_chunk 128, target_batch_size 128, retry_failed), dump settings; no --minimum-accuracy",
+    "varied": "source.annotation_file (subset), regions (one grid family grid_<g>x<g>), perturbations (V level), controls (K level; [] for K=0)",
+    "items_per_sample": "1 + R * V * (1 + K)"
+  },
+  "subset": {
+    "source": "data/phase3/imagenet/val_10_per_class.txt",
+    "rule": "the N files with the lowest sha256('rev1-a4:' + filename) (common/subsets.py top_n_subset, salt 'rev1-a4'); nested across N",
+    "sizes": [50, 200, 250, 500, 1000, 2000, 4000],
+    "note": "N=50 is the warm-up, N=200 the component profile"
+  },
+  "inputs_sha256": {
+    "data/revision_1/imagenet/a4_N50.txt": "66073078bc9d9d548d5dea24061da823549ef2a172abfe8d566b927896388bff",
+    "data/revision_1/imagenet/a4_N200.txt": "c2892d5cb789f0129d2ec8b8252ffc000e5d42c61ddf1495da4708ac4098d0e1",
+    "data/revision_1/imagenet/a4_N250.txt": "4e23317396e7180d66e62009d91743a9483652cdef003f8980a7e49a987e0459",
+    "data/revision_1/imagenet/a4_N500.txt": "d0128ec03a9f9a14016082ed2a6eab67bccf67c0435247755e8c1071dab3a69f",
+    "data/revision_1/imagenet/a4_N1000.txt": "4bc41055eb47feb672a19f5f9d38e9ab5aa11214724dd2448507f8e55bb3061b",
+    "data/revision_1/imagenet/a4_N2000.txt": "40cae346f5409546b547dc22ea592f5cce062ef2f0a3ba388e1f3b24009cd0eb",
+    "data/revision_1/imagenet/a4_N4000.txt": "bba28e2328cee2e850c57f84a6de671e973eb811ca329c01ef85f9e4c69cd73b"
+  },
+  "axes": {
+    "samples": {"fixed": "4x4, V=5, K=3", "levels_n": [250, 500, 1000, 2000, 4000]},
+    "regions": {"fixed": "N=1,000, V=5, K=3", "levels_grid": ["2x2", "4x4 (shared with samples N=1,000)", "6x6", "8x8"]},
+    "controls": {"fixed": "N=500, 4x4, V=5", "levels_k": [0, 1, "3 (shared with samples N=500)", 10, 20]},
+    "perturbations": {"fixed": "N=500, 4x4, K=3", "levels_v": {"1": "mean_fill", "2": "+ blur sigma 3.0", "5 (shared with samples N=500)": "+ gaussian_noise sigma 12.5, seed_salts [0, 1, 2]", "7": "+ constant_fill value 0.0, + patch_shuffle patch_size 4 (synthetic study FILL_PARAMS)"}}
+  },
+  "execution": {
+    "order": "profile_components.py first, then run_scaling.py all --repeats 3 (axes samples, regions, controls, perturbations); nothing else runs on the host meanwhile",
+    "repeats": "3 for settings with N < 2,000, 1 otherwise; within an axis the level order is rotated by one position per repeat (round-robin); shared settings are measured only in the first axis listing them",
+    "warm_up": "before each axis one N=50 center-setting run through all four phases, recorded in warmups.jsonl and excluded",
+    "phases": "ssat run --yes, metrics, analyze, report; each in an isolated wrapper process (run_benchmark.measure_step) giving wall time and peak RSS",
+    "run_split": "ssat --log-file: audit loop = runtime.started -> runtime.finished (1 s resolution); preflight = run wall time minus loop",
+    "gpu": "nvidia-smi memory.used and utilization.gpu every 0.2 s during run (own poller; D-008)",
+    "storage": "bytes per subdirectory (clean, perturbed, index, metrics, analysis, report, other) after run and after report; dumps are deleted after measurement",
+    "estimate": "ssat estimate --json once per setting (predicted remaining seconds, profile items/s)",
+    "command": "python experiments/revision_1/a4_scaling/profile_components.py && python experiments/revision_1/a4_scaling/run_scaling.py all --repeats 3"
+  },
+  "components": {
+    "setting": "N=200, 4x4, V=5, K=3",
+    "stages": ["(a) SampleSource.load per sample, one process", "(b) iter_prepared_work_chunks with num_workers 12 (all chunks) and 0 (first 60 chunks), no inference", "(c) per prepared chunk (first 150 chunks): adapter preprocessing transform_batch (CPU) and model forward incl. device transfer (GPU, synchronized), plus the main-process effective-area mask transform"],
+    "not_timed": "(d) dump write (D-008)"
+  },
+  "analysis": {
+    "fits": "per axis and pooled: time_phase = a + b * items (OLS, R^2) for run, audit loop, preflight, metrics, analyze, report and peak RSS; bytes = c * items through the origin",
+    "throughput": "items/s (clean + perturbed) of the audit loop and of the whole run against N",
+    "memory": "peak RSS per phase vs items; the item count at which each phase would reach 125 GiB by linear extrapolation (labelled as extrapolation); GPU peak vs items",
+    "reference_points": "10,000-sample K=3 baseline (run_manifest started_at -> finished_at) and the A2 K=20 exact run (run_matrix_log elapsed), both measured differently from the sweep",
+    "workloads": {"small": "1,000 samples, 4x4, V=5, K=3", "medium": "10,000 samples, 4x4, V=5, K=3 (paper setting)", "large": "10,000 samples, 8x8, V=5, K=10"},
+    "coarse_to_fine": "analytic items per sample: exhaustive 8x8 vs 2x2 followed by a 4x4 refinement of the top 2x2 cell (no extra runs)",
+    "estimate_accuracy": "ssat estimate predicted seconds / measured run and loop seconds per setting"
+  },
+  "outputs": {
+    "tables": ["measurements.csv", "settings.csv", "fits.csv", "reference_points.csv", "workload_table.csv", "coarse_to_fine.csv", "estimate_accuracy.csv", "components.json", "components.csv"],
+    "figures": ["fig_a4_samples.pdf", "fig_a4_regions.pdf", "fig_a4_controls.pdf", "fig_a4_perturbations.pdf", "fig_a4_memory.pdf"],
+    "report": "A4_REPORT.md"
+  }
+}

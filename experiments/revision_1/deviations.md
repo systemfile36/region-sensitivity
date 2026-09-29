@@ -186,3 +186,28 @@ while it is 0.64-0.99 in every other run. To show why, the new script
 (per run and operator: 16-cell mean target `margin_drop`, its range, and the
 pairwise Spearman). The table is descriptive and changes no pre-registered
 output.
+
+## D-008 (2026-09-29, Phase 4 start): A4 budget and measurement mechanics
+
+Recorded before any A4 measurement.
+
+- **Budget.** The standard sweep of implementation plan section 7.2 has
+  15,030,750 items (repeats included). At the ~260-290 items/s the
+  reference workload runs at, `ssat run` alone takes about 16 h, and the
+  whole sweep about 20 h, not the ~10 h the plan estimates. The design is
+  unchanged.
+- **GPU polling.** `run_scaling.py` uses its own nvidia-smi poller (same
+  0.2 s interval) instead of `run_benchmark._poll_gpu_memory`, so that GPU
+  utilization is recorded together with memory. `measure_step` is reused as
+  planned.
+- **Run split.** Preflight and audit loop are separated with `ssat
+  --log-file` and the `runtime.started` / `runtime.finished` events (1 s
+  resolution).
+- **Warm-up.** Each axis's N=50 warm-up runs all four phases, not only
+  `ssat run`, so metrics/analyze/report are also warm.
+- **Component breakdown (section 7.4).** Stages (a)-(c) are timed. Dump
+  writing (d) is not timed separately; it is part of the gap between the
+  main-process stages and the measured audit loop.
+- **Region id.** The sweep configs name their grid family
+  `grid_<g>x<g>` (for example `grid_8x8`) instead of reusing `grid_4x4`.
+  This only changes identifiers.
