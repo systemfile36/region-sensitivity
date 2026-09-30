@@ -1,0 +1,54 @@
+{
+  "experiment": "B2",
+  "title": "NTU RGB+D semantic validation (Route A: human-rated relevant body parts)",
+  "registered_on": "2026-09-30",
+  "plan": {
+    "experiment_plan": "docs/internal/revision_1/SSAT_minor_revision_experiment_plan.md section 9",
+    "implementation_plan": "docs/internal/revision_1/SSAT_minor_revision_implementation_plan.md section 8"
+  },
+  "protocol_text": "experiments/revision_1/b2_ntu_semantic/protocol.md",
+  "annotation": {
+    "classes": "all 60 NTU RGB+D 60 classes (annotation/classes.csv, official names, label id = action number - 1)",
+    "groups": ["head", "torso", "arms", "hands", "legs"],
+    "scale": {"0": "not involved", "1": "supporting", "2": "core"},
+    "annotators": ["A", "B"],
+    "single_annotator_fallback": "--annotators A, reported as a limitation",
+    "blind": "action names only; sheets committed unchanged before ssat_part_scores.py runs (enforced by the scripts)",
+    "consensus": "mean rating; relevant >= 1; primary == 2"
+  },
+  "inputs_sha256": {
+    "data/phase3/ntu60_xsub_test_20/video_manifest.json": "fb087cbfeb26c9c203b224cd845f988956532ec0f1c227ca2f274e834fb830b0",
+    "experiments/real_dataset_case_study/configs/ntu60_tsm_exact.yaml": "ee83e49ec3be698cd731a3295018950b0cc9e711731d1a9c14bafce57a12c4a2",
+    "experiments/real_dataset_case_study/results/ntu60_tsm_exact/metrics/spatial_profile.parquet": "888f1b86b0d404bc863fe56fe8fddb28f62511970751e79c0da43f7a8d2e7ca5",
+    "experiments/real_dataset_case_study/results/ntu60_tsm_exact/metrics/region_metrics.parquet": "21e42a68e33f315d94ca05d321bf7df0e3075dc99272f1ab5b30b14db21cecb3",
+    "experiments/real_dataset_case_study/results/ntu60_tsm_exact/metrics/sample_metrics.parquet": "acab55cea54561afb229d9c3a4fd70133d302ba98e5281544bcc7af727ffae01",
+    "experiments/real_dataset_case_study/configs/ntu60_tsm_crop_free.yaml": "0977fc7bc5e3ff3496b7d4d2c7ddbf089006dd36d062b5461ad4d6ae024311a9",
+    "experiments/real_dataset_case_study/results/ntu60_tsm_crop_free/metrics/spatial_profile.parquet": "b6d837237d8eabbe3a690ce56112def5d2f0362953ef22beccb565c9a098a6ca",
+    "experiments/real_dataset_case_study/results/ntu60_tsm_crop_free/metrics/region_metrics.parquet": "2edbd93137db9b06c291180786abe6c71e97924397c83dce7237459ba09eda4e",
+    "experiments/real_dataset_case_study/results/ntu60_tsm_crop_free/metrics/sample_metrics.parquet": "a480d6b2b56c86b9e0c84f48299372dbf856ca94c1c317b636daa616ea117ea4"
+  },
+  "input_structure": {
+    "samples": 1200,
+    "samples_per_class": 20,
+    "region_pairs_per_run": 12000,
+    "zero_effective_area_pairs": {"exact": 123, "crop_free": 46},
+    "zero_effective_area_samples": {"exact": 16, "crop_free": 9},
+    "zero_area_handling": "kept in raw / lift (as in the report); dropped from the area-adjusted score"
+  },
+  "scores": {
+    "metric": "margin_drop (spatial_profile, averaged over operators and seeds)",
+    "per_sample_group": "mean over the group's regions within the sample",
+    "S": "mean over class samples (report class x semantic-group matrix)",
+    "primary": "lift L = per-group z-score of S across 60 classes, ddof 0",
+    "robustness": ["raw S", "area-adjusted lift: residual of log1p(max(d,0)) on log(effective_area_px), pooled OLS over (sample, atomic part) pairs with positive area"]
+  },
+  "metrics": {
+    "agreement": "linear weighted Cohen's kappa and raw agreement, per group and overall; relevant (>= 1) agreement",
+    "primary": "mean class AUROC (relevant vs non-relevant groups, score L, ties 1/2) over classes with both; 95% percentile CI from 10,000 class bootstrap resamples; one-sided permutation p from 10,000 reassignments of annotation rows to classes",
+    "secondary": ["top-1 hit rate (highest-L group annotated primary; ties by group order) vs chance (mean primary share), permutation p", "mean per-class Spearman between consensus ratings and L"],
+    "robustness_variants": ["crop_free", "clean_correct", "raw_score", "area_adjusted", "single_person_classes (A001-A049)", "annotator_A_only", "annotator_B_only"],
+    "seed": 20260930,
+    "representative_cases": "top 3 and bottom 3 classes by AUROC (ties by label id)"
+  },
+  "interpretation_limits": "human relevance is an external reference, not causal ground truth; no matched controls on NTU, so area effects are only partly removed"
+}

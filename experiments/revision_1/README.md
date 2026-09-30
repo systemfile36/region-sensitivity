@@ -166,6 +166,28 @@ interrupted sweep resumes where it stopped. Results are in
 `a4_scaling/A4_REPORT.md`. The run-phase RSS is the largest single process,
 not the worker pool total (`deviations.md` D-009).
 
+## Phase 5: B2 NTU semantic validation (human annotation, offline)
+
+Pre-registered in `b2_ntu_semantic/protocol.md` and `protocol.json`
+(Route A). Each annotator rates the 5 body-part groups (head, torso, arms,
+hands, legs) of all 60 NTU classes as 0 / 1 / 2 from the action name only.
+The ratings are compared with the stored NTU runs' class x group SSAT
+scores; there is no new inference. The score and alignment scripts refuse
+to run until every annotator sheet is complete and committed unchanged
+(blind condition).
+
+| Step | Command | Output | Time |
+|---|---|---|---|
+| Input structure (reads no score) | `python experiments/revision_1/b2_ntu_semantic/check_inputs.py` | stdout | seconds |
+| Annotation sheets | `python experiments/revision_1/b2_ntu_semantic/annotations.py write` / `check --annotators A B` | `annotation/{classes,annotator_A,annotator_B}.csv` | ~1 h per annotator (manual; `annotation/README.md`) |
+| Commit the filled sheets | `git add annotation/annotator_*.csv annotation/annotators.csv && git commit` | – | – |
+| SSAT part scores | `python experiments/revision_1/b2_ntu_semantic/ssat_part_scores.py --annotators A B` | `summary/class_group_scores.csv` | seconds |
+| Alignment | `python experiments/revision_1/b2_ntu_semantic/evaluate_alignment.py --annotators A B` | `summary/{annotator_agreement,consensus,alignment_by_class,robustness,permutation_null}.csv`, `alignment_summary.json` | ~1 min |
+| Figures | `python experiments/revision_1/b2_ntu_semantic/plot_figures.py` | `fig_b2_{alignment,examples}.pdf` | seconds |
+| Tests | `python -m pytest -q tests/unit/test_rev1_b2.py` | – | seconds |
+
+With one annotator, pass `--annotators A` to the last three steps.
+
 ## Phase 6: C1 Captum comparison, resource measurement (GPU)
 
 Pre-registered in `c1_captum/protocol.json` and `c1_captum/command_map.md`
@@ -212,3 +234,4 @@ Filled in as experiments complete.
 | Peak GPU / host memory by workload size; cost breakdown | `fig_a4_memory.pdf`, `components.csv`, `workload_table.csv`, `coarse_to_fine.csv`, `estimate_accuracy.csv` | `a4_scaling/summary/` |
 | Captum comparison: runtime / memory / storage | `resources.csv`, `runs.csv`, `storage.csv`, `verification.json` | `c1_captum/summary/` |
 | Captum comparison: claim narrowing (engineering burden) | `C1_REPORT.md` (draft wording) | `c1_captum/` |
+| NTU quantitative semantic validation (after annotation) | `alignment_summary.json`, `alignment_by_class.csv`, `annotator_agreement.csv`, `fig_b2_alignment.pdf`, `fig_b2_examples.pdf` | `b2_ntu_semantic/summary/` |
