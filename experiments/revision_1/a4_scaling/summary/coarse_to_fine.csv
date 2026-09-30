@@ -1,0 +1,4 @@
+strategy,regions_evaluated,items_per_sample,share_of_exhaustive_8x8,v,k
+exhaustive 4x4,16,321,0.2505854800936768,5,3
+exhaustive 8x8,64,1281,1.0,5,3
+2x2 then 4x4 inside the top cell (8x8 resolution there),20,401,0.31303669008587043,5,3

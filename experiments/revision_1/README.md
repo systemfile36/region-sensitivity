@@ -162,7 +162,9 @@ N >= 2,000). Nothing else may run on the host during the sweep (~20 h,
 | Tests | `python -m pytest -q tests/unit/test_rev1_a4.py` | – | seconds |
 
 `run_scaling.py` skips measurements already in `measurements.jsonl`, so an
-interrupted sweep resumes where it stopped.
+interrupted sweep resumes where it stopped. Results are in
+`a4_scaling/A4_REPORT.md`. The run-phase RSS is the largest single process,
+not the worker pool total (`deviations.md` D-009).
 
 ## Running new audits
 
@@ -187,3 +189,6 @@ Filled in as experiments complete.
 | Model info and evaluated samples per architecture | `model_selection.json`, `model_info.csv`, `run_checks.json` | `a3_multi_arch/summary/` |
 | Per-architecture sensitivity and reliability | `region_profile.csv`, `top_region_share.csv`, `grade_distribution.csv`, `flag_rates.csv`, `fig_a3_profiles.pdf`, `fig_a3_grades.pdf` | `a3_multi_arch/summary/` |
 | Cross-architecture ranking comparison, common vs specific patterns | `cross_model.csv`, `common_patterns.csv`, `strategy_rank_corr.csv`, `operator_profile.csv`, `fig_a3_similarity.pdf` | `a3_multi_arch/summary/` |
+| Sample / region count vs wall-clock, throughput, storage | `fig_a4_samples.pdf`, `fig_a4_regions.pdf`, `fits.csv`, `settings.csv` | `a4_scaling/summary/` |
+| Control / perturbation count vs cost | `fig_a4_controls.pdf`, `fig_a4_perturbations.pdf`, `reference_points.csv` | `a4_scaling/summary/` |
+| Peak GPU / host memory by workload size; cost breakdown | `fig_a4_memory.pdf`, `components.csv`, `workload_table.csv`, `coarse_to_fine.csv`, `estimate_accuracy.csv` | `a4_scaling/summary/` |

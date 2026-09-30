@@ -1,0 +1,8 @@
+stage,ms_per_item,items_per_s,items,note
+"(a) source decode, one process",1.5014664642512798,666.0155413452136,200,per sample
+"(b) chunk preparation, worker pool",1.9382070366555126,515.9407540515163,64000,worker pool plus main-process hydration
+"(b) chunk preparation, one process",6.289434019854525,158.99681860771472,6400,per-item CPU cost
+(c) adapter preprocessing (main process),2.1927855419926345,456.04094921716654,16000,main process
+(c) model forward incl. transfer (GPU),0.1363389206235297,7334.662731864239,16000,main process waits
+effective-area mask transform (main process),0.15138368116458878,6605.731821997185,16000,main process
+"main process total (c + mask transform), excluding dump write",2.480508143780753,403.1432037452677,16000,ceiling of the audit loop

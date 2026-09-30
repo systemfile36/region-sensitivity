@@ -1,0 +1,51 @@
+{
+  "decode": {
+    "items": 200,
+    "items_per_s": 666.0155413452136,
+    "ms_per_item": 1.5014664642512798,
+    "seconds": 0.30029329285025597
+  },
+  "inference": {
+    "chunks": 150,
+    "effective_area_mask_transform": {
+      "items": 16000,
+      "items_per_s": 6605.731821997185,
+      "ms_per_item": 0.15138368116458878,
+      "seconds": 2.4221388986334205
+    },
+    "forward": {
+      "items": 16000,
+      "items_per_s": 7334.662731864239,
+      "ms_per_item": 0.1363389206235297,
+      "seconds": 2.1814227299764752
+    },
+    "items": 16000,
+    "preprocess": {
+      "items": 16000,
+      "items_per_s": 456.04094921716654,
+      "ms_per_item": 2.1927855419926345,
+      "seconds": 35.08456867188215
+    }
+  },
+  "n_chunks": 600,
+  "num_workers": 12,
+  "planned_items": 64200,
+  "preparation_pool": {
+    "chunks": 600,
+    "items": 64000,
+    "items_per_s": 515.9407540515163,
+    "ms_per_item": 1.9382070366555126,
+    "num_workers": 12,
+    "seconds": 124.04525034595281
+  },
+  "preparation_serial": {
+    "chunks": 60,
+    "items": 6400,
+    "items_per_s": 158.99681860771472,
+    "ms_per_item": 6.289434019854525,
+    "num_workers": 0,
+    "seconds": 40.25237772706896
+  },
+  "setting": "n200_g4_v5_k3",
+  "variants_per_chunk": 128
+}

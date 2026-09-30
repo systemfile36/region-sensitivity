@@ -1,0 +1,3 @@
+reference,n,regions,v,k,items,seconds,raw_bytes,method,items_per_s
+imagenet_mnv2_050_exact_k3,10000,16,5,3,3210000,11925.114051,12080223507.0,run_manifest started_at -> finished_at (audit loop plus dump finalization; no preflight),269.1798154945797
+a2_imagenet_mnv2_050_exact_k20,2000,16,5,20,3362000,12829.801580894738,,run_matrix_log elapsed of `ssat run` (includes preflight; not an isolated wrapper),262.04614146227016
