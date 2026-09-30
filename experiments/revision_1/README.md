@@ -166,6 +166,24 @@ interrupted sweep resumes where it stopped. Results are in
 `a4_scaling/A4_REPORT.md`. The run-phase RSS is the largest single process,
 not the worker pool total (`deviations.md` D-009).
 
+## Phase 6: C1 Captum comparison, resource measurement (GPU)
+
+Pre-registered in `c1_captum/protocol.json` and `c1_captum/command_map.md`
+(C1-min). The Captum reference workflow and the SSAT synthetic-shortcut
+scripts are each run 3 times in alternating order. Each command is measured
+for wall time, peak RSS (largest process and summed process tree), GPU
+memory against the idle baseline, and storage. Requires `captum==0.9.0` in
+the container (`pip install -e ".[reference]"`).
+
+| Step | Command | Output | Time |
+|---|---|---|---|
+| Measure | `python experiments/revision_1/c1_captum/measure_resources.py --repeats 3` (`--dry-run` lists the commands) | `results/c1/measurements.jsonl`, `results/c1/{captum,ssat}_fresh/r<repeat>/` | ~70 min |
+| Summaries and checks | `python experiments/revision_1/c1_captum/summarize.py` | `summary/{measurements,runs,resources,storage}.csv`, `summary/verification.json` | seconds |
+| Tests | `python -m pytest -q tests/unit/test_rev1_c1.py` | – | seconds |
+
+Results and the claim-narrowing draft are in `c1_captum/C1_REPORT.md`.
+C1-std (ImageNet second setting) was not run (protocol default).
+
 ## Running new audits
 
 `common/run_matrix.py --matrix <matrix.json> --output-root <dir>` runs
@@ -192,3 +210,5 @@ Filled in as experiments complete.
 | Sample / region count vs wall-clock, throughput, storage | `fig_a4_samples.pdf`, `fig_a4_regions.pdf`, `fits.csv`, `settings.csv` | `a4_scaling/summary/` |
 | Control / perturbation count vs cost | `fig_a4_controls.pdf`, `fig_a4_perturbations.pdf`, `reference_points.csv` | `a4_scaling/summary/` |
 | Peak GPU / host memory by workload size; cost breakdown | `fig_a4_memory.pdf`, `components.csv`, `workload_table.csv`, `coarse_to_fine.csv`, `estimate_accuracy.csv` | `a4_scaling/summary/` |
+| Captum comparison: runtime / memory / storage | `resources.csv`, `runs.csv`, `storage.csv`, `verification.json` | `c1_captum/summary/` |
+| Captum comparison: claim narrowing (engineering burden) | `C1_REPORT.md` (draft wording) | `c1_captum/` |

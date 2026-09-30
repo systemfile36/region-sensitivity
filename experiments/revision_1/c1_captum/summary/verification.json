@@ -1,0 +1,197 @@
+{
+  "all_pass": true,
+  "runs": {
+    "captum_r0": {
+      "checks": {
+        "all_q1_q5_pass": true,
+        "analysis_canonical_hash": true,
+        "area_sanity": true,
+        "raw_canonical_hash": true,
+        "raw_rows": true
+      },
+      "pass": true
+    },
+    "captum_r1": {
+      "checks": {
+        "all_q1_q5_pass": true,
+        "analysis_canonical_hash": true,
+        "area_sanity": true,
+        "raw_canonical_hash": true,
+        "raw_rows": true
+      },
+      "pass": true
+    },
+    "captum_r2": {
+      "checks": {
+        "all_q1_q5_pass": true,
+        "analysis_canonical_hash": true,
+        "area_sanity": true,
+        "raw_canonical_hash": true,
+        "raw_rows": true
+      },
+      "pass": true
+    },
+    "ssat_r0": {
+      "checks": {
+        "accuracy": true,
+        "b_auxiliary_rank": true,
+        "counts_by_status": true,
+        "pass_flags": true,
+        "q1_rank": true,
+        "q2_multiplier_within_tolerance": true,
+        "q3_rank": true,
+        "q4_reproduced_in": true,
+        "q5": true
+      },
+      "dump_counts": {
+        "normal_A_all_ops_thresholds_crop_free": true,
+        "normal_A_constant_fill": true,
+        "shortcut_A_all_ops_thresholds_crop_free": true,
+        "shortcut_A_blur": true,
+        "shortcut_A_constant_fill": true,
+        "shortcut_A_gaussian_noise": true,
+        "shortcut_A_mean_fill": true,
+        "shortcut_A_patch_shuffle": true,
+        "shortcut_B_constant_fill": true
+      },
+      "grade_counts_informational": {
+        "normal_A_all_ops_thresholds_crop_free": {
+          "fresh": {
+            "high": 764,
+            "low": 417,
+            "unreliable": 2019
+          },
+          "identical": false,
+          "stored": {
+            "high": 763,
+            "low": 418,
+            "unreliable": 2019
+          }
+        },
+        "shortcut_A_all_ops_thresholds_crop_free": {
+          "fresh": {
+            "high": 268,
+            "low": 543,
+            "unreliable": 2389
+          },
+          "identical": true,
+          "stored": {
+            "high": 268,
+            "low": 543,
+            "unreliable": 2389
+          }
+        }
+      },
+      "pass": true,
+      "q2_multiplier_relative_difference": 0.0
+    },
+    "ssat_r1": {
+      "checks": {
+        "accuracy": true,
+        "b_auxiliary_rank": true,
+        "counts_by_status": true,
+        "pass_flags": true,
+        "q1_rank": true,
+        "q2_multiplier_within_tolerance": true,
+        "q3_rank": true,
+        "q4_reproduced_in": true,
+        "q5": true
+      },
+      "dump_counts": {
+        "normal_A_all_ops_thresholds_crop_free": true,
+        "normal_A_constant_fill": true,
+        "shortcut_A_all_ops_thresholds_crop_free": true,
+        "shortcut_A_blur": true,
+        "shortcut_A_constant_fill": true,
+        "shortcut_A_gaussian_noise": true,
+        "shortcut_A_mean_fill": true,
+        "shortcut_A_patch_shuffle": true,
+        "shortcut_B_constant_fill": true
+      },
+      "grade_counts_informational": {
+        "normal_A_all_ops_thresholds_crop_free": {
+          "fresh": {
+            "high": 764,
+            "low": 417,
+            "unreliable": 2019
+          },
+          "identical": false,
+          "stored": {
+            "high": 763,
+            "low": 418,
+            "unreliable": 2019
+          }
+        },
+        "shortcut_A_all_ops_thresholds_crop_free": {
+          "fresh": {
+            "high": 268,
+            "low": 543,
+            "unreliable": 2389
+          },
+          "identical": true,
+          "stored": {
+            "high": 268,
+            "low": 543,
+            "unreliable": 2389
+          }
+        }
+      },
+      "pass": true,
+      "q2_multiplier_relative_difference": 0.0
+    },
+    "ssat_r2": {
+      "checks": {
+        "accuracy": true,
+        "b_auxiliary_rank": true,
+        "counts_by_status": true,
+        "pass_flags": true,
+        "q1_rank": true,
+        "q2_multiplier_within_tolerance": true,
+        "q3_rank": true,
+        "q4_reproduced_in": true,
+        "q5": true
+      },
+      "dump_counts": {
+        "normal_A_all_ops_thresholds_crop_free": true,
+        "normal_A_constant_fill": true,
+        "shortcut_A_all_ops_thresholds_crop_free": true,
+        "shortcut_A_blur": true,
+        "shortcut_A_constant_fill": true,
+        "shortcut_A_gaussian_noise": true,
+        "shortcut_A_mean_fill": true,
+        "shortcut_A_patch_shuffle": true,
+        "shortcut_B_constant_fill": true
+      },
+      "grade_counts_informational": {
+        "normal_A_all_ops_thresholds_crop_free": {
+          "fresh": {
+            "high": 764,
+            "low": 417,
+            "unreliable": 2019
+          },
+          "identical": false,
+          "stored": {
+            "high": 763,
+            "low": 418,
+            "unreliable": 2019
+          }
+        },
+        "shortcut_A_all_ops_thresholds_crop_free": {
+          "fresh": {
+            "high": 268,
+            "low": 543,
+            "unreliable": 2389
+          },
+          "identical": true,
+          "stored": {
+            "high": 268,
+            "low": 543,
+            "unreliable": 2389
+          }
+        }
+      },
+      "pass": true,
+      "q2_multiplier_relative_difference": 0.0
+    }
+  }
+}
