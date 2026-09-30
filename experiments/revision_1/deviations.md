@@ -243,3 +243,18 @@ Recorded after the sweep finished, before `fit_scaling.py` ran.
   "items at which RSS reaches 125 GiB" rows. It had extrapolated the
   single-process value linearly, which the saturating data do not support.
   `fits.csv` still reports its fit (R^2 0.60 pooled).
+
+## D-010 (2026-09-30, Phase 6 C1-min): SSAT execution settings in the command map
+
+`c1_captum/command_map.md` (committed before the measurement) described the
+SSAT workflow as running with batch 128 and 12 workers. Those are the
+settings of the ImageNet case-study configs used in A4. The synthetic
+scripts set no `runtime` section, so the `ssat` defaults apply:
+- `num_workers` 0 (one process);
+- `target_batch_size` 32;
+- `variants_per_chunk` 16.
+
+The resolved values are recorded in each dump's `run_manifest.json`. This
+was found from the first repeat pair's process-tree data (two processes
+during S-4 / S-5), and the text was corrected. The commands, measurements,
+and verification criteria did not change.

@@ -50,7 +50,12 @@ one process.
   single-operator runs. Times are also reported per perturbed item.
 - **Execution settings.** Each workflow uses its own settings:
   - Captum: batch 16, `perturbations_per_eval` 16, 4 workers;
-  - SSAT: the `ssat` runtime defaults (batch 128, 12 workers).
+  - SSAT: the scripts set no `runtime` section, so the `ssat` defaults
+    apply: `num_workers` 0 (one process), `target_batch_size` 32,
+    `variants_per_chunk` 16. The resolved values are in each dump's
+    `run_manifest.json`. (Corrected after the first repeat pair; the text
+    first said batch 128 and 12 workers, which are the A4 case-study
+    settings. The commands did not change. deviations.md D-010.)
   Neither is tuned for this comparison.
 - **Stored content.** Captum stores one row per item with clean and
   perturbed margins and the degradation. SSAT stores full logits, region
