@@ -1,0 +1,44 @@
+{
+  "annotators": [
+    "A"
+  ],
+  "auroc_ci95": [
+    0.6027777777777777,
+    0.773611111111111
+  ],
+  "auroc_permutation_p": 9.999000099990002e-05,
+  "mean_auroc": 0.6902777777777778,
+  "mean_spearman": 0.32398803862554987,
+  "n_bootstrap": 10000,
+  "n_classes_eligible": 60,
+  "n_classes_spearman": 60,
+  "n_classes_with_primary": 46,
+  "n_excluded_all_relevant": 0,
+  "n_excluded_none_relevant": 0,
+  "n_permutations": 10000,
+  "raw_group_mean_across_classes": {
+    "arms": 0.9696784679690997,
+    "hands": 0.19155476250251133,
+    "head": 0.059679675141970284,
+    "legs": 0.3393466084798177,
+    "lower_body": 0.7279811234076818,
+    "torso": 0.9433215514024098,
+    "upper_body": 2.6571427982747555
+  },
+  "representative_classes": {
+    "bottom": [
+      13,
+      15,
+      36
+    ],
+    "top": [
+      1,
+      2,
+      3
+    ]
+  },
+  "seed": 20260930,
+  "top1_chance": 0.30434782608695654,
+  "top1_hit_rate": 0.391304347826087,
+  "top1_permutation_p": 0.0331966803319668
+}

@@ -258,3 +258,19 @@ The resolved values are recorded in each dump's `run_manifest.json`. This
 was found from the first repeat pair's process-tree data (two processes
 during S-4 / S-5), and the text was corrected. The commands, measurements,
 and verification criteria did not change.
+
+## D-011 (2026-09-30, Phase 5 B2): single annotator, empty annotator metadata, post hoc group breakdown
+
+- **One annotator.** Only `annotator_A.csv` was completed and committed
+  (`3076550`); `annotator_B.csv` is blank. The analysis ran with
+  `--annotators A`, the pre-registered single-annotator fallback. No
+  annotator agreement can be reported, and the `annotator_*_only`
+  robustness variants do not apply.
+- **Annotator metadata.** `annotation/annotators.csv` (role, prior exposure
+  to SSAT's NTU results, times) was still empty when the analysis ran.
+  The report therefore does not state whether the rating was blind to
+  earlier NTU results.
+- **Post hoc analysis.** `group_breakdown.py` (per-group agreement across
+  classes, top-group counts) was added after the pre-registered results
+  were seen. It is labelled post hoc and used only to explain the
+  pre-registered results.

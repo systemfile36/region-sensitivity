@@ -1,0 +1,89 @@
+{
+  "argv": [
+    "experiments/revision_1/b2_ntu_semantic/ssat_part_scores.py",
+    "--annotators",
+    "A"
+  ],
+  "created_at": "2026-09-30T08:51:42.134342+00:00",
+  "environment": {
+    "container_image_id": null,
+    "cpu_count": 32,
+    "hostname": "9d1042060e60",
+    "mem_total_kb": 131645792,
+    "nvidia_smi": {
+      "compute_processes": [
+        "3134116, [Not Found], 399 MiB"
+      ],
+      "gpus": [
+        "0, NVIDIA GeForce RTX 4090, 580.173.02, 24564 MiB, 2204 MiB"
+      ]
+    },
+    "packages": {
+      "captum": "0.9.0",
+      "decord": "0.6.0",
+      "numpy": "2.3.2",
+      "pandas": "3.0.5",
+      "pyarrow": "25.0.0",
+      "timm": "1.0.28",
+      "torch": "2.8.0+cu129",
+      "torchvision": "0.23.0+cu129"
+    },
+    "platform": "Linux-7.0.0-28-generic-x86_64-with-glibc2.35",
+    "python_executable": "/opt/conda/bin/python",
+    "python_version": "3.11.13",
+    "ssat_installed_metadata_version": "0.1.0",
+    "torch": {
+      "cuda_available": true,
+      "cuda_version": "12.9",
+      "cudnn_version": 91002,
+      "device_names": [
+        "NVIDIA GeForce RTX 4090"
+      ]
+    }
+  },
+  "extra": {
+    "annotators": [
+      "A"
+    ],
+    "metric": "margin_drop"
+  },
+  "git": {
+    "branch": "revision-1",
+    "describe": "v1.0.0-32-g3076550",
+    "dirty": false,
+    "dirty_files": [],
+    "sha": "30765504bfcb8cb4284d57b96139cc1f009b17d0"
+  },
+  "inputs": {
+    "crop_free_region_metrics": {
+      "exists": true,
+      "path": "experiments/real_dataset_case_study/results/ntu60_tsm_crop_free/metrics/region_metrics.parquet",
+      "sha256": "2edbd93137db9b06c291180786abe6c71e97924397c83dce7237459ba09eda4e"
+    },
+    "crop_free_sample_metrics": {
+      "exists": true,
+      "path": "experiments/real_dataset_case_study/results/ntu60_tsm_crop_free/metrics/sample_metrics.parquet",
+      "sha256": "a480d6b2b56c86b9e0c84f48299372dbf856ca94c1c317b636daa616ea117ea4"
+    },
+    "crop_free_spatial_profile": {
+      "exists": true,
+      "path": "experiments/real_dataset_case_study/results/ntu60_tsm_crop_free/metrics/spatial_profile.parquet",
+      "sha256": "b6d837237d8eabbe3a690ce56112def5d2f0362953ef22beccb565c9a098a6ca"
+    },
+    "exact_region_metrics": {
+      "exists": true,
+      "path": "experiments/real_dataset_case_study/results/ntu60_tsm_exact/metrics/region_metrics.parquet",
+      "sha256": "21e42a68e33f315d94ca05d321bf7df0e3075dc99272f1ab5b30b14db21cecb3"
+    },
+    "exact_sample_metrics": {
+      "exists": true,
+      "path": "experiments/real_dataset_case_study/results/ntu60_tsm_exact/metrics/sample_metrics.parquet",
+      "sha256": "acab55cea54561afb229d9c3a4fd70133d302ba98e5281544bcc7af727ffae01"
+    },
+    "exact_spatial_profile": {
+      "exists": true,
+      "path": "experiments/real_dataset_case_study/results/ntu60_tsm_exact/metrics/spatial_profile.parquet",
+      "sha256": "888f1b86b0d404bc863fe56fe8fddb28f62511970751e79c0da43f7a8d2e7ca5"
+    }
+  }
+}

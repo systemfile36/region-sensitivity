@@ -186,7 +186,7 @@ to run until every annotator sheet is complete and committed unchanged
 | Figures | `python experiments/revision_1/b2_ntu_semantic/plot_figures.py` | `fig_b2_{alignment,examples}.pdf` | seconds |
 | Tests | `python -m pytest -q tests/unit/test_rev1_b2.py` | – | seconds |
 
-With one annotator, pass `--annotators A` to the last three steps.
+With one annotator, pass `--annotators A` to the last three steps. The post hoc per-group breakdown is `group_breakdown.py` (`summary/group_breakdown.csv`). Results are in `b2_ntu_semantic/B2_REPORT.md`.
 
 ## Phase 6: C1 Captum comparison, resource measurement (GPU)
 
@@ -234,4 +234,4 @@ Filled in as experiments complete.
 | Peak GPU / host memory by workload size; cost breakdown | `fig_a4_memory.pdf`, `components.csv`, `workload_table.csv`, `coarse_to_fine.csv`, `estimate_accuracy.csv` | `a4_scaling/summary/` |
 | Captum comparison: runtime / memory / storage | `resources.csv`, `runs.csv`, `storage.csv`, `verification.json` | `c1_captum/summary/` |
 | Captum comparison: claim narrowing (engineering burden) | `C1_REPORT.md` (draft wording) | `c1_captum/` |
-| NTU quantitative semantic validation (after annotation) | `alignment_summary.json`, `alignment_by_class.csv`, `annotator_agreement.csv`, `fig_b2_alignment.pdf`, `fig_b2_examples.pdf` | `b2_ntu_semantic/summary/` |
+| NTU quantitative semantic validation | `alignment_summary.json`, `alignment_by_class.csv`, `robustness.csv`, `group_breakdown.csv` (post hoc), `fig_b2_alignment.pdf`, `fig_b2_examples.pdf`; `annotator_agreement.csv` once a second annotator is added | `b2_ntu_semantic/summary/` |
