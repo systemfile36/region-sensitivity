@@ -23,6 +23,7 @@ import matplotlib
 
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # noqa: E402
+from matplotlib.ticker import NullFormatter  # noqa: E402
 import pandas as pd  # noqa: E402
 
 from experiments.revision_1.a4_scaling.sweep import AXES, level_of  # noqa: E402
@@ -43,6 +44,13 @@ def axis_frame(frame: pd.DataFrame, axis: str) -> pd.DataFrame:
     return rows.sort_values("x")
 
 
+def _log_x(ax: plt.Axes, ticks: Sequence[int]) -> None:
+    ax.set_xscale("log")
+    ax.set_xticks(list(ticks))
+    ax.set_xticklabels([f"{tick:,}" for tick in ticks])
+    ax.xaxis.set_minor_formatter(NullFormatter())
+
+
 def _phase_times(ax: plt.Axes, rows: pd.DataFrame, *, log: bool) -> None:
     for phase, color in PHASE_COLORS.items():
         ax.scatter(rows["x"], rows[f"{phase}_s"], s=10, color=color, alpha=0.6)
@@ -51,7 +59,7 @@ def _phase_times(ax: plt.Axes, rows: pd.DataFrame, *, log: bool) -> None:
     means = rows.groupby("x")["run_loop_s"].mean()
     ax.plot(means.index, means.to_numpy(), "--", color=PHASE_COLORS["run"], label="run: audit loop only")
     if log:
-        ax.set_xscale("log")
+        _log_x(ax, sorted(rows["x"].unique()))
         ax.set_yscale("log")
     ax.set_ylabel("wall time (s)")
     ax.grid(alpha=0.3)
@@ -66,7 +74,7 @@ def plot_samples(frame: pd.DataFrame, path: Path) -> None:
         means = rows.groupby("x")[column].mean()
         right.plot(means.index, means.to_numpy(), style, ms=3, label=label)
         right.scatter(rows["x"], rows[column], s=8, alpha=0.5)
-    right.set_xscale("log")
+    _log_x(right, sorted(rows["x"].unique()))
     right.set_ylabel("items / s (clean + perturbed)")
     right.set_ylim(bottom=0)
     right.grid(alpha=0.3)
