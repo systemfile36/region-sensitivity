@@ -1,0 +1,50 @@
+{
+  "experiment": "C1",
+  "title": "Captum engineering comparison: resource measurement (C1-min)",
+  "registered_on": "2026-09-30",
+  "plan": {
+    "experiment_plan": "docs/internal/revision_1/SSAT_minor_revision_experiment_plan.md section 10",
+    "implementation_plan": "docs/internal/revision_1/SSAT_minor_revision_implementation_plan.md sections 9.2 and 9.4"
+  },
+  "decisions": {
+    "scope": "C1-min: runtime, memory, GPU, and storage of the existing synthetic-shortcut comparison, plus a claim-narrowing draft (section 9.4). C1-std (ImageNet subset, second implementation) is decided by the author after C1-min (implementation plan section 12 item 4; default: not run).",
+    "budget": "about 3-5 min per Captum repeat and 40-60 min per SSAT repeat from the stored run times; about 3 h for 3 repeats"
+  },
+  "workflows": {
+    "command_map": "experiments/revision_1/c1_captum/command_map.md",
+    "captum": "experiments/reference_comparison/captum_baseline/run.py audit, analyze, report (config.yaml unchanged)",
+    "ssat": "experiments/synthetic_shortcut/ run_audit.py, evaluate_accuracy.py, evaluate.py, run_threshold_validation_full.py (shortcut, normal), generate_report.py (shortcut, normal), crop-free checkpoints",
+    "unchanged": "No workflow code, config, or ssat default is modified; each workflow keeps its own batch size and worker count."
+  },
+  "measurement": {
+    "repeats": 3,
+    "order": "Captum then SSAT on repeats 0 and 2, SSAT then Captum on repeat 1",
+    "wrapper": "measure_step (experiments/benchmark_runtime_storage/run_benchmark.py, loaded by path): wall time, return code, peak RSS of the largest child process",
+    "additional": "nvidia-smi memory.used and utilization.gpu every 0.2 s per command; idle GPU memory (median of 10 polls) and the compute-process list before each workflow; summed RSS of all descendant processes every 0.5 s per command",
+    "storage": "bytes per top-level output entry after the last command",
+    "outputs": "experiments/revision_1/results/c1/{captum,ssat}_fresh/r<repeat>, kept",
+    "host": "nothing else runs in the container; the host desktop session stays open as in A4"
+  },
+  "reported_measures": [
+    "end-to-end wall time and its audit / analysis + report split",
+    "wall time per perturbed item (Captum 291,200 raw rows; SSAT 310,400 perturbed items, see command_map.md)",
+    "peak host RSS: largest process and summed process tree",
+    "peak GPU memory: device total and total minus the idle baseline; mean GPU utilization during the audit stage",
+    "storage by content: raw observations, metrics, analysis tables, report files"
+  ],
+  "verification": {
+    "captum_required": {
+      "raw_rows": 291200,
+      "raw_canonical_hash": "c476044bd0beb3147afaa3a4ca1d9fb09fe498819539a8ece10ee2f8d7c27477",
+      "analysis_canonical_hash": "16c2e06a4d1a2925b50d0e91d180d94dba8a2f5b149fe5b749993ce5e28f501d",
+      "all_q1_q5_pass": true,
+      "source": "experiments/reference_comparison/captum_baseline/measured_results.json"
+    },
+    "ssat_required": {
+      "counts_by_status": "equal to experiments/synthetic_shortcut/results_crop_free/dumps/<run>/run_manifest.json for all 9 dumps",
+      "verdicts": "Q1-Q5 pass flags, patch ranks, Q4 reproduced operators, and accuracy.json equal to experiments/synthetic_shortcut/results_crop_free/{verdicts,accuracy}.json; Q2 multiplier within 1e-3 relative"
+    },
+    "ssat_informational": "reliability grade counts per run against results_crop_free/analysis/<run>/reliability.parquet",
+    "on_failure": "reported as found; measurements are not repeated to obtain a match"
+  }
+}
