@@ -10,7 +10,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from experiments.revision_1.b2_ntu_semantic import annotations, evaluate_alignment, plot_figures, ssat_part_scores
+from experiments.revision_1.b2_ntu_semantic import annotations, evaluate_alignment, group_breakdown, plot_figures, ssat_part_scores
 from experiments.revision_1.b2_ntu_semantic.annotations import GROUPS
 from ssat.report.assembler import _build_class_semantic_matrix, _sample_semantic_group_degradation
 
@@ -167,3 +167,11 @@ def test_committed_check_ignores_line_endings(tmp_path: Path) -> None:
     outside = tmp_path / "annotator_A.csv"
     outside.write_text("x\n")
     assert not annotations.committed_unchanged(outside)
+
+
+def test_group_breakdown_rows() -> None:
+    rating = pd.DataFrame([[2, 0, 0, 0, 0], [0, 0, 0, 0, 2], [0, 0, 1, 1, 0]], columns=GROUPS)
+    matrix = pd.DataFrame([[3.0, 0, 0, 0, 0], [0, 0, 0, 0, 3.0], [0, 0, 1.0, 2.0, 0]], columns=GROUPS)
+    rows = group_breakdown.group_rows(rating, matrix).set_index("group")
+    assert rows.loc["head", "auroc_across_classes"] == 1.0 and rows.loc["head", "n_primary_classes"] == 1
+    assert rows.loc["hands", "n_classes_top_group"] == 1 and np.isnan(rows.loc["torso", "auroc_across_classes"])
