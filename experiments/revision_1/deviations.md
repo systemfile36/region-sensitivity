@@ -211,3 +211,30 @@ Recorded before any A4 measurement.
 - **Region id.** The sweep configs name their grid family
   `grid_<g>x<g>` (for example `grid_8x8`) instead of reusing `grid_4x4`.
   This only changes identifiers.
+
+## D-009 (2026-09-30, Phase 4 analysis): host OOM during the sweep; meaning of the run-phase RSS
+
+Recorded after the sweep finished, before `fit_scaling.py` ran.
+
+- **Host OOM.** At 2026-09-30 02:27:10 KST (17:27:10Z), during
+  `n1000_g8_v5_k3` repeat 2 (`ssat run` phase), the host ran out of memory.
+  The kernel's task dump shows the run's 12 DataLoader workers
+  (`pt_data_worker`) at 109.5 GiB RSS in total (8-19 GiB each) and the
+  main process at 4.7 GiB. The kernel killed the author's VS Code process,
+  not the audit. The measurement completed with return code 0 and a run
+  time in line with the other two repeats (4,701 s vs 4,807 / 4,813 s). No
+  other OOM event occurred during the sweep. All 41 measurements are kept.
+- **Run-phase RSS is the largest single process, not the process tree.**
+  `measure_step` reads `getrusage(RUSAGE_CHILDREN).ru_maxrss`, which on
+  Linux is the peak RSS of the largest descendant. For `ssat run`, whose
+  worker pool holds most of the memory, the recorded value (9-43 GiB)
+  therefore understates the total. The OOM task dump above is the only
+  measurement of the total. The metrics / analyze / report phases are single
+  processes, so their values are totals. BENCHMARK_v1's run-phase value has
+  the same meaning. No supplementary memory measurement was run (author's
+  decision, 2026-09-30).
+- **Timing outliers are kept.** `n500_g4_v5_k3` repeat 0 (815 s vs 624 /
+  653 s) and `n1000_g6_v5_k3` repeat 0 (4,039 s vs 2,555 / 2,436 s) are
+  slower than their repeats, most likely because of other activity on the
+  host desktop. They are reported through the per-setting CV, and fits are
+  shown with all repeats.
