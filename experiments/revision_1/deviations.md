@@ -238,3 +238,8 @@ Recorded after the sweep finished, before `fit_scaling.py` ran.
   slower than their repeats, most likely because of other activity on the
   host desktop. They are reported through the per-setting CV, and fits are
   shown with all repeats.
+- **Workload table.** After the first `fit_scaling.py` output, the
+  run-phase RSS was removed from the workload predictions and from the
+  "items at which RSS reaches 125 GiB" rows. It had extrapolated the
+  single-process value linearly, which the saturating data do not support.
+  `fits.csv` still reports its fit (R^2 0.60 pooled).

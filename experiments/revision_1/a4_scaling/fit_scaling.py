@@ -44,6 +44,7 @@ PHASES = ("run", "metrics", "analyze", "report")
 SUBDIRS = ("clean", "perturbed", "index", "metrics", "analysis", "report", "other", "total")
 TIME_COLUMNS = ("run_s", "run_loop_s", "preflight_s", "metrics_s", "analyze_s", "report_s", "pipeline_s")
 RSS_COLUMNS = tuple(f"{phase}_rss_gib" for phase in PHASES)
+SINGLE_PROCESS_RSS = tuple(f"{phase}_rss_gib" for phase in PHASES if phase != "run")
 BYTES_COLUMNS = ("raw_bytes", "total_bytes")
 WORKLOADS = {
     "small": Setting(n=1000, grid=4, v=5, k=3),
@@ -153,7 +154,12 @@ def reference_rows() -> pd.DataFrame:
 
 
 def workload_rows(fits: pd.DataFrame) -> pd.DataFrame:
-    """Predicted time, storage, and peak RSS of the reference workloads from the pooled fits."""
+    """Predicted time, storage, and peak RSS of the reference workloads from the pooled fits.
+
+    RSS is predicted only for the single-process phases (``SINGLE_PROCESS_RSS``):
+    the run-phase value is the largest process of a worker pool and does not
+    grow linearly with items (``deviations.md`` D-009).
+    """
 
     pooled = fits[fits["axis"] == "pooled"].set_index("y")
     max_measured = pooled.loc["run_s", "x_max"]
@@ -162,12 +168,12 @@ def workload_rows(fits: pd.DataFrame) -> pd.DataFrame:
         items = setting.planned_items
         row = {"workload": name, "n": setting.n, "grid": setting.grid, "v": setting.v, "k": setting.k, "items": items,
                "extrapolated": items > max_measured}
-        for column in (*TIME_COLUMNS, *RSS_COLUMNS):
+        for column in (*TIME_COLUMNS, *SINGLE_PROCESS_RSS):
             row[f"pred_{column}"] = pooled.loc[column, "a"] + pooled.loc[column, "b"] * items
         for column in BYTES_COLUMNS:
             row[f"pred_{column}"] = pooled.loc[column, "b"] * items
         rows.append(row)
-    for column in RSS_COLUMNS:
+    for column in SINGLE_PROCESS_RSS:
         a, b = pooled.loc[column, "a"], pooled.loc[column, "b"]
         rows.append({"workload": f"items at which {column} reaches {HOST_MEMORY_GIB:.0f} GiB", "items": (HOST_MEMORY_GIB - a) / b if b > 0 else np.nan,
                      "extrapolated": True})

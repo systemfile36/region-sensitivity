@@ -100,6 +100,8 @@ def test_fits_recover_the_generating_cost_model(measurements: pd.DataFrame) -> N
     medium = workloads.loc["medium (paper setting)"]
     assert medium["items"] == 3_210_000 and bool(medium["extrapolated"])
     assert medium["pred_run_s"] == pytest.approx(30 + 0.004 * 3_210_000)
+    assert "pred_run_rss_gib" not in workloads.columns
+    assert not any("run_rss" in name for name in workloads.index)
 
 
 def test_setting_summary_and_flatten_checks(measurements: pd.DataFrame) -> None:
