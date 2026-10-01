@@ -339,6 +339,73 @@ def test_materialize_detects_config_mutation_after_enumeration(
         builder.materialize(metadata.chunk_id)
 
 
+def _counting_enumeration(
+    builder: PlanBuilder,
+    monkeypatch: pytest.MonkeyPatch,
+) -> list[str]:
+    calls: list[str] = []
+    original = builder._enumerate_items_for_sample
+
+    def counted(sample_id: str) -> tuple[WorkItem, ...]:
+        calls.append(sample_id)
+        return original(sample_id)
+
+    monkeypatch.setattr(builder, "_enumerate_items_for_sample", counted)
+    return calls
+
+
+def test_materialize_recomputes_each_sample_once_in_run_order(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    config = _resolved_config(tmp_path, variants_per_chunk=1)
+    source = FakeSampleSource((_sample("a"), _sample("b")))
+    builder = PlanBuilder(config, source)
+    metadata = builder.enumerate()
+    calls = _counting_enumeration(builder, monkeypatch)
+
+    # The runtime materializes each chunk twice: in the worker and in the main process.
+    chunks = [
+        (builder.materialize(meta.chunk_id), builder.materialize(meta.chunk_id))
+        for meta in metadata
+    ]
+
+    assert calls == ["a", "b"]
+    for meta, (first, second) in zip(metadata, chunks, strict=True):
+        assert first == second == PlanBuilder(config, source).materialize(meta.chunk_id)
+
+
+def test_materialize_recomputes_when_samples_interleave(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    config = _resolved_config(tmp_path, variants_per_chunk=1)
+    source = FakeSampleSource((_sample("a"), _sample("b")))
+    builder = PlanBuilder(config, source)
+    by_sample = {meta.sample_id: meta for meta in reversed(builder.enumerate())}
+    calls = _counting_enumeration(builder, monkeypatch)
+
+    chunks = [builder.materialize(by_sample[sample_id].chunk_id) for sample_id in "aba"]
+
+    assert calls == ["a", "b", "a"]
+    assert [tuple(item.item_id for item in chunk.items) for chunk in chunks] == [
+        by_sample[sample_id].item_ids for sample_id in "aba"
+    ]
+
+
+def test_materialize_detects_config_mutation_at_the_next_sample(
+    tmp_path: Path,
+) -> None:
+    config = _resolved_config(tmp_path)
+    builder = PlanBuilder(config, FakeSampleSource((_sample("a"), _sample("b"))))
+    first, second = builder.enumerate()
+    builder.materialize(first.chunk_id)
+    config.perturbations[0].params["sigma"] = 2.0
+
+    with pytest.raises(PlanBuildError, match="item_ids do not match"):
+        builder.materialize(second.chunk_id)
+
+
 @pytest.mark.parametrize(
     ("samples", "message"),
     [

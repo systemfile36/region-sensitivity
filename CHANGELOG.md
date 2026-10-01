@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- `PlanBuilder.materialize` recomputes a sample's work items once per sample instead
+  of once per chunk. Runs with many items per sample (controls, several operators
+  and seeds) spent most of their per-item time re-enumerating the plan; item IDs,
+  chunk IDs, and dumps are unchanged.
+
 ## [1.0.0] - 2026-09-02
 
 _The `v1.0.0` tag is being amended in place ahead of the SoftwareX submission: it has

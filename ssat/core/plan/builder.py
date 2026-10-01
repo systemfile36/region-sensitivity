@@ -61,6 +61,7 @@ class PlanBuilder:
         self._sample_by_id: dict[str, SampleMeta] | None = None
         self._chunk_metas: tuple[WorkChunkMeta, ...] | None = None
         self._chunk_locators: dict[str, _ChunkLocator] | None = None
+        self._last_materialized: tuple[str, tuple[WorkItem, ...]] | None = None
 
     def enumerate(self) -> tuple[WorkChunkMeta, ...]:
         """Return ordered, lightweight metadata for all perturbed chunks."""
@@ -95,7 +96,7 @@ class PlanBuilder:
         if locator is None:
             raise PlanBuildError(f"unknown chunk_id: {chunk_id}")
 
-        all_items = self._enumerate_items_for_sample(locator.sample_id)
+        all_items = self._sample_items_for_materialize(locator.sample_id)
         chunk_size = self._config.runtime.variants_per_chunk
         start = locator.chunk_ordinal * chunk_size
         items = all_items[start : start + chunk_size]
@@ -127,6 +128,29 @@ class PlanBuilder:
             len(chunk.items),
         )
         return chunk
+
+    def _sample_items_for_materialize(self, sample_id: str) -> tuple[WorkItem, ...]:
+        """Return a sample's items, recomputing them only when the sample changes.
+
+        Chunks are materialized in sample order, so this one-entry cache turns
+        one recomputation per chunk into one per sample while holding a single
+        sample's items. Only ``materialize`` fills it, so the first chunk of
+        each sample is still recomputed from the current config, and every
+        chunk is still checked against its enumeration metadata.
+
+        Args:
+            sample_id: Sample whose canonical ordered items are needed.
+
+        Returns:
+            The sample's canonical ordered WorkItems.
+        """
+
+        cached = self._last_materialized
+        if cached is not None and cached[0] == sample_id:
+            return cached[1]
+        items = self._enumerate_items_for_sample(sample_id)
+        self._last_materialized = (sample_id, items)
+        return items
 
     def _ensure_samples(self) -> tuple[SampleMeta, ...]:
         """Load, validate, sort, and cache lightweight sample metadata."""
