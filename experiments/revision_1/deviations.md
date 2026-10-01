@@ -274,3 +274,28 @@ and verification criteria did not change.
   classes, top-group counts) was added after the pre-registered results
   were seen. It is labelled post hoc and used only to explain the
   pre-registered results.
+
+## D-012 (2026-10-01, Phase 6 C1-min): post hoc SSAT planner fix and re-measurement
+
+Recorded after the C1-min results were seen, before the re-measurement ran.
+
+- **Finding.** `C1_REPORT.md` attributed the ~8x runtime gap to a general
+  per-item pipeline. A diagnostic outside the protocol found a planner
+  inefficiency instead:
+  - `PlanBuilder.materialize` re-enumerated every item of a sample for
+    each chunk, and the runtime materializes each chunk twice (worker and
+    main process).
+  - In a 2-sample S-4 run, the run stage built 129,600 WorkItems for
+    1,440 items. S-1 built 64 for 32.
+  - Planner time alone, on two P-cores: 2.78 ms per item for S-4 and
+    0.06 ms for S-1. C1-min measured 3.76-3.97 ms and 0.94-1.07 ms per
+    item in total.
+- **Fix.** `fb7168b` adds a one-entry per-sample cache. Item ids, chunk ids,
+  and dumps do not change: in 2-sample S-1 and S-4 runs before and after
+  the fix, the item ids are identical and the logits differ by 0.
+- **Re-measurement (post hoc).** Both workflows are measured again on the
+  fixed code. Everything else is the same as C1-min: scripts, commands,
+  execution settings, 3 alternating repeats, and verification criteria.
+  - Outputs: `results/c1_plan_cache/` and `c1_captum/summary_plan_cache/`.
+  - The pre-registered C1-min results stay as recorded. The
+    re-measurement is reported next to them and labelled post hoc.
