@@ -1,0 +1,25 @@
+measure,unit,workflow,mean,min,max,n_repeats
+end-to-end wall time,s,captum,140.6727762753144,139.89494871068746,141.27106993552297,3
+end-to-end wall time,s,ssat,388.66612103333074,384.4541446529329,390.9289849763736,3
+audit stage (all model evaluations),s,captum,130.47528448762992,129.76448636502028,130.8310768865049,3
+audit stage (all model evaluations),s,ssat,368.3893595269571,364.3767345128581,370.6658600922674,3
+analysis + report stage,s,captum,10.197491787684461,10.021233293227851,10.440779724158347,3
+analysis + report stage,s,ssat,20.276761506373685,20.07741014007479,20.489749494940042,3
+perturbed model evaluations,items,captum,291200.0,291200.0,291200.0,3
+perturbed model evaluations,items,ssat,310400.0,310400.0,310400.0,3
+end-to-end wall time per perturbed item,ms,captum,0.48307958885753566,0.48040847771527284,0.4851341687346256,3
+end-to-end wall time per perturbed item,ms,ssat,1.2521460084836689,1.2385764969488817,1.259436162939348,3
+audit wall time per perturbed item,ms,captum,0.4480607296965314,0.44561980207767954,0.44928254425310743,3
+audit wall time per perturbed item,ms,ssat,1.186821390228599,1.1738941189202903,1.194155477101377,3
+"peak host RSS, largest process",GiB,captum,1.6110610961914062,1.5917892456054688,1.62689208984375,3
+"peak host RSS, largest process",GiB,ssat,1.8179613749186199,1.8067092895507812,1.8261184692382812,3
+"peak host RSS, summed process tree",GiB,captum,6.503533681233724,6.416961669921875,6.577159881591797,3
+"peak host RSS, summed process tree",GiB,ssat,5.221866607666016,5.089458465576172,5.338367462158203,3
+"peak GPU memory, device total",MiB,captum,5827.666666666667,5727.0,5982.0,3
+"peak GPU memory, device total",MiB,ssat,5168.0,5076.0,5254.0,3
+peak GPU memory above the idle baseline,MiB,captum,3890.5,3781.0,4102.0,3
+peak GPU memory above the idle baseline,MiB,ssat,3283.0,3272.0,3295.0,3
+mean GPU utilization during the audit stage,%,captum,81.50306127600739,81.05369127516778,82.1858108108108,3
+mean GPU utilization during the audit stage,%,ssat,13.14603825433641,12.991201026955464,13.223859647572088,3
+total storage,bytes,captum,58913244.0,58913242.0,58913245.0,3
+total storage,bytes,ssat,70669162.66666667,70669162.0,70669163.0,3

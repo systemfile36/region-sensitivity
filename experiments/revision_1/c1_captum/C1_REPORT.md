@@ -15,10 +15,12 @@ Each workflow was measured 3 times, in alternating order, on 2026-09-30
 from 06:06Z to 07:14Z. Nothing else ran in the container, and the host
 desktop session stayed open. The host has 32 CPU cores, 125 GiB RAM, and
 an RTX 4090. Software: captum 0.9.0, torch 2.8.0+cu129, the versions of
-the original comparison. Deviation: `../deviations.md` D-010 (the SSAT
-execution settings in the command map were corrected; commands unchanged).
+the original comparison. Deviations: `../deviations.md` D-010 (the SSAT
+execution settings in the command map were corrected; commands unchanged)
+and D-012 (a planner inefficiency in `ssat` was fixed after these results
+were seen, and both workflows were measured again; section 2).
 
-## 1. Runtime, memory, GPU, and storage (`resources.csv`, `runs.csv`, `measurements.csv`)
+## 1. Runtime, memory, GPU, and storage, pre-registered measurement (`summary/`)
 
 Mean of 3 repeats (range in parentheses).
 
@@ -38,10 +40,11 @@ Mean of 3 repeats (range in parentheses).
 
 - **Repeatability.** The coefficient of variation of the end-to-end time
   is 0.3 % for Captum and 1.5 % for SSAT. Every repeat produced the same
-  results (section 2).
-- **SSAT is about 8x slower in this setting**: 7.9x per perturbed item,
-  and 20 min vs 2.4 min end to end. The difference comes from how each
-  workflow evaluates items (`captum_baseline/workflow.py`):
+  results (section 3).
+- **SSAT is about 8x slower in this measurement**: 7.9x per perturbed item,
+  and 20 min vs 2.4 min end to end. Most of this was a planner
+  inefficiency, since fixed (section 2). The two workflows also evaluate
+  items differently (`captum_baseline/workflow.py`):
   - **Captum reference.** It is written for this one experiment:
     squeezenet1_0, 32x32 images, grids that divide the image.
     - It builds one perturbed full frame per sample, operator, and seed on
@@ -56,17 +59,19 @@ Mean of 3 repeats (range in parentheses).
       one process, batch 32 (D-010).
     - A4 found the same pattern on ImageNet: `ssat run` is CPU-bound, with
       GPU utilization below 5 %.
-  - The time difference is therefore mostly an implementation difference
-    (a special-purpose batched GPU path vs a general per-item pipeline). It
-    is not the cost of the added workflow functions: the analysis and
-    report stages take 10 s and 21 s.
+  - **Correction (D-012).** This report first attributed the time
+    difference mostly to these two evaluation paths. Section 2 shows that
+    about two thirds of the SSAT time was the planner inefficiency; the
+    evaluation paths account for the remaining 2.8x. The difference is not
+    the cost of the added workflow functions: the analysis and report
+    stages take 10 s and 21 s.
 - **Inside the SSAT audit stage** (loop times from the dump manifests):
   - **S-1:** single-operator runs without controls cost 0.94-1.07 ms per
     item.
   - **S-4 / S-5:** runs with 2 matched controls per region and 3 seeds
     cost 3.76-3.97 ms per item, plus about 25 s of metric computation
     each.
-  - The control / seed runs were not profiled further.
+  - The difference between them is the planner inefficiency (section 2).
   - The 19,200 items that SSAT evaluates beyond Captum (the S-1
     single-operator runs; `command_map.md`) take 32 s, 2.6 % of the SSAT
     time.
@@ -98,7 +103,60 @@ Mean of 3 repeats (range in parentheses).
   scalar rows would not grow. Total bytes therefore do not rank the
   workflows (implementation plan section 9.2).
 
-## 2. Identical results (`verification.json`)
+## 2. Post hoc: planner fix and re-measurement (D-012, `summary_plan_cache/`)
+
+This section was added after the results of section 1 were seen.
+
+**Cause.**
+- `PlanBuilder.materialize` recomputed all of a sample's items for each
+  chunk, and the runtime materializes each chunk twice (worker and main
+  process).
+  - S-1 has 16 items per sample in 1 chunk.
+  - S-4 / S-5 have 720 items per sample in 45 chunks (`variants_per_chunk`
+    16), so every item was built about 90 times.
+- A diagnostic outside the protocol confirmed this:
+  - In 2-sample runs, the S-4 run stage built 129,600 work items for 1,440
+    items; S-1 built 64 for 32.
+  - Planner time alone, on two P-cores, was 2.78 ms per item for S-4 and
+    0.06 ms for S-1. This matches the S-4 / S-5 vs S-1 gap in section 1.
+- **Fix** (`fb7168b`): a one-entry per-sample cache. Afterwards the same
+  S-4 run builds 1,440 work items. Item ids, chunk ids, and logits are
+  identical before and after the fix.
+
+**Re-measurement.** Both workflows were measured with the same scripts,
+commands, settings, and checks: 3 alternating repeats on 2026-10-01 from
+11:00Z to 11:27Z, at `8ef7b49` (clean tree). Mean of 3 repeats (range in
+parentheses).
+
+| Measure | Captum, section 1 | Captum, post hoc | SSAT, section 1 | SSAT, post hoc |
+|---|---|---|---|---|
+| End-to-end wall time | 143 s | 141 s (139.9-141.3) | 1,207 s | 389 s (384-391) |
+| - audit stage | 133 s | 130.5 s | 1,186 s | 368 s |
+| - S-4 / S-5 | – | – | 579 / 570 s | 166 / 166 s |
+| - analysis + report stage | 10.4 s | 10.2 s | 20.8 s | 20.3 s |
+| Wall time per perturbed item | 0.49 ms | 0.48 ms | 3.89 ms | 1.25 ms |
+| S-4 / S-5 loop time per item | – | – | 3.76-3.97 ms | 0.99-1.01 ms |
+| Mean GPU utilization, audit stage | 81 % | 82 % | 5 % | 13 % |
+| Peak GPU memory above idle | 3.8 GiB | 3.8 GiB | 3.2 GiB | 3.2 GiB |
+| Peak host RSS, largest process | 1.6 GiB | 1.6 GiB | 1.8 GiB | 1.8 GiB |
+| Peak host RSS, summed process tree | 6.4 GiB | 6.5 GiB | 4.8 GiB | 5.2 GiB |
+| Storage, total | 58.9 MB | 58.9 MB | 70.7 MB | 70.7 MB |
+
+- **The fix removes about two thirds of the SSAT time.** SSAT is now 2.8x
+  slower than Captum end to end (6.5 min vs 2.3 min), and 2.6x per
+  perturbed item.
+  - S-4 / S-5 items now cost the same as S-1 items (0.92-1.05 ms).
+  - Captum did not change (within 2 %).
+- **The remaining 2.6x per item fits the evaluation paths in section 1.**
+  SSAT perturbs and preprocesses each item on the CPU, and the GPU is used
+  13 % of the time. This was not profiled further.
+- **Memory and storage did not change.** The SSAT process-tree peak is in
+  S-2, the accuracy step, which does not use the planner.
+- **Results are the same.** All 6 runs pass every check in
+  `summary_plan_cache/verification.json`. The reliability grades equal the
+  section 1 repeats.
+
+## 3. Identical results (`verification.json`)
 
 - **Captum, all 3 repeats:**
   - raw rows 291,200;
@@ -120,7 +178,7 @@ Mean of 3 repeats (range in parentheses).
     stored metrics. The difference is therefore between code versions, not
     between runs.
 
-## 3. Engineering comparison (existing measurement, unchanged)
+## 4. Engineering comparison (existing measurement, unchanged)
 
 | Measure (one synthetic setting) | Captum reference workflow | SSAT |
 |---|---|---|
@@ -150,8 +208,10 @@ Mean of 3 repeats (range in parentheses).
     provenance, reliability grades, report) in a similar number of bytes.
   - Both workflows need a few GiB of host and GPU memory.
 - **Not supported.**
-  - SSAT does not reduce runtime: here it is about 8x slower than a purpose-built,
-    GPU-batched Captum workflow, although both finish in minutes.
+  - SSAT does not reduce runtime. With the planner fix it is 2.8x slower
+    than the purpose-built, GPU-batched Captum workflow (6.5 min vs
+    2.3 min); before the fix it was about 8x slower. Both finish in
+    minutes.
   - One synthetic setting and one implementer do not show a general
     reduction in engineering burden.
   - C1-std, a second setting, was not run.
@@ -160,6 +220,11 @@ Mean of 3 repeats (range in parentheses).
 
 C1-std is not run (protocol default). The engineering claim is narrowed to
 the measured case (implementation plan section 9.4).
+
+The drafts use the post hoc times (section 2), because the revised release
+contains the fix. The Response to Reviewers should also give the
+pre-registered times and the fix (D-012). The author decides which times
+the paper reports.
 
 **Impact paragraph (replaces "reduces the repetitive engineering work"),
 draft:**
@@ -172,12 +237,12 @@ draft:**
 > a standardized audit workflow with automatic provenance and
 > reliability-aware analysis, not lower computational cost: the
 > purpose-built Captum workflow, which batches region ablations on the GPU,
-> ran in 2.4 min versus 20 min for SSAT on one RTX 4090. We do not claim a
+> ran in 2.3 min versus 6.5 min for SSAT on one RTX 4090. We do not claim a
 > general reduction in engineering effort beyond this case study.
 
-**Captum comparison section: add a resource table** (section 1: time,
-per-item time, GPU utilization, memory, storage by content), with a note
-that SSAT stores full logits and provenance.
+**Captum comparison section: add a resource table** (sections 1 and 2:
+time, per-item time, GPU utilization, memory, storage by content), with a
+note that SSAT stores full logits and provenance.
 
 **Limitations, draft:**
 
@@ -200,4 +265,10 @@ D-010: the command map first stated the case-study SSAT settings (batch
 process, batch 32). The text was corrected after the first repeat pair; the
 commands, measurements, and verification did not change.
 
-All summaries were generated from a clean tree at `f2d3c7b`.
+D-012: after section 1 was seen, a planner inefficiency in `ssat` was found
+and fixed (`fb7168b`), and both workflows were measured again with the same
+protocol (section 2). The section 1 results stay as recorded.
+
+The section 1 summaries (`summary/`) were generated from a clean tree at
+`f2d3c7b`; the section 2 measurement and summaries (`summary_plan_cache/`)
+at `8ef7b49`.

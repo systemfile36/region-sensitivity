@@ -299,3 +299,6 @@ Recorded after the C1-min results were seen, before the re-measurement ran.
   - Outputs: `results/c1_plan_cache/` and `c1_captum/summary_plan_cache/`.
   - The pre-registered C1-min results stay as recorded. The
     re-measurement is reported next to them and labelled post hoc.
+- **Result** (added after the re-measurement). SSAT went from 1,207 s to
+  389 s end to end, and Captum from 143 s to 141 s. All checks pass, and
+  the grades are unchanged (`C1_REPORT.md` section 2).

@@ -1,0 +1,10 @@
+workflow,entry,bytes,share,content
+captum,analysis,35421834.0,0.6012541763953789,"analysis tables (sample/region/class/dataset, controls, seed stability, bootstrap CI, operator consistency; Parquet + CSV)"
+captum,files,16896.0,0.0002867945957958112,"run manifest, provenance, accuracy, report.md, comparison metrics"
+captum,raw,23474514.0,0.39845902900882524,"raw observations: one row per item (ids, clean and perturbed margin, degradation, areas, status)"
+ssat,analysis,3823325.0,0.05410174474592142,"reliability grades, controls, seed and strategy stability, intervals, rank correlation"
+ssat,dumps,43658899.0,0.6177927875830499,"raw observations: clean and per-item logits (10 classes), region/operator/seed/area metadata, item index, run manifest with resolved config"
+ssat,files,7283.0,0.00010305768067965599,"accuracy, verdicts, report.md, region CSVs"
+ssat,heatmaps,246858.0,0.003493150204204108,representative heatmaps (evaluate.py)
+ssat,metrics,13886023.0,0.19649338517703674,per-item margin-drop metrics and region aggregates
+ssat,report,9046774.666666666,0.12801587460910813,HTML reports with data CSVs and figures

@@ -206,6 +206,12 @@ the container (`pip install -e ".[reference]"`).
 Results and the claim-narrowing draft are in `c1_captum/C1_REPORT.md`.
 C1-std (ImageNet second setting) was not run (protocol default).
 
+The post hoc re-measurement after the planner fix (`deviations.md` D-012)
+uses the same scripts with other output locations:
+`measure_resources.py --repeats 3 --output-root results/c1_plan_cache`,
+then `summarize.py --results-dir results/c1_plan_cache --summary-dir
+c1_captum/summary_plan_cache` (paths under `experiments/revision_1/`).
+
 ## Running new audits
 
 `common/run_matrix.py --matrix <matrix.json> --output-root <dir>` runs
