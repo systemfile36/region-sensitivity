@@ -212,6 +212,21 @@ uses the same scripts with other output locations:
 then `summarize.py --results-dir results/c1_plan_cache --summary-dir
 c1_captum/summary_plan_cache` (paths under `experiments/revision_1/`).
 
+## Paper figures
+
+Fig. 5 of the revised manuscript (design sensitivity and cost) is drawn from
+the tracked A1-A4 summary CSVs only.
+
+| Step | Command | Output (`results/paper_figures/fig5/`) | Time |
+|---|---|---|---|
+| Fig. 5 | `python scripts/paper_figures/rev1_fig5_design_sensitivity.py` (`--help` for subsets) | `fig5_design_sensitivity.pdf` (core, 2x2, color: the manuscript copy), every version x layout x style x annotation under `<version>/<style>/`, `index.csv`, `fig5_values.json`, `provenance.json` | ~1 min |
+| Tests | `python -m pytest -q tests/unit/test_rev1_fig5.py` | – | seconds |
+
+Versions are `core` (thresholds, HIGH share vs K, four-model profiles, audit
+time) and `extended` (adds agreement vs K and storage). Layouts are `wide`,
+`grid`, `column` (core only), and `panels`. `fig5_values.json` lists every
+plotted or annotated number for checking the caption and text.
+
 ## Running new audits
 
 `common/run_matrix.py --matrix <matrix.json> --output-root <dir>` runs
