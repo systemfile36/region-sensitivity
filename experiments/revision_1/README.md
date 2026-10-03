@@ -19,6 +19,7 @@ never on the host. Scripts are run from the repository root.
 | `phase0/` | yes | Baseline freeze and verification scripts (P0-1 to P0-7) |
 | `phase0/summary/` | yes | Small JSON outputs of Phase 0, each with a `*.provenance.json` |
 | `deviations.md` | yes | Every departure from the pre-registered plan, with timing |
+| `COMMIT_MAP.md` | yes | Recorded commit hashes that a history rewrite moved, with the branch commit of identical content |
 | `<experiment>/protocol.json` | yes | Pre-registered settings, committed before the experiment runs |
 | `results/` | no (`results*/`) | Dumps, recomputed stores, logs, and other large intermediates |
 
@@ -166,6 +167,14 @@ interrupted sweep resumes where it stopped. Results are in
 `a4_scaling/A4_REPORT.md`. The run-phase RSS is the largest single process,
 not the worker pool total (`deviations.md` D-009).
 
+The post hoc re-measurement of four settings after the planner fix
+(`deviations.md` D-013, ~6 h, host otherwise idle):
+
+| Step | Command | Output | Time |
+|---|---|---|---|
+| Re-measure | `python experiments/revision_1/a4_scaling/run_scaling.py all --repeats 3 --settings n1000_g4_v5_k3 n4000_g4_v5_k3 n500_g4_v5_k0 n500_g4_v5_k20 --output-root experiments/revision_1/results/a4_plan_cache` | `results/a4_plan_cache/{measurements,warmups,estimates}.jsonl` | ~6 h |
+| Compare | `python experiments/revision_1/a4_scaling/compare_plan_cache.py` | `a4_scaling/summary_plan_cache/{measurements,comparison,fits,estimate_accuracy}.csv` | seconds |
+
 ## Phase 5: B2 NTU semantic validation (human annotation, offline)
 
 Pre-registered in `b2_ntu_semantic/protocol.md` and `protocol.json`
@@ -215,7 +224,9 @@ c1_captum/summary_plan_cache` (paths under `experiments/revision_1/`).
 ## Paper figures
 
 Fig. 5 of the revised manuscript (design sensitivity and cost) is drawn from
-the tracked A1-A4 summary CSVs only.
+the tracked A1-A4 summary CSVs only, including the post hoc A4
+re-measurement (`a4_scaling/summary_plan_cache/`, D-013) for the audit-time
+panel.
 
 | Step | Command | Output (`results/paper_figures/fig5/`) | Time |
 |---|---|---|---|
@@ -253,6 +264,7 @@ Filled in as experiments complete.
 | Sample / region count vs wall-clock, throughput, storage | `fig_a4_samples.pdf`, `fig_a4_regions.pdf`, `fits.csv`, `settings.csv` | `a4_scaling/summary/` |
 | Control / perturbation count vs cost | `fig_a4_controls.pdf`, `fig_a4_perturbations.pdf`, `reference_points.csv` | `a4_scaling/summary/` |
 | Peak GPU / host memory by workload size; cost breakdown | `fig_a4_memory.pdf`, `components.csv`, `workload_table.csv`, `coarse_to_fine.csv`, `estimate_accuracy.csv` | `a4_scaling/summary/` |
+| Cost after the planner fix (post hoc, D-013) | `comparison.csv`, `fits.csv`, `estimate_accuracy.csv`, `A4_REPORT.md` section 6 | `a4_scaling/summary_plan_cache/` |
 | Captum comparison: runtime / memory / storage | `resources.csv`, `runs.csv`, `storage.csv`, `verification.json` | `c1_captum/summary/` |
 | Captum comparison: claim narrowing (engineering burden) | `C1_REPORT.md` (draft wording) | `c1_captum/` |
 | NTU quantitative semantic validation | `alignment_summary.json`, `alignment_by_class.csv`, `robustness.csv`, `group_breakdown.csv` (post hoc), `fig_b2_alignment.pdf`, `fig_b2_examples.pdf`; `annotator_agreement.csv` once a second annotator is added | `b2_ntu_semantic/summary/` |

@@ -154,6 +154,66 @@ Predictions from the pooled fits; "measured" values are from section 3.
   samples that is 4.3 h and 72 GiB `analyze` RSS instead of 13.7 h and
   229 GiB. Subset sampling reduces every figure in proportion to N.
 
+## 6. Post hoc: re-measurement after the planner fix (D-013, `summary_plan_cache/`)
+
+This section was added after sections 1-5 and the C1 re-measurement (D-012)
+were seen. The sweep ran before the planner fix (`d0fcca8`), which removed a
+per-chunk recomputation of each sample's items in the main process. Four
+settings were measured again with the same scripts, configs, inputs,
+settings, warm-ups, and estimates, on 2026-10-02 from 05:54Z to 12:13Z at
+`620054c` (`ssat/` clean). `n500_g4_v5_k0` has one chunk per sample, which
+the fix cannot change, and serves as the drift control between the two
+sessions. The interpretation rule was fixed in D-013 before the run.
+
+| Setting | Chunks per sample | Repeats | Audit loop, ms per item: sweep | After the fix | Ratio | Ratio / drift control |
+|---|---|---|---|---|---|---|
+| `n500_g4_v5_k0` (drift control) | 1 | 3 | 3.90 | 3.96 | 1.015 | 1.000 |
+| `n1000_g4_v5_k3` (reference) | 3 | 3 | 3.70 | 3.66 | 0.988 | 0.974 |
+| `n4000_g4_v5_k3` | 3 | 1 | 3.76 | 3.53 | 0.940 | 0.927 |
+| `n500_g4_v5_k20` | 14 | 3 | 3.99 | 3.67 | 0.920 | 0.906 |
+
+- **The sessions are comparable.** The drift control changed by 1.5 %. Its
+  repeat CV rose to 5 % because its first repeat was slower (170 s vs
+  155-156 s).
+- **The fix removes the extra cost of many chunks per sample.** Before the
+  fix, K=20 items cost 8 % more than 4x4 K=3 items (3.99 vs 3.70 ms).
+  Afterwards they cost the same (3.67 vs 3.53-3.66 ms). The gain is 9 % at
+  K=20 and 3 % at the reference setting. K=0 remains the most expensive
+  per item, because the fixed cost per sample is shared by only 81 items.
+- **The cost stays linear, with a lower slope.** Over these four settings
+  (10 measurements each), `time = a + b * items` gives:
+
+  | Fit (`summary_plan_cache/fits.csv`) | Sweep | After the fix |
+  |---|---|---|
+  | Audit loop, ms per item (R^2) | 3.88 (0.9972) | 3.58 (0.9984) |
+  | `ssat run`, ms per item | 3.92 | 3.62 |
+  | End to end, ms per item | 4.83 | 4.52 |
+  | Sec. 3.2 setting (3.21 M items), audit loop | 12,454 s | 11,520 s (3.2 h) |
+  | Sec. 3.2 setting, end to end | 4.3 h | 4.0 h |
+
+  The subset fit of the sweep (3.88 ms) is above the pooled sweep fit
+  (3.80 ms, section 2) because the subset includes K=0 and K=20. The stored
+  Sec. 3.2 run (11,925 s) ran before the fix, so it does not check the
+  post-fix prediction.
+- **Nothing else changed.** `metrics`, `analyze`, and `report` times are
+  within 3 %. Stored bytes are identical. Peak RSS is unchanged (run phase
+  12-39 GiB largest process, `analyze` 1.3-23.6 GiB). Mean GPU utilization
+  rose from 2.9-3.8 % to 3.3-4.3 %.
+- **`ssat estimate`** predicted 0.95-1.31x the measured `ssat run` for these
+  settings (3 of 4 within +-25 %), against 0.83-1.13x in the sweep.
+- **Memory.** During `n500_g4_v5_k20` repeat 0 the host ran out of memory
+  (worker pool about 104 GiB plus 10.5 GiB main process). The kernel killed
+  the desktop browser and VS Code, and the measurement completed (D-013).
+  The fix does not change memory: the largest run-phase process was
+  38.7 GiB before and after.
+
+**Decision under the D-013 rule.** The K=20 adjusted ratio (0.906) is
+outside 0.95-1.05. The manuscript therefore quotes the post-fix per-item
+time and Sec. 3.2 prediction (3.6 ms per evaluation for `run`, 4.5 ms end
+to end, about 4 h for the Sec. 3.2 setting). The pre-registered sweep
+(sections 1-5) stays as recorded and is reported next to it in the
+Response.
+
 ## Interpretation (experiment plan section 8.6)
 
 1. **What dominates the cost.** The number of model evaluations. Per item,
@@ -163,9 +223,11 @@ Predictions from the pooled fits; "measured" values are from section 3.
    preprocessing would (a possible software follow-up after the revision;
    `ssat` is not changed now).
 2. **Is the growth predictable?** Yes. Time and storage are linear in
-   `N * (1 + R * V * (1 + K))`. One per-item constant (3.8 ms for `run`,
-   4.8 ms end to end on this host) predicts runs 2.5x larger than any
-   measured setting to within 3 %. `ssat estimate` gives a +-25 % preflight
+   `N * (1 + R * V * (1 + K))`. In the sweep (before the planner fix), one
+   per-item constant (3.8 ms for `run`, 4.8 ms end to end on this host)
+   predicts runs 2.5x larger than any measured setting to within 3 %. After
+   the fix the constant is 3.6 ms for `run` and 4.5 ms end to end
+   (section 6). `ssat estimate` gives a +-25 % preflight
    on any machine.
 3. **When is exhaustive auditing burdensome?**
    - The paper setting (3.2 M items) takes about 4 h end to end.
@@ -181,8 +243,10 @@ Predictions from the pooled fits; "measured" values are from section 3.
 
 - **Computational cost / scalability paragraph** (new, or an extension of
   the BENCHMARK_v1 statement):
-  - Linear cost in the item count, 3.8 ms per model evaluation (~260/s) on
-    one RTX 4090 host, CPU-bound.
+  - Linear cost in the item count, 3.6 ms per model evaluation for `run`
+    and 4.5 ms end to end on one RTX 4090 host, CPU-bound. These are the
+    post-fix values of section 6 (D-013 rule); the sweep's 3.8 / 4.8 ms and
+    its +2.5 % cross-check go to the Response.
   - GPU memory constant at ~4 GiB device total (roughly 1-2 GiB for the
     audit itself; section 1).
   - Storage 3.9 kB per item.

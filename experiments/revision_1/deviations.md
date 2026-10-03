@@ -302,3 +302,69 @@ Recorded after the C1-min results were seen, before the re-measurement ran.
 - **Result** (added after the re-measurement). SSAT went from 1,207 s to
   389 s end to end, and Captum from 143 s to 141 s. All checks pass, and
   the grades are unchanged (`C1_REPORT.md` section 2).
+
+## D-013 (2026-10-02, Phase 4 A4): post hoc re-measurement of four A4 settings after the planner fix
+
+Recorded after the A4 and C1 results were seen, before the re-measurement ran.
+
+- **Why.** The A4 sweep ran before the planner fix of D-012 (`d0fcca8` on
+  the branch; D-012 cites `fb7168b`, the same change before the branch was
+  rewritten). The revised manuscript cites the fixed code, but its cost
+  figures (3.8 ms per evaluation, linearity, the Sec. 3.2 prediction, the
+  `ssat estimate` accuracy) come from the sweep. Before the fix, the main
+  process rebuilt a sample's items once per chunk, so the overhead per item
+  grows with the number of chunks per sample (128 variants per chunk): 1 for
+  K=0, 3 for the 4x4 K=3 settings, 14 for K=20.
+- **Settings.** Same scripts, configs, inputs, execution settings, warm-ups,
+  schedule order, and estimates as the sweep; only `--settings` (new
+  filter in `run_scaling.py`, default behavior unchanged) and the output
+  root `results/a4_plan_cache/` differ.
+  - `n1000_g4_v5_k3` (reference setting), 3 repeats;
+  - `n4000_g4_v5_k3` (largest measured item count), 1 repeat, as in the sweep;
+  - `n500_g4_v5_k20` (most chunks per sample), 3 repeats;
+  - `n500_g4_v5_k0` (one chunk per sample, which the fix cannot change):
+    the drift control for host differences between the two sessions, 3 repeats.
+  - `n1000_g8_v5_k3` (11 chunks per sample) is not re-run: it drove the
+    worker pool to a host OOM in the sweep (D-009).
+- **Analysis.** `compare_plan_cache.py` writes `summary_plan_cache/`. The
+  primary quantity is the audit-loop time per item after / before for each
+  setting, divided by the same ratio of the drift control.
+- **Interpretation rule** (fixed now).
+  - If the drift control's ratio is outside 0.95-1.05, host conditions
+    differ between the sessions, and adjusted differences of that size are
+    reported as inconclusive.
+  - If the adjusted ratios of `n1000_g4_v5_k3` and `n500_g4_v5_k20` are
+    both within 0.95-1.05, the manuscript keeps the A4 sweep figures and
+    states that they were confirmed on the fixed code.
+  - Otherwise the per-item time and the Sec. 3.2 prediction in the
+    manuscript come from the post-fix subset fit, and the pre-registered
+    sweep is reported next to it in the Response.
+  - The pre-registered sweep, its fits, and `summary/` stay as recorded.
+- **Launch.** The first launch (2026-10-02 05:49Z) failed in the warm-up,
+  before any measurement: the container had lost GPU access (NVML could not
+  initialize, CUDA unavailable). The container was restarted (not
+  recreated; packages unchanged: torch 2.8.0+cu129, captum 0.9.0), the
+  failed launch's partial files were removed, and the run was started again.
+- **Host OOM during `n500_g4_v5_k20` repeat 0** (recorded while the
+  re-measurement was still running). At 2026-10-02 18:24:41 KST
+  (09:24:41Z), about 31 min into the `ssat run` phase, the host ran out of
+  memory. The kernel's task dump shows the run's 12 DataLoader workers at
+  about 104 GiB RSS in total (5-17 GiB each) and the main process at
+  10.5 GiB. The kernel killed the author's Chrome and VS Code processes,
+  not the audit. The measurement completed with return code 0 in all four
+  phases. As in D-009, the measurement is kept and the event is reported
+  with it. Chrome and VS Code were open during the re-measurement, which
+  they were not during the original sweep's K=20 runs.
+- **Result** (added after the re-measurement; `A4_REPORT.md` section 6).
+  The ten measurements ran from 2026-10-02 05:54Z to 12:13Z at `620054c`
+  (`ssat/` clean; uncommitted changes only in the revision scripts and
+  documents). No further OOM event occurred.
+  - Drift control `n500_g4_v5_k0`: ratio 1.015, inside 0.95-1.05, so the
+    two sessions are comparable.
+  - Adjusted audit-loop ratios: `n1000_g4_v5_k3` 0.974,
+    `n4000_g4_v5_k3` 0.927 (one repeat each), `n500_g4_v5_k20` 0.906.
+  - K=20 is outside 0.95-1.05, so by the rule above the manuscript's
+    per-item time and Sec. 3.2 prediction come from the post-fix subset
+    fit (3.58 ms per item for the audit loop, 3.62 ms for `ssat run`,
+    4.52 ms end to end), and the pre-registered sweep is reported next to
+    it in the Response.
