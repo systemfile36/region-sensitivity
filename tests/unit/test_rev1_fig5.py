@@ -65,8 +65,29 @@ def test_cost_fit_and_references_match_a4_report(data: fig5.Fig5Data) -> None:
     assert run_fit["b"] * 1e3 == pytest.approx(3.84, abs=0.01)
 
 
-def test_axis_group_marks_shared_settings() -> None:
-    assert fig5.axis_group("n500_g4_v5_k3") == "shared"
+def test_post_fix_fit_matches_a4_report_section_6(data: fig5.Fig5Data) -> None:
+    assert len(data.post_timing) == 10
+    assert set(data.post_timing["group"]) == {"samples", "controls"}
+    assert data.post_fit["b"] * 1e3 == pytest.approx(3.58, abs=0.01)
+    assert data.post_fit["predicted_paper_setting_s"] == pytest.approx(11520, abs=5)
+    values = fig5.figure_values(data)["time"]
+    assert values["after_fix"]["fit_ms_per_item"] == pytest.approx(3.58, abs=0.01)
+    assert values["before_fix"]["fit_ms_per_item"] == pytest.approx(3.80, abs=0.01)
+
+
+def test_post_fix_tables_reject_unknown_settings() -> None:
+    sweep = pd.read_csv(fig5.INPUTS["a4_measurements"])
+    post = pd.read_csv(fig5.INPUTS["a4_post_measurements"])
+    fits = pd.read_csv(fig5.INPUTS["a4_post_fits"])
+    with pytest.raises(ValueError, match="not in the A4 sweep"):
+        fig5.post_fix_tables(post, fits, sweep[sweep["setting"] != "n500_g4_v5_k20"], "loop")
+    with pytest.raises(ValueError, match="'after' rows"):
+        fig5.post_fix_tables(post, fits[fits["code"] == "before"], sweep, "loop")
+
+
+def test_axis_group_assigns_shared_settings_to_their_owner() -> None:
+    assert fig5.axis_group("n500_g4_v5_k3") == "samples"
+    assert fig5.axis_group("n500_g4_v5_k20") == "controls"
     assert fig5.axis_group("n1000_g8_v5_k3") == "regions"
     with pytest.raises(ValueError):
         fig5.axis_group("n7_g4_v5_k3")

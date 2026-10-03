@@ -6,15 +6,18 @@ written, so the manuscript can switch layouts without re-running analyses.
 
 * Versions: ``core`` has the four panels of the manuscript plan (thresholds,
   HIGH share vs K, four-model profiles, audit time). ``extended`` adds grade
-  agreement with K=20 and storage (six panels).
+  agreement with K=20 and storage (six panels). The audit-time panel shows
+  the A4 sweep, which ran before the planner fix, and the four settings
+  re-measured after it (``deviations.md`` D-013), each with its own fit.
 * Layouts: ``wide`` (one row; 2x3 for ``extended``) and ``grid`` (two
   columns) at full page width, ``column`` (one column, ``core`` only) at
   single-column width, and ``panels`` (one file per panel).
 * Styles: ``color`` (validated categorical palette) and ``mono`` (grayscale).
   Every series also has its own line style and marker, so both styles stay
   readable in print.
-* Annotations: ``on`` adds the default-threshold, K=3, fit-slope, and
-  prediction-error labels; ``off`` (``_plain`` files) leaves them to the caption.
+* Annotations: ``on`` adds the default-threshold, K=3, and fit-slope labels
+  (the slopes only in panels at least 80 mm wide); ``off`` (``_plain``
+  files) leaves them to the caption.
 
 Outputs under ``--output-dir``: ``<version>/<style>/fig5_<version>_<layout>_<style>[_plain].<fmt>``,
 ``<version>/<style>/panels/...``, ``fig5_design_sensitivity.pdf`` (core, grid,
@@ -44,11 +47,12 @@ import matplotlib.pyplot as plt  # noqa: E402
 from matplotlib import font_manager  # noqa: E402
 from matplotlib.axes import Axes  # noqa: E402
 from matplotlib.lines import Line2D  # noqa: E402
+from matplotlib.legend_handler import HandlerTuple  # noqa: E402
 from matplotlib.ticker import NullFormatter  # noqa: E402
 import numpy as np  # noqa: E402
 import pandas as pd  # noqa: E402
 
-from experiments.revision_1.a4_scaling.sweep import AXES  # noqa: E402
+from experiments.revision_1.a4_scaling.sweep import AXES, owner_axis  # noqa: E402
 from experiments.revision_1.common.provenance import REPO_ROOT, write_json_shared, write_provenance  # noqa: E402
 
 REV1_DIR = REPO_ROOT / "experiments" / "revision_1"
@@ -63,6 +67,8 @@ INPUTS = {
     "a4_measurements": REV1_DIR / "a4_scaling" / "summary" / "measurements.csv",
     "a4_fits": REV1_DIR / "a4_scaling" / "summary" / "fits.csv",
     "a4_reference_points": REV1_DIR / "a4_scaling" / "summary" / "reference_points.csv",
+    "a4_post_measurements": REV1_DIR / "a4_scaling" / "summary_plan_cache" / "measurements.csv",
+    "a4_post_fits": REV1_DIR / "a4_scaling" / "summary_plan_cache" / "fits.csv",
 }
 
 # Elsevier artwork widths (double and single column).
@@ -104,7 +110,6 @@ AXIS_GROUPS = {
     "regions": ("grid", "s"),
     "controls": ("controls $K$", "^"),
     "perturbations": ("conditions $V$", "D"),
-    "shared": ("shared setting", "P"),
 }
 TIME_MEASURES = {"loop": ("run_loop_s", "audit loop"), "run": ("run_s", "ssat run")}
 
@@ -133,6 +138,8 @@ SERIES = {
     "total": SeriesStyle("all outputs", BLUE, "#000000", "-", "o"),
     "raw": SeriesStyle("raw dump", ORANGE, "#6e6e6e", "--", "s", filled=False),
     "reference": SeriesStyle("reference run", ORANGE, "#000000", "", "*"),
+    "before_fix": SeriesStyle("before the fix", AXIS_INK, "#8f8f8f", "-", "o", filled=False),
+    "after_fix": SeriesStyle("after the fix", BLUE, "#000000", "-", "o"),
 }
 
 
@@ -149,6 +156,8 @@ class Fig5Data:
     timing: pd.DataFrame
     time_measure: str
     time_fit: dict[str, float]
+    post_timing: pd.DataFrame
+    post_fit: dict[str, float]
     storage_fit: dict[str, float]
     references: pd.DataFrame
 
@@ -254,12 +263,24 @@ def profile_table(region_profile: pd.DataFrame) -> tuple[pd.DataFrame, dict[str,
 
 
 def axis_group(setting: str) -> str:
-    """The sweep axis of an A4 setting, or ``shared`` when several axes contain it."""
+    """The sweep axis that owns an A4 setting (shared settings belong to the first axis listing them)."""
 
-    axes = [axis for axis, settings in AXES.items() if any(s.key == setting for s in settings)]
-    if not axes:
-        raise ValueError(f"A4 setting {setting} is on no sweep axis")
-    return axes[0] if len(axes) == 1 else "shared"
+    for settings in AXES.values():
+        for candidate in settings:
+            if candidate.key == setting:
+                return owner_axis(candidate)
+    raise ValueError(f"A4 setting {setting} is on no sweep axis")
+
+
+def _timing_frame(measurements: pd.DataFrame, column: str) -> pd.DataFrame:
+    return pd.DataFrame({
+        "setting": measurements["setting"],
+        "group": measurements["setting"].map(axis_group),
+        "items": measurements["items"],
+        "hours": measurements[column] / 3600.0,
+        "total_gb": measurements["total_bytes"] / 1e9,
+        "raw_gb": measurements["raw_bytes"] / 1e9,
+    })
 
 
 def cost_tables(measurements: pd.DataFrame, fits: pd.DataFrame, reference_points: pd.DataFrame,
@@ -270,14 +291,7 @@ def cost_tables(measurements: pd.DataFrame, fits: pd.DataFrame, reference_points
     pooled = fits[fits["axis"] == "pooled"].set_index("y")
     time_fit = {key: float(pooled.loc[column, key]) for key in ("a", "b", "r2", "x_min", "x_max")}
     storage_fit = {"total_bytes_per_item": float(pooled.loc["total_bytes", "b"]), "raw_bytes_per_item": float(pooled.loc["raw_bytes", "b"])}
-    timing = pd.DataFrame({
-        "setting": measurements["setting"],
-        "group": measurements["setting"].map(axis_group),
-        "items": measurements["items"],
-        "hours": measurements[column] / 3600.0,
-        "total_gb": measurements["total_bytes"] / 1e9,
-        "raw_gb": measurements["raw_bytes"] / 1e9,
-    })
+    timing = _timing_frame(measurements, column)
     refs = reference_points[reference_points["reference"].isin(REFERENCES)].copy()
     measure_fits = {measure: (float(pooled.loc[y, "a"]), float(pooled.loc[y, "b"])) for measure, (y, _) in TIME_MEASURES.items()}
     refs["fit_measure"] = refs["reference"].map(REFERENCE_MEASURES)
@@ -289,18 +303,39 @@ def cost_tables(measurements: pd.DataFrame, fits: pd.DataFrame, reference_points
     return timing, time_fit, storage_fit, refs.reset_index(drop=True)
 
 
+def post_fix_tables(measurements: pd.DataFrame, fits: pd.DataFrame, sweep: pd.DataFrame,
+                    time_measure: str) -> tuple[pd.DataFrame, dict[str, float]]:
+    """The settings re-measured after the planner fix and their linear fit (``compare_plan_cache.py``).
+
+    Raises:
+        ValueError: If a re-measured setting is not in the sweep, or the fit is missing.
+    """
+
+    extra = set(measurements["setting"]) - set(sweep["setting"])
+    if extra:
+        raise ValueError(f"re-measured settings not in the A4 sweep: {sorted(extra)}")
+    rows = fits[(fits["code"] == "after") & (fits["time"] == time_measure)]
+    if len(rows) != 1:
+        raise ValueError(f"summary_plan_cache/fits.csv has {len(rows)} 'after' rows for {time_measure}")
+    fit = {key: float(rows.iloc[0][key]) for key in ("a", "b", "r2", "x_min", "x_max", "n_points", "predicted_paper_setting_s")}
+    return _timing_frame(measurements, TIME_MEASURES[time_measure][0]), fit
+
+
 def load_data(time_measure: str = "loop") -> Fig5Data:
     """Read the summary CSVs and build every panel table."""
 
     presets = json.loads(INPUTS["a1_protocol"].read_text(encoding="utf-8"))["presets"]
     thresholds, preset_points = threshold_tables(pd.read_csv(INPUTS["a1_z_curve"]), pd.read_csv(INPUTS["a1_table"]), presets)
     profiles, spearman = profile_table(pd.read_csv(INPUTS["a3_region_profile"]))
-    timing, time_fit, storage_fit, refs = cost_tables(pd.read_csv(INPUTS["a4_measurements"]), pd.read_csv(INPUTS["a4_fits"]),
+    sweep = pd.read_csv(INPUTS["a4_measurements"])
+    timing, time_fit, storage_fit, refs = cost_tables(sweep, pd.read_csv(INPUTS["a4_fits"]),
                                                       pd.read_csv(INPUTS["a4_reference_points"]), time_measure)
+    post_timing, post_fit = post_fix_tables(pd.read_csv(INPUTS["a4_post_measurements"]), pd.read_csv(INPUTS["a4_post_fits"]),
+                                            sweep, time_measure)
     return Fig5Data(presets=presets, thresholds=thresholds, preset_points=preset_points,
                     control_count=control_count_table(pd.read_csv(INPUTS["a2_grade_vs_k"])),
                     profiles=profiles, profile_spearman=spearman, timing=timing, time_measure=time_measure,
-                    time_fit=time_fit, storage_fit=storage_fit, references=refs)
+                    time_fit=time_fit, post_timing=post_timing, post_fit=post_fit, storage_fit=storage_fit, references=refs)
 
 
 def figure_values(data: Fig5Data) -> dict[str, Any]:
@@ -325,9 +360,14 @@ def figure_values(data: Fig5Data) -> dict[str, Any]:
         "architectures": {"protocol": "crop_free", "order_by": REFERENCE_MODEL,
                           "cell_order": data.profiles[data.profiles["model"] == REFERENCE_MODEL]["cell"].tolist(),
                           "spearman_with_reference": data.profile_spearman, "spearman_in_cross_model_csv": reported},
-        "time": {"measure": TIME_MEASURES[data.time_measure][1], "fit_seconds": data.time_fit,
-                 "fit_ms_per_item": data.time_fit["b"] * 1e3, "n_measurements": int(len(data.timing)),
-                 "references": records(data.references[["reference", "items", "seconds", "fit_measure", "predicted_s", "relative_error", "method"]])},
+        "time": {"measure": TIME_MEASURES[data.time_measure][1],
+                 "before_fix": {"source": "A4 sweep, pooled fit", "fit_seconds": data.time_fit,
+                                "fit_ms_per_item": data.time_fit["b"] * 1e3, "n_measurements": int(len(data.timing))},
+                 "after_fix": {"source": "D-013 re-measurement, fit over its four settings", "fit_seconds": data.post_fit,
+                               "fit_ms_per_item": data.post_fit["b"] * 1e3, "n_measurements": int(len(data.post_timing)),
+                               "predicted_sec32_setting_h": data.post_fit["predicted_paper_setting_s"] / 3600.0},
+                 "references_before_fix": records(data.references[["reference", "items", "seconds", "fit_measure", "predicted_s",
+                                                                   "relative_error", "method"]])},
         "storage": {**data.storage_fit,
                     "references": records(data.references[["reference", "items", "raw_gb", "predicted_raw_gb"]].dropna())},
     }
@@ -486,35 +526,52 @@ def _reference_points(ax: Axes, data: Fig5Data, ctx: Context, column: str, *, la
 
 
 def plot_time(ax: Axes, data: Fig5Data, ctx: Context) -> None:
-    """Wall time against model evaluations for the timed audits, with the pooled fit."""
+    """Wall time against model evaluations: the sweep before the planner fix and the settings re-measured after it."""
 
+    size = 3.0 if ctx.compact else 3.5
+    after = ctx.color("after_fix")
+    sweep_handles = []
     for group, (label, marker) in AXIS_GROUPS.items():
         rows = data.timing[data.timing["group"] == group]
-        ax.plot(rows["items"] / 1e6, rows["hours"], linestyle="", marker=marker, markersize=3.0 if ctx.compact else 3.5,
-                markerfacecolor=SURFACE, markeredgecolor=TEXT_SECONDARY, markeredgewidth=0.7, label=label, zorder=3)
-    fit = data.time_fit
+        sweep_handles += ax.plot(rows["items"] / 1e6, rows["hours"], linestyle="", marker=marker, markersize=size, markerfacecolor=SURFACE,
+                                 markeredgecolor=TEXT_SECONDARY, markeredgewidth=0.7, label=label, zorder=3)
+        rows = data.post_timing[data.post_timing["group"] == group]
+        ax.plot(rows["items"] / 1e6, rows["hours"], linestyle="", marker=marker, markersize=size + 0.5, markerfacecolor=after,
+                markeredgecolor=SURFACE, markeredgewidth=0.4, zorder=4)
     x_end = 1.05 * data.references["items"].max()
-    fit_label = f"fit, {fit['b'] * 1e3:.1f} ms per evaluation" if ctx.annotate else "linear fit"
-    _fit_line(ax, ctx, "total", fit["b"] / 3600.0, fit["a"] / 3600.0, fit["x_max"], x_end, fit_label)
-    _reference_points(ax, data, ctx, "hours")
+    fit_handles = []
+    for key, fit, word in (("after_fix", data.post_fit, "after"), ("before_fix", data.time_fit, "before")):
+        slope_label = ctx.annotate and ctx.panel_mm >= TWO_COLUMN_LEGEND_MM
+        label = f"{word}: {fit['b'] * 1e3:.1f} ms per evaluation" if slope_label else f"fit {word} the fix"
+        _fit_line(ax, ctx, key, fit["b"] / 3600.0, fit["a"] / 3600.0, fit["x_max"], x_end, label)
+        fit_handles.append(ax.get_lines()[-2])
+    references = []
+    for _, ref in data.references.iterrows():
+        _, marker = REFERENCES[ref["reference"]]
+        references += ax.plot(ref["items"] / 1e6, ref["hours"], linestyle="", marker=marker, markersize=7 if marker == "*" else 5,
+                              color=ctx.color("reference"), markeredgecolor=TEXT_PRIMARY, markeredgewidth=0.5, zorder=5)
     ax.set_xlim(0, x_end / 1e6)
     ax.set_ylim(0, None)
     ax.set_xlabel("model evaluations (millions)")
     ax.set_ylabel(f"{TIME_MEASURES[data.time_measure][1]} wall time (h)")
-    if ctx.annotate:
-        paper = data.references[data.references["reference"] == "imagenet_mnv2_050_exact_k3"].iloc[0]
-        _note(ax, f"fit {paper['relative_error']:+.1%}", (paper["items"] / 1e6, paper["hours"]), ctx,
-              xytext=(-6, 6), textcoords="offset points", ha="right")
-    if ctx.compact:
-        ax.legend(loc="upper left", fontsize=ctx.legend_size, frameon=False, handletextpad=0.3)
+    after_points = Line2D([], [], linestyle="", marker="o", markersize=size + 0.5, markerfacecolor=after, markeredgecolor=SURFACE,
+                          label="after the fix")
+    rest = [after_points, *fit_handles, tuple(references)]
+    rest_labels = ["after the fix", *(h.get_label() for h in fit_handles), "Sec. 3.2 and A2 runs"]
+    common = {"fontsize": ctx.legend_size, "frameon": False, "handletextpad": 0.3, "title_fontsize": ctx.legend_size,
+              "handler_map": {tuple: HandlerTuple(ndivide=None, pad=0.3)}}
+    if ctx.panel_mm < TWO_COLUMN_LEGEND_MM:
+        # Narrow panels: one legend above the lines, with headroom for it.
+        ax.set_ylim(0, 1.9 * ax.get_ylim()[1])
+        ax.legend(handles=[*sweep_handles, *rest], labels=[*(h.get_label() for h in sweep_handles), *rest_labels],
+                  loc="upper left", ncol=1 if ctx.compact else 2, columnspacing=0.8, title="sweep before the fix (open):",
+                  alignment="left", **common)
         return
-    # Sweep axes upper left, fit and reference runs in the empty area below the line.
-    handles, labels = ax.get_legend_handles_labels()
-    split = len(AXIS_GROUPS)
-    sweep = ax.legend(handles[:split], labels[:split], loc="upper left", fontsize=ctx.legend_size, frameon=False,
-                      ncol=2 if ctx.panel_mm >= TWO_COLUMN_LEGEND_MM else 1, handletextpad=0.3, columnspacing=0.8)
+    # Sweep axes upper left; the re-measurement, fits, and reference runs in the empty area below the lines.
+    sweep = ax.legend(handles=sweep_handles, loc="upper left", ncol=2, columnspacing=0.8, title="sweep before the fix",
+                      alignment="left", **common)
     ax.add_artist(sweep)
-    ax.legend(handles[split:], labels[split:], loc="lower right", fontsize=ctx.legend_size, frameon=False, handletextpad=0.3)
+    ax.legend(handles=rest, labels=rest_labels, loc="lower right", **common)
 
 
 def plot_storage(ax: Axes, data: Fig5Data, ctx: Context) -> None:
@@ -533,6 +590,8 @@ def plot_storage(ax: Axes, data: Fig5Data, ctx: Context) -> None:
     ax.set_ylim(0, None)
     ax.set_xlabel("model evaluations (millions)")
     ax.set_ylabel("storage (GB)")
+    # Headroom keeps the legend above the extrapolated lines.
+    ax.set_ylim(0, 1.6 * ax.get_ylim()[1])
     ax.legend(loc="upper left", fontsize=ctx.legend_size, frameon=False)
 
 
