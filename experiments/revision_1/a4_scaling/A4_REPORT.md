@@ -267,4 +267,7 @@ split; full-pipeline warm-ups; dump write not timed; grid ids) and D-009
 (host OOM; run-phase RSS semantics; kept outliers; run-phase RSS removed
 from the workload predictions after the first fit output). All summaries
 were regenerated from a clean tree at `82eba9f`. `components.json` was
-produced from a clean tree at `43edc7d` before the sweep.
+produced from a clean tree at `43edc7d` before the sweep. D-013 (section 6): the
+post hoc re-measurement ran at `620054c` (`ssat/` clean), and
+`summary_plan_cache/` was generated from a clean tree at `1aa063c`. Recorded
+hashes that a history rewrite moved are listed in `../COMMIT_MAP.md`.
