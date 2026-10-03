@@ -10,8 +10,8 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from experiments.revision_1.a4_scaling import fit_scaling, summarize
-from experiments.revision_1.a4_scaling.run_scaling import loop_seconds, parse_log_events, subdir_bytes
+from experiments.revision_1.a4_scaling import compare_plan_cache, fit_scaling, summarize
+from experiments.revision_1.a4_scaling.run_scaling import loop_seconds, parse_log_events, scheduled, subdir_bytes
 from experiments.revision_1.a4_scaling.sweep import AXES, SINGLE_REPEAT_MIN_N, Setting, build_config, owner_axis, schedule
 from ssat.application.config import load_application_config
 from ssat.core.adapter.provider import default_adapter_provider_registry
@@ -138,3 +138,35 @@ def test_summarize_writes_figures(measurements: pd.DataFrame, tmp_path: Path) ->
     for name in ("samples", "regions", "controls", "perturbations", "memory"):
         assert (tmp_path / f"fig_a4_{name}.pdf").stat().st_size > 0
     assert json.loads((tmp_path / "summarize.provenance.json").read_text())["inputs"]
+
+
+def test_scheduled_filters_settings_and_keeps_order() -> None:
+    only = frozenset({"n500_g4_v5_k0", "n500_g4_v5_k20"})
+    keys = [(setting.key, repeat) for setting, repeat in scheduled("controls", 3, only)]
+    assert keys == [(key, repeat) for key, repeat in ((s.key, r) for s, r in schedule("controls", 3)) if key in only]
+    assert len(keys) == 6
+    assert scheduled("samples", 3, only) == []
+    assert scheduled("controls", 3) == list(schedule("controls", 3))
+
+
+def test_compare_plan_cache_ratios_and_drift_control(tmp_path: Path) -> None:
+    settings = {s.key: s for s in AXES["controls"]} | {s.key: s for s in AXES["samples"]}
+    keys = ("n500_g4_v5_k0", "n500_g4_v5_k20", "n1000_g4_v5_k3")
+    pre = [_record("controls", settings[key], repeat) for key in keys for repeat in range(3)]
+    post = []
+    for record in pre:
+        # After the fix: drift control unchanged, K=20 10 % faster, K=3 5 % faster (loop and run).
+        factor = {"n500_g4_v5_k0": 1.0, "n500_g4_v5_k20": 0.9, "n1000_g4_v5_k3": 0.95}[record["setting"]]
+        phases = {**record["phases"], "run": {**record["phases"]["run"], "elapsed_s": record["phases"]["run"]["elapsed_s"] * factor}}
+        post.append({**record, "run_loop_s": record["run_loop_s"] * factor, "phases": phases})
+    rows = compare_plan_cache.comparison_rows(fit_scaling.flatten(pre), fit_scaling.flatten(post)).set_index("setting")
+    assert rows.loc["n500_g4_v5_k0", "chunks_per_sample"] == 1
+    assert rows.loc["n500_g4_v5_k20", "chunks_per_sample"] == 14
+    assert rows.loc["n500_g4_v5_k20", "loop_ratio"] == pytest.approx(0.9)
+    assert rows.loc["n1000_g4_v5_k3", "run_ratio_vs_drift_control"] == pytest.approx(0.95)
+    assert rows.loc["n500_g4_v5_k20", "loop_ms_per_item_before"] == pytest.approx(3.6)
+    fits = compare_plan_cache.subset_fits(fit_scaling.flatten(pre), fit_scaling.flatten(post)).set_index(["code", "time"])
+    assert fits.loc[("before", "loop"), "ms_per_item"] == pytest.approx(3.6)
+    assert fits.loc[("before", "loop"), "predicted_paper_setting_s"] == pytest.approx(0.0036 * 3_210_000)
+    with pytest.raises(ValueError, match="not in the pre-registered"):
+        compare_plan_cache.comparison_rows(fit_scaling.flatten(pre[:3]), fit_scaling.flatten(post))

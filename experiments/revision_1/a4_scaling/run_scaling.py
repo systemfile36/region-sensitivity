@@ -16,9 +16,12 @@ estimate --json`` is recorded once per setting. Results are appended to
 ``<output-root>/measurements.jsonl`` (one line per measurement), warm-ups to
 ``warmups.jsonl``, and estimates to ``estimates.jsonl``. Measurements already
 in the file are skipped, so an interrupted sweep can be restarted.
+``--settings`` restricts the sweep to the given setting keys (post hoc
+re-measurement, ``deviations.md`` D-013).
 
 Example:
     python experiments/revision_1/a4_scaling/run_scaling.py all --repeats 3
+    python experiments/revision_1/a4_scaling/run_scaling.py all --settings n1000_g4_v5_k3 --output-root experiments/revision_1/results/a4_plan_cache
 """
 
 from __future__ import annotations
@@ -204,12 +207,19 @@ def run_estimate(setting: Setting, root: Path) -> dict[str, object]:
     return record
 
 
-def run_axis(bench: Any, axis: str, root: Path, *, repeats: int, keep: bool, estimates: bool) -> None:
+def scheduled(axis: str, repeats: int, only: frozenset[str] | None = None) -> list[tuple[Setting, int]]:
+    """``schedule(axis, repeats)``, restricted to the setting keys in ``only`` when given."""
+
+    return [(setting, repeat) for setting, repeat in schedule(axis, repeats) if only is None or setting.key in only]
+
+
+def run_axis(bench: Any, axis: str, root: Path, *, repeats: int, keep: bool, estimates: bool,
+             only: frozenset[str] | None = None) -> None:
     """Warm up, record estimates, then measure every scheduled ``(setting, repeat)`` of ``axis``."""
 
     measurements = root / "measurements.jsonl"
     done = _read_keys(measurements, ("setting", "repeat"))
-    todo = [(setting, repeat) for setting, repeat in schedule(axis, repeats) if (setting.key, repeat) not in done]
+    todo = [(setting, repeat) for setting, repeat in scheduled(axis, repeats, only) if (setting.key, repeat) not in done]
     if not todo:
         print(f"[{axis}] nothing to do", flush=True)
         return
@@ -238,14 +248,21 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--output-root", type=Path, default=A4_RESULTS_DIR)
     parser.add_argument("--keep-dumps", action="store_true")
     parser.add_argument("--no-estimate", action="store_true")
+    parser.add_argument("--settings", nargs="+", metavar="KEY", help="Measure only these setting keys (e.g. n500_g4_v5_k20).")
     parser.add_argument("--dry-run", action="store_true", help="Print the schedule and item totals only.")
     args = parser.parse_args(argv)
 
     axes = list(AXES) if args.axis == "all" else [args.axis]
+    only = None if args.settings is None else frozenset(args.settings)
+    if only is not None:
+        unknown = only - {setting.key for axis in axes for setting in AXES[axis]}
+        if unknown:
+            raise SystemExit(f"settings not on the selected axes: {sorted(unknown)}")
+        axes = [axis for axis in axes if scheduled(axis, args.repeats, only)]
     if args.dry_run:
         total = 0
         for axis in axes:
-            for setting, repeat in schedule(axis, args.repeats):
+            for setting, repeat in scheduled(axis, args.repeats, only):
                 total += setting.planned_items
                 print(f"{axis:13s} {setting.key:22s} r{repeat} {setting.planned_items:>10,}")
         print(f"total planned items: {total:,}")
@@ -256,10 +273,10 @@ def main(argv: list[str] | None = None) -> int:
     root = args.output_root
     root.mkdir(parents=True, exist_ok=True)
     write_provenance(root, inputs={"base_config": BASE_CONFIG, **{f"a4_N{n}": subset_path(n) for n in sorted({s.n for a in axes for s in AXES[a]})}},
-                     extra={"axes": axes, "repeats": args.repeats}, filename=f"run_scaling_{datetime.now(timezone.utc):%Y%m%dT%H%M%S}.provenance.json")
+                     extra={"axes": axes, "repeats": args.repeats, "settings": None if only is None else sorted(only)}, filename=f"run_scaling_{datetime.now(timezone.utc):%Y%m%dT%H%M%S}.provenance.json")
     bench = load_benchmark_module()
     for axis in axes:
-        run_axis(bench, axis, root, repeats=args.repeats, keep=args.keep_dumps, estimates=not args.no_estimate)
+        run_axis(bench, axis, root, repeats=args.repeats, keep=args.keep_dumps, estimates=not args.no_estimate, only=only)
     return 0
 
 
