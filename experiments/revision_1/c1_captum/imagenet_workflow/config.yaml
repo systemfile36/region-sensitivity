@@ -1,0 +1,40 @@
+schema_version: captum-reference-imagenet-v1
+global_seed: 20260820
+bootstrap_seed: 20260820
+bootstrap_resamples: 1000
+confidence_level: 0.95
+loader_batch_size: 4
+perturbations_per_eval: 16
+control_pixel_budget: 12000000
+num_workers: 12
+device: cuda
+
+data:
+  image_root: data/imagenet/ILSVRC/Data/CLS-LOC/val
+  annotation: data/revision_1/imagenet/val_1_per_class_c1.txt
+  dataset_name: imagenet_val_1_per_class_c1
+
+model:
+  timm_name: mobilenetv2_050.lamb_in1k
+  pretrained: true
+
+preprocessing:
+  geometry: squash
+  output_size: [224, 224]
+  interpolation: bicubic
+  mean: [0.485, 0.456, 0.406]
+  std: [0.229, 0.224, 0.225]
+
+regions:
+  rows: 4
+  cols: 4
+  controls_per_region: 3
+
+perturbations:
+  mean_fill: {params: {value: [123.675, 116.28, 103.53]}, seed_salts: [0]}
+  blur: {params: {sigma: 3.0}, seed_salts: [0]}
+  gaussian_noise: {params: {sigma: 12.5}, seed_salts: [0, 1, 2]}
+
+thresholds:
+  z_vs_control: 2.0
+  ratio_zero_threshold: 1.0e-6

@@ -213,7 +213,24 @@ the container (`pip install -e ".[reference]"`).
 | Tests | `python -m pytest -q tests/unit/test_rev1_c1.py` | – | seconds |
 
 Results and the claim-narrowing draft are in `c1_captum/C1_REPORT.md`.
-C1-std (ImageNet second setting) was not run (protocol default).
+
+### C1-std: second setting (ImageNet subset)
+
+Pre-registered in `c1_captum/protocol_std.json` and
+`c1_captum/command_map_std.md`. Both workflows audit 1,000 ImageNet
+validation images (1 per class) with `mobilenetv2_050`, crop-free, 4x4, 5
+variants, and K=3. The Captum side is `c1_captum/imagenet_workflow/`, a copy
+of the synthetic reference adapted to ImageNet (its `README.md` lists the
+changes); the SSAT side is `c1_captum/configs/imagenet_mnv2_050_crop_free_c1.yaml`.
+Setup time is not measured; the adaptation is compared through quantitative
+and qualitative indicators only (`protocol_std.json` decisions.setup_time).
+
+| Step | Command | Output | Time |
+|---|---|---|---|
+| Inputs | `python experiments/revision_1/c1_captum/make_inputs_std.py` (`--check` verifies the registered SHA-256) | `data/revision_1/imagenet/val_1_per_class_c1.txt` | seconds |
+| Measure | `python experiments/revision_1/c1_captum/measure_std.py --repeats 3` (`--dry-run` lists the commands) | `results/c1_std/measurements.jsonl`, `results/c1_std/{captum,ssat}_fresh/r<repeat>/` | ~1.5 h |
+| Summaries and checks | `python experiments/revision_1/c1_captum/summarize_std.py` | `summary_std/{measurements,runs,resources,storage}.csv`, `summary_std/{parity_items,parity_profile}.csv`, `summary_std/{parity,verification,engineering}.json` | ~1 min |
+| Tests | `python -m pytest -q tests/unit/test_rev1_c1_std.py` | – | seconds |
 
 The post hoc re-measurement after the planner fix (`deviations.md` D-012)
 uses the same scripts with other output locations:

@@ -1,0 +1,86 @@
+{
+  "experiment": "C1-std",
+  "title": "Captum engineering comparison: second setting (ImageNet subset)",
+  "registered_on": "2026-10-05",
+  "plan": {
+    "experiment_plan": "docs/internal/revision_1/SSAT_minor_revision_experiment_plan.md section 10",
+    "implementation_plan": "docs/internal/revision_1/SSAT_minor_revision_implementation_plan.md section 9.3"
+  },
+  "decisions": {
+    "run": "The author decided on 2026-10-05, after C1-min (protocol.json) and its post hoc re-measurement (deviations.md D-012), to run C1-std (implementation plan section 12 item 4; results doc decision D4).",
+    "scope": "Compare the two workflows on one ImageNet setting: results (parity), runtime / memory / GPU / storage, and the adaptation needed from the synthetic setting (code changed, config changed). The Captum workflow is not asked to implement more than SSAT (experiment plan section 10.5): region degradation, matched-control comparison, seed repeats, operator agreement, bootstrap CI, raw storage, and resume. SSAT's reliability grades and HTML report have no Captum counterpart here and are listed as such.",
+    "setup_time": "Not measured and not reported; stated as a limitation. Implementation time and effort depend on the implementer's skill and approach and cannot be compared directly between people (the adaptations here were written with an AI coding assistant, which is a further reason but not the only one). The adaptation is compared only through indicators: quantitative (SLOC, lines added or changed from the synthetic setting, config lines changed, commands) and qualitative (stages run and managed by hand, intermediate artifacts, provenance, resume, capabilities built in vs written).",
+    "code_version": "SSAT at the revision-1 code with the planner fix (\"fix(plan): Recompute a sample's work items once per sample in materialize\"); the measurement runs from a clean tree at the commit that registers this file or later, recorded in the provenance."
+  },
+  "setting": {
+    "dataset": "ImageNet validation, 1 sample per class (1,000 samples)",
+    "model": "timm mobilenetv2_050.lamb_in1k, pretrained",
+    "preprocessing": "crop-free squash to 224x224, bicubic, antialiased; ImageNet mean/std",
+    "regions": "4x4 grid, integer boundaries row * height // rows",
+    "operators": "mean_fill (channel mean [123.675, 116.28, 103.53]), blur (sigma 3.0), gaussian_noise (sigma 12.5, seed salts 0, 1, 2): 5 variants",
+    "controls": "3 area-matched controls per target cell (rigid translation to a uniformly random in-bounds position)",
+    "captum_raw_rows": 320000,
+    "ssat_perturbed_items": 320000,
+    "ssat_items_with_clean": 321000,
+    "note": "Same setting as the A4 reference point (N=1,000, 4x4, V=5, K=3) but crop-free and on a different sample subset."
+  },
+  "subset": {
+    "source": "data/phase3/imagenet/val_10_per_class.txt",
+    "rule": "within every class, the file with the lowest sha256('rev1-c1:' + filename) (experiments/revision_1/common/subsets.py class_balanced_subset, salt 'rev1-c1')",
+    "script": "experiments/revision_1/c1_captum/make_inputs_std.py (--check verifies the file and this SHA-256)",
+    "output": "data/revision_1/imagenet/val_1_per_class_c1.txt",
+    "n": 1000,
+    "note": "A subset of the 10,000 baseline samples, so the SSAT items can be checked against results_control_3/imagenet_mnv2_050_crop_free."
+  },
+  "inputs_sha256": {
+    "data/revision_1/imagenet/val_1_per_class_c1.txt": "870dcbdc0b97c175934a861dfff1b3d0b1307c380360815bfc2e9073d00a4ab0",
+    "experiments/revision_1/c1_captum/configs/imagenet_mnv2_050_crop_free_c1.yaml": "ce6cdcef260349ded5308576d5c26f86d692da0db23e430c04f13a279d72275e",
+    "experiments/revision_1/c1_captum/imagenet_workflow/config.yaml": "b78fd6affdd9caf10b8ad0961434e1ba9b0cf45a645465b6b33ecf7186665d6d"
+  },
+  "workflows": {
+    "command_map": "experiments/revision_1/c1_captum/command_map_std.md",
+    "captum": "experiments/revision_1/c1_captum/imagenet_workflow/run.py audit, analyze, report (copied from experiments/reference_comparison/captum_baseline and adapted; imports neither SSAT nor the synthetic reference)",
+    "ssat": "ssat run, metrics, analyze, report on configs/imagenet_mnv2_050_crop_free_c1.yaml (the case-study crop-free config with source.annotation_file and relative paths changed)",
+    "execution_settings": "Captum: 12 loader workers, 4 samples per loader batch, 16 perturbations per eval for target cells, controls batched per sample. SSAT: the case-study runtime (12 workers, target batch 128, 128 variants per chunk). Neither is tuned for this comparison."
+  },
+  "measurement": {
+    "script": "experiments/revision_1/c1_captum/measure_std.py",
+    "repeats": 3,
+    "order": "Captum then SSAT on repeats 0 and 2, SSAT then Captum on repeat 1",
+    "mechanics": "as in C1-min (protocol.json measurement): measure_step wrapper per command, nvidia-smi every 0.2 s, process-tree RSS every 0.5 s, idle GPU memory and compute-process list before each workflow",
+    "storage": "Captum: bytes per top-level output entry; SSAT: bytes per dump subdirectory (clean, perturbed, index, metrics, analysis, report, other)",
+    "outputs": "experiments/revision_1/results/c1_std/{captum,ssat}_fresh/r<repeat>, kept",
+    "host": "nothing else runs in the container; the host desktop session stays open as in A4 and C1-min",
+    "budget": "about 25 min per SSAT repeat (A4 reference point) and a few minutes per Captum repeat; about 1.5 h in total"
+  },
+  "reported_measures": [
+    "end-to-end wall time and its audit / analysis + report split",
+    "wall time per perturbed item (320,000 for both workflows)",
+    "peak host RSS: largest process and summed process tree",
+    "peak GPU memory: device total and above the idle baseline; mean GPU utilization during the audit stage",
+    "storage by content",
+    "quantitative engineering indicators: SLOC of the Captum ImageNet workflow and the lines added or changed from the synthetic reference (count_python_sloc rule, difflib); SSAT config lines and lines changed from the case-study config; commands per workflow",
+    "qualitative engineering indicators (summarize_std.py CAPABILITIES): per capability, whether the Captum workflow implements it in custom code and whether SSAT provides it; which intermediate artifacts and steps are managed by hand",
+    "not reported: setup or implementation time (decisions.setup_time)"
+  ],
+  "verification": {
+    "captum_required": "every repeat: run_manifest status complete, raw rows 320,000, area check (controls keep their target's source area) passes, all commands return 0; raw and analysis canonical hashes identical across repeats",
+    "ssat_required": "every repeat: no failed items, 320,000 perturbed items, all commands return 0; counts_by_status and margin_drop grade counts identical across repeats",
+    "ssat_informational": "repeat 0 against results_control_3/imagenet_mnv2_050_crop_free on the same samples: item_id sets equal; margin_drop differences reported, not gated (deviations.md D-001)",
+    "on_failure": "reported as found; measurements are not repeated to obtain a match"
+  },
+  "parity": {
+    "inputs": "repeat 0 of each workflow (repeats are checked for identity above)",
+    "unit": "margin_drop (SSAT) and degradation (Captum) of target cells, averaged over seeds per (sample, cell, operator)",
+    "primary": "for the deterministic operators (mean_fill, blur): per-item Pearson >= 0.99, dataset-level 16-cell profile Spearman >= 0.99, and the same top cell",
+    "secondary": "16-cell rank order identical (mean_fill, blur, pooled), per-sample top-cell agreement, clean top-1 and clean-margin differences, item-level and profile agreement for gaussian_noise (noise draws differ by design)",
+    "informational": "share of target rows with z > z_threshold in each workflow; control placements and seed handling differ by design (Captum: per-seed rows, placements shared across operators; SSAT: seed-averaged anchors, placements per item)",
+    "z_threshold": 2.0,
+    "criteria_note": "The primary thresholds were set after a 6-sample development smoke test of both workflows (2026-10-05, outputs in results/c1_std_smoke, not part of the experiment). It showed per-item Pearson 0.998 (blur) and 0.999 (mean_fill) and a non-identical 16-cell rank order for mean_fill on 6 samples. The differences come from the resize: the Captum workflow resizes on the GPU (torch bicubic, antialiased), and SSAT resizes with PIL. Pixel values differ by 1 on 17 % of the values of one test image, and its logits by up to 0.10 (TF32 adds up to 0.02). Exact rank identity is therefore secondary."
+  },
+  "claims": {
+    "supports_if_parity_passes": "In a second, real-data setting, both workflows reach the same region-level results; the adaptation from the synthetic setting is reported as code changed (Captum) vs config changed (SSAT); runtime, memory, and storage are reported as measured.",
+    "does_not_support": "A general reduction of engineering effort or setup time (not measured; implementer-dependent); runtime superiority unless measured.",
+    "manuscript": "Impact paragraph, Captum comparison table, Limitations, Response to Reviewer 1 comment 7 (C1_REPORT.md drafts)."
+  }
+}
