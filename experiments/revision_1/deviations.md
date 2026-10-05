@@ -61,7 +61,7 @@ direct inputs.
   `source_run_manifest_hash` no longer matches. The dump fragments are
   unchanged since 2026-08-21.
 - All four analyses predate the last change to `ssat/analysis`
-  (`145e5e1`, analysis vectorization).
+  ("feat(analysis): Improve analysis logic by vectorize modules").
 
 **Change.** New step P0-7 (`phase0/recompute_small_baselines.py`) reruns
 `ssat metrics` and `ssat analyze` with default settings on the unchanged
@@ -262,10 +262,11 @@ and verification criteria did not change.
 ## D-011 (2026-09-30, Phase 5 B2): single annotator, empty annotator metadata, post hoc group breakdown
 
 - **One annotator.** Only `annotator_A.csv` was completed and committed
-  (`3076550`); `annotator_B.csv` is blank. The analysis ran with
-  `--annotators A`, the pre-registered single-annotator fallback. No
-  annotator agreement can be reported, and the `annotator_*_only`
-  robustness variants do not apply.
+  ("feat(revision-1): Add manual annotation for NTU-RGB+D based B2
+  experiments"); `annotator_B.csv` is blank. The analysis ran with
+  `--annotators A`, the pre-registered single-annotator fallback. No annotator
+  agreement can be reported, and the `annotator_*_only` robustness variants do
+  not apply.
 - **Annotator metadata.** `annotation/annotators.csv` (role, prior exposure
   to SSAT's NTU results, times) was still empty when the analysis ran.
   The report therefore does not state whether the rating was blind to
@@ -290,9 +291,10 @@ Recorded after the C1-min results were seen, before the re-measurement ran.
   - Planner time alone, on two P-cores: 2.78 ms per item for S-4 and
     0.06 ms for S-1. C1-min measured 3.76-3.97 ms and 0.94-1.07 ms per
     item in total.
-- **Fix.** `fb7168b` adds a one-entry per-sample cache. Item ids, chunk ids,
-  and dumps do not change: in 2-sample S-1 and S-4 runs before and after
-  the fix, the item ids are identical and the logits differ by 0.
+- **Fix.** "fix(plan): Recompute a sample's work items once per sample in
+  materialize" adds a one-entry per-sample cache. Item ids, chunk ids, and
+  dumps do not change: in 2-sample S-1 and S-4 runs before and after the fix,
+  the item ids are identical and the logits differ by 0.
 - **Re-measurement (post hoc).** Both workflows are measured again on the
   fixed code. Everything else is the same as C1-min: scripts, commands,
   execution settings, 3 alternating repeats, and verification criteria.
@@ -307,11 +309,11 @@ Recorded after the C1-min results were seen, before the re-measurement ran.
 
 Recorded after the A4 and C1 results were seen, before the re-measurement ran.
 
-- **Why.** The A4 sweep ran before the planner fix of D-012 (`d0fcca8` on
-  the branch; D-012 cites `fb7168b`, the same change before the branch was
-  rewritten). The revised manuscript cites the fixed code, but its cost
-  figures (3.8 ms per evaluation, linearity, the Sec. 3.2 prediction, the
-  `ssat estimate` accuracy) come from the sweep. Before the fix, the main
+- **Why.** The A4 sweep ran before the planner fix of D-012 ("fix(plan):
+  Recompute a sample's work items once per sample in materialize"). The
+  revised manuscript cites the fixed code, but its cost figures (3.8 ms
+  per evaluation, linearity, the Sec. 3.2 prediction, the `ssat estimate`
+  accuracy) come from the sweep. Before the fix, the main
   process rebuilt a sample's items once per chunk, so the overhead per item
   grows with the number of chunks per sample (128 variants per chunk): 1 for
   K=0, 3 for the 4x4 K=3 settings, 14 for K=20.
@@ -356,7 +358,8 @@ Recorded after the A4 and C1 results were seen, before the re-measurement ran.
   with it. Chrome and VS Code were open during the re-measurement, which
   they were not during the original sweep's K=20 runs.
 - **Result** (added after the re-measurement; `A4_REPORT.md` section 6).
-  The ten measurements ran from 2026-10-02 05:54Z to 12:13Z at `620054c`
+  The ten measurements ran from 2026-10-02 05:54Z to 12:13Z at
+  "feat(revision-1): Add figure 5 generate script and update document"
   (`ssat/` clean; uncommitted changes only in the revision scripts and
   documents). No further OOM event occurred.
   - Drift control `n500_g4_v5_k0`: ratio 1.015, inside 0.95-1.05, so the

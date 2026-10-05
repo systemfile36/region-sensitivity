@@ -1,10 +1,11 @@
 # A1 report: reliability grade threshold sensitivity
 
-Pre-registered settings: `protocol.json` (commit `cb7ef30`, before any sweep
-ran). All grades were recomputed offline from the stored analysis and metrics
-stores of the eight Phase 0 baseline runs; no model was re-run. Primary metric:
-`margin_drop`. Numbers below are shares of anchors (sample x region); tables are
-in `summary/`.
+Pre-registered settings: `protocol.json` (commit "docs(revision-1):
+Pre-register A1 threshold sensitivity protocol", before any sweep ran). All
+grades were recomputed offline from the stored analysis and metrics stores of
+the eight Phase 0 baseline runs; no model was re-run. Primary metric:
+`margin_drop`. Numbers below are shares of anchors (sample x region); tables
+are in `summary/`.
 
 ## Parity gate
 

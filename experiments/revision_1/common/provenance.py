@@ -43,11 +43,15 @@ def _git(*args: str) -> str | None:
 
 
 def git_state() -> dict[str, Any]:
-    """Return HEAD SHA, branch, ``git describe``, and whether tracked files are dirty."""
+    """Return HEAD SHA and subject, branch, ``git describe``, and whether tracked files are dirty.
+
+    The subject identifies the commit after a history rewrite changes its SHA.
+    """
 
     status = _git("status", "--porcelain", "--untracked-files=no")
     return {
         "sha": _git("rev-parse", "HEAD"),
+        "subject": _git("log", "-1", "--format=%s", "HEAD"),
         "branch": _git("rev-parse", "--abbrev-ref", "HEAD"),
         "describe": _git("describe", "--tags", "--always", "--dirty"),
         "dirty": None if status is None else bool(status),

@@ -1,8 +1,9 @@
 # A2 report: matched-control count ablation
 
-Pre-registered settings: `protocol.json` (commit `3ef8469`, before any K=20
-run started). Three K=20 runs, each compared only with subsets of its own 20
-controls (`deviations.md` D-001):
+Pre-registered settings: `protocol.json` (commit "docs(revision-1):
+Pre-register A2 control-count ablation protocol and K=20 runs", before any
+K=20 run started). Three K=20 runs, each compared only with subsets of its own
+20 controls (`deviations.md` D-001):
 
 | Run | Samples | Anchors | Perturbed items | `ssat run` time |
 |---|---|---|---|---|

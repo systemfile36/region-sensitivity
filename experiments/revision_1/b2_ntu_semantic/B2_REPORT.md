@@ -2,18 +2,20 @@
 
 ## Setup
 
-- **Pre-registration:** `protocol.md` and `protocol.json` (commit `8c29dd7`,
-  before any annotation).
+- **Pre-registration:** `protocol.md` and `protocol.json` (commit
+  "docs(revision-1): Pre-register B2 NTU semantic validation and add
+  annotation sheets", before any annotation).
 - **Annotation:** one annotator (A) rated the 5 body-part groups of all 60
   NTU-60 classes as 0 / 1 / 2 from the action names only. The sheet was
-  committed (`3076550`) before any SSAT score was computed; the scripts
-  enforce this order.
+  committed ("feat(revision-1): Add manual annotation for NTU-RGB+D based B2
+  experiments") before any SSAT score was computed; the scripts enforce this
+  order.
 - **SSAT scores:** the stored case-study runs (TSM-R50; 1,200 x-sub test
   videos, 20 per class; margin drop over mean fill, blur, and Gaussian
   noise). There is no new inference.
 - **Reproducibility:** all summaries were generated from clean trees: the
-  pre-registered outputs at `3076550`, the post hoc breakdown at the next
-  commit.
+  pre-registered outputs at "feat(revision-1): Add manual annotation for
+  NTU-RGB+D based B2 experiments", the post hoc breakdown at the next commit.
 - **Deviations:** D-011 (single annotator, empty annotator metadata, one
   post hoc analysis).
 

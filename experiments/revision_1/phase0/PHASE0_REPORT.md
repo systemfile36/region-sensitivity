@@ -1,6 +1,6 @@
 # Phase 0 report: revision baseline freeze
 
-Baseline code: tag `v1.0.0` (`9d192c8`). Phase 0 tooling: branch
+Baseline code: tag `v1.0.0`. Phase 0 tooling: branch
 `revision-1`. Every JSON in `summary/` carries a `*.provenance.json` with the
 commit, inputs (manifest SHA-256s), and environment it was produced from.
 
@@ -11,7 +11,7 @@ commit, inputs (manifest SHA-256s), and environment it was produced from.
 | P0-1 baseline manifest | 8 baseline runs + 4 K=1 parity runs described (`baseline_manifest.json`). Every baseline store chains correctly (metrics computed from its dump, analysis from its metrics), all items `ok`, source annotation files unchanged. |
 | P0-2 paper numbers | 32/32 checks pass against `docs/internal/paper/manuscript.tex` (`paper_numbers.json`): ImageNet grade shares, clean accuracy, mean region `margin_drop`, top-region share, NTU body-part ranking and class examples, synthetic Q1-Q5. |
 | P0-3 K=1 vs K=3 parity | Identity passes in all four pairs (items, masks, seeds, clean logits). Logits are not bitwise equal everywhere; see finding 1 and `deviations.md` D-001. |
-| P0-4 benchmark note | `docs/BENCHMARK_v1.md` now states the real-dataset benchmark used one control per target (config SHA-256 `0abaa1e6…`, commit `bb6b0af`). |
+| P0-4 benchmark note | `docs/BENCHMARK_v1.md` now states the real-dataset benchmark used one control per target (config SHA-256 `0abaa1e6…`, commit "chore: Run benchmark"). |
 | P0-5 environment | `environment.json`: RTX 4090 (driver 580.173.02), CUDA 12.9, cuDNN 9.10.2, torch 2.8.0+cu129, timm 1.0.28, numpy 2.3.2, pandas 3.0.5, pyarrow 25.0.0, Python 3.11.13, image `sha256:d78849c9…`. |
 | P0-6 common modules | `common/` plus `tests/unit/test_rev1_common.py` (15 tests) pass in the container. |
 | P0-7 (added) recompute | NTU stores reproduce exactly; synthetic stores reproduce except bootstrap CI bounds (8/3,200 shortcut grades). The NTU and synthetic baselines now read the recomputed stores (`deviations.md` D-002). |

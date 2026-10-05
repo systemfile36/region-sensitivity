@@ -93,8 +93,9 @@ clean top-1 accuracy, so the gate passed).
 These numbers were measured with **one** matched control per target region
 (`controls[0].n_samples: 1`, config SHA-256
 `0abaa1e60387a9a5c123a7c71409ef74f950228d296bea9b748062c166fc781d`, commit
-`bb6b0af`); the config was later raised to three controls per target
-(commit `486007a`), which roughly doubles the item count to 3,210,000.
+"chore: Run benchmark"); the config was later raised to three controls per
+target (commit "chore: Update real data case study configuration file and
+report"), which roughly doubles the item count to 3,210,000.
 
 | phase | wall time | peak host RSS (GiB) |
 | --- | ---: | ---: |

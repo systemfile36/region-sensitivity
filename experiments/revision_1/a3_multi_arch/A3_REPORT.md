@@ -1,11 +1,13 @@
 # A3 report: multi-architecture comparison
 
-Pre-registered settings: `protocol.json` (commit `d908bbd`). The model check
-`summary/model_selection.json` was committed in `4790ec9` before any A3 run.
-The four new runs use the MobileNetV2 case-study configs unchanged apart from
-the model: the same 10,000 ImageNet validation images, the 4x4 grid, three
-operators (five operator-seed conditions), and K=3 matched controls. The MobileNetV2 runs are the
-stored baselines and were not rerun. Primary metric: `margin_drop`.
+Pre-registered settings: `protocol.json` (commit "docs(revision-1):
+Pre-register A3 multi-architecture protocol, configs, and model check"). The
+model check `summary/model_selection.json` was committed in "docs(revision-1):
+Record A3 model selection check" before any A3 run. The four new runs use the
+MobileNetV2 case-study configs unchanged apart from the model: the same 10,000
+ImageNet validation images, the 4x4 grid, three operators (five operator-seed
+conditions), and K=3 matched controls. The MobileNetV2 runs are the stored
+baselines and were not rerun. Primary metric: `margin_drop`.
 
 | Model | timm checkpoint | Params | Clean top-1, exact / crop-free | `ssat run` time, exact / crop-free |
 |---|---|---|---|---|

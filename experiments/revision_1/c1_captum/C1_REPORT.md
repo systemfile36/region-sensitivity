@@ -1,10 +1,11 @@
 # C1 report: Captum comparison, resource measurement (C1-min)
 
-Pre-registered: `protocol.json` and `command_map.md` (commit `77d437c`,
-before any measurement). Scope: C1-min, the existing synthetic-shortcut
-comparison (`docs/REFERENCE_COMPARISON_CAPTUM_v1.md`) with runtime, memory,
-GPU, and storage added. C1-std (a second setting on ImageNet) was not run;
-that is the protocol default and is left to the author.
+Pre-registered: `protocol.json` and `command_map.md` (commit
+"docs(revision-1): Pre-register C1 resource comparison and add measurement
+script", before any measurement). Scope: C1-min, the existing
+synthetic-shortcut comparison (`docs/REFERENCE_COMPARISON_CAPTUM_v1.md`) with
+runtime, memory, GPU, and storage added. C1-std (a second setting on ImageNet)
+was not run; that is the protocol default and is left to the author.
 
 The two workflows:
 - **Captum reference workflow:** `run.py audit`, `analyze`, `report`.
@@ -119,13 +120,15 @@ This section was added after the results of section 1 were seen.
     items; S-1 built 64 for 32.
   - Planner time alone, on two P-cores, was 2.78 ms per item for S-4 and
     0.06 ms for S-1. This matches the S-4 / S-5 vs S-1 gap in section 1.
-- **Fix** (`fb7168b`): a one-entry per-sample cache. Afterwards the same
-  S-4 run builds 1,440 work items. Item ids, chunk ids, and logits are
-  identical before and after the fix.
+- **Fix** ("fix(plan): Recompute a sample's work items once per sample in
+  materialize"): a one-entry per-sample cache. Afterwards the same S-4 run
+  builds 1,440 work items. Item ids, chunk ids, and logits are identical
+  before and after the fix.
 
 **Re-measurement.** Both workflows were measured with the same scripts,
 commands, settings, and checks: 3 alternating repeats on 2026-10-01 from
-11:00Z to 11:27Z, at `8ef7b49` (clean tree). Mean of 3 repeats (range in
+11:00Z to 11:27Z, at "docs(revision-1): Record the post hoc C1 planner fix and
+re-measurement plan (D-012)" (clean tree). Mean of 3 repeats (range in
 parentheses).
 
 | Measure | Captum, section 1 | Captum, post hoc | SSAT, section 1 | SSAT, post hoc |
@@ -266,9 +269,12 @@ process, batch 32). The text was corrected after the first repeat pair; the
 commands, measurements, and verification did not change.
 
 D-012: after section 1 was seen, a planner inefficiency in `ssat` was found
-and fixed (`fb7168b`), and both workflows were measured again with the same
-protocol (section 2). The section 1 results stay as recorded.
+and fixed ("fix(plan): Recompute a sample's work items once per sample in
+materialize"), and both workflows were measured again with the same protocol
+(section 2). The section 1 results stay as recorded.
 
 The section 1 summaries (`summary/`) were generated from a clean tree at
-`f2d3c7b`; the section 2 measurement and summaries (`summary_plan_cache/`)
-at `8ef7b49`.
+"feat(revision-1): Add C1 resource summaries and verification against stored
+runs"; the section 2 measurement and summaries (`summary_plan_cache/`) at
+"docs(revision-1): Record the post hoc C1 planner fix and re-measurement plan
+(D-012)".

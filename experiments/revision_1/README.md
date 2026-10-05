@@ -19,7 +19,7 @@ never on the host. Scripts are run from the repository root.
 | `phase0/` | yes | Baseline freeze and verification scripts (P0-1 to P0-7) |
 | `phase0/summary/` | yes | Small JSON outputs of Phase 0, each with a `*.provenance.json` |
 | `deviations.md` | yes | Every departure from the pre-registered plan, with timing |
-| `COMMIT_MAP.md` | yes | Recorded commit hashes that a history rewrite moved, with the branch commit of identical content |
+| `COMMIT_MAP.md` | yes | Commit message for each `git.sha` recorded in a provenance file (documents cite commits by message only) |
 | `<experiment>/protocol.json` | yes | Pre-registered settings, committed before the experiment runs |
 | `results/` | no (`results*/`) | Dumps, recomputed stores, logs, and other large intermediates |
 
