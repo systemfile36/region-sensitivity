@@ -1,0 +1,112 @@
+{
+  "all_pass": true,
+  "baseline_identity_informational": {
+    "baseline": "imagenet_mnv2_050_crop_free_k3",
+    "fresh_items": 320000,
+    "item_id_sets_equal": true,
+    "margin_drop_bitwise_equal_share": 0.74890625,
+    "margin_drop_max_abs_diff": 0.02583789825439453,
+    "stored_items_same_samples": 320000
+  },
+  "repeats": {
+    "captum_analysis_hash_identical": true,
+    "captum_raw_hash_identical": true,
+    "ssat_counts_identical": true,
+    "ssat_grade_counts_identical": true
+  },
+  "runs": {
+    "captum_r0": {
+      "analysis_canonical_hash": "f454a73620215c3c9b644e279d79097f646a6be1b1ec2db385c625b0ffa8f5e8",
+      "checks": {
+        "area_sanity": true,
+        "complete": true,
+        "raw_rows": true,
+        "returncodes_zero": true
+      },
+      "pass": true,
+      "raw_canonical_hash": "0b1413e39d6b65d13fe670806591c3b2feb565b2321319b6f718afed2208cad1"
+    },
+    "captum_r1": {
+      "analysis_canonical_hash": "f454a73620215c3c9b644e279d79097f646a6be1b1ec2db385c625b0ffa8f5e8",
+      "checks": {
+        "area_sanity": true,
+        "complete": true,
+        "raw_rows": true,
+        "returncodes_zero": true
+      },
+      "pass": true,
+      "raw_canonical_hash": "0b1413e39d6b65d13fe670806591c3b2feb565b2321319b6f718afed2208cad1"
+    },
+    "captum_r2": {
+      "analysis_canonical_hash": "f454a73620215c3c9b644e279d79097f646a6be1b1ec2db385c625b0ffa8f5e8",
+      "checks": {
+        "area_sanity": true,
+        "complete": true,
+        "raw_rows": true,
+        "returncodes_zero": true
+      },
+      "pass": true,
+      "raw_canonical_hash": "0b1413e39d6b65d13fe670806591c3b2feb565b2321319b6f718afed2208cad1"
+    },
+    "ssat_r0": {
+      "checks": {
+        "no_failed_items": true,
+        "perturbed_items": true,
+        "returncodes_zero": true
+      },
+      "counts_by_status": {
+        "load_failed": 0,
+        "ok": 321000,
+        "predict_failed": 0,
+        "prepare_failed": 0,
+        "skipped_oom": 0
+      },
+      "grade_counts": {
+        "high": 1989,
+        "low": 4192,
+        "unreliable": 9819
+      },
+      "pass": true
+    },
+    "ssat_r1": {
+      "checks": {
+        "no_failed_items": true,
+        "perturbed_items": true,
+        "returncodes_zero": true
+      },
+      "counts_by_status": {
+        "load_failed": 0,
+        "ok": 321000,
+        "predict_failed": 0,
+        "prepare_failed": 0,
+        "skipped_oom": 0
+      },
+      "grade_counts": {
+        "high": 1989,
+        "low": 4192,
+        "unreliable": 9819
+      },
+      "pass": true
+    },
+    "ssat_r2": {
+      "checks": {
+        "no_failed_items": true,
+        "perturbed_items": true,
+        "returncodes_zero": true
+      },
+      "counts_by_status": {
+        "load_failed": 0,
+        "ok": 321000,
+        "predict_failed": 0,
+        "prepare_failed": 0,
+        "skipped_oom": 0
+      },
+      "grade_counts": {
+        "high": 1989,
+        "low": 4192,
+        "unreliable": 9819
+      },
+      "pass": true
+    }
+  }
+}

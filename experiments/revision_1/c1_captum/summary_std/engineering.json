@@ -1,0 +1,138 @@
+{
+  "capabilities": [
+    {
+      "capability": "model wrapper: timm model, squash resize, margin output",
+      "captum_workflow": "custom",
+      "ssat": "built in (timm adapter, geometry_mode)"
+    },
+    {
+      "capability": "dataset iteration: file list, variable image sizes",
+      "captum_workflow": "custom",
+      "ssat": "built in (imagenet source)"
+    },
+    {
+      "capability": "region mask generation: grid cells",
+      "captum_workflow": "custom",
+      "ssat": "built in"
+    },
+    {
+      "capability": "perturbation operators and seeds",
+      "captum_workflow": "custom (full-frame candidates)",
+      "ssat": "built in"
+    },
+    {
+      "capability": "matched random controls",
+      "captum_workflow": "custom",
+      "ssat": "built in"
+    },
+    {
+      "capability": "control normalization: excess, z",
+      "captum_workflow": "custom",
+      "ssat": "built in"
+    },
+    {
+      "capability": "seed-repeat aggregation",
+      "captum_workflow": "custom",
+      "ssat": "built in"
+    },
+    {
+      "capability": "bootstrap uncertainty",
+      "captum_workflow": "custom",
+      "ssat": "built in"
+    },
+    {
+      "capability": "operator consistency",
+      "captum_workflow": "custom",
+      "ssat": "built in"
+    },
+    {
+      "capability": "sample / region / class / dataset aggregation",
+      "captum_workflow": "custom",
+      "ssat": "built in"
+    },
+    {
+      "capability": "preprocessing validation",
+      "captum_workflow": "custom (check against timm data config)",
+      "ssat": "built in (preprocessing fingerprint)"
+    },
+    {
+      "capability": "model-space region area",
+      "captum_workflow": "custom",
+      "ssat": "built in (effective_area_px)"
+    },
+    {
+      "capability": "per-item raw storage",
+      "captum_workflow": "custom (one scalar row per item)",
+      "ssat": "built in (full logits)"
+    },
+    {
+      "capability": "resolved configuration and provenance",
+      "captum_workflow": "custom",
+      "ssat": "automatic"
+    },
+    {
+      "capability": "cache identity and resume",
+      "captum_workflow": "custom",
+      "ssat": "built in"
+    },
+    {
+      "capability": "reliability grades",
+      "captum_workflow": "not implemented",
+      "ssat": "built in"
+    },
+    {
+      "capability": "report",
+      "captum_workflow": "custom (Markdown)",
+      "ssat": "built in (HTML)"
+    }
+  ],
+  "captum_changes_from_synthetic_reference": {
+    "per_file": {
+      "analysis.py": {
+        "added_or_changed": 134,
+        "new": 311,
+        "old": 658,
+        "removed": 481,
+        "unchanged": 177
+      },
+      "run.py": {
+        "added_or_changed": 1,
+        "new": 51,
+        "old": 51,
+        "removed": 1,
+        "unchanged": 50
+      },
+      "workflow.py": {
+        "added_or_changed": 284,
+        "new": 661,
+        "old": 752,
+        "removed": 375,
+        "unchanged": 377
+      }
+    },
+    "total": {
+      "added_or_changed": 419,
+      "new": 1023,
+      "old": 1461,
+      "removed": 857,
+      "unchanged": 604
+    }
+  },
+  "captum_imagenet_workflow_sloc": 1023,
+  "captum_synthetic_reference_sloc": 1461,
+  "commands": {
+    "captum": 3,
+    "ssat": 4
+  },
+  "loc_method": "physical lines containing non-comment Python tokens (count_python_sloc); changes by difflib over those lines",
+  "setup_time": "not measured (protocol_std.json decisions.setup_time)",
+  "shared_input_script_sloc": 44,
+  "ssat_config_changes_from_case_study": {
+    "added_or_changed": 2,
+    "new": 31,
+    "old": 31,
+    "removed": 2,
+    "unchanged": 29
+  },
+  "ssat_config_lines": 31
+}

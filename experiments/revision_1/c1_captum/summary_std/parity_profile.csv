@@ -1,0 +1,5 @@
+perturbation,deterministic,profile_spearman,rank_order_identical,top_cell_identical,max_abs_cell_mean_diff,top_cell_agreement_per_sample
+all,False,1.0,True,True,0.0016129778193103017,0.946
+blur,True,1.0,True,True,0.0008737626969814172,0.963
+gaussian_noise,False,0.9794117647058824,False,True,0.002930002321799595,0.603
+mean_fill,True,1.0,True,True,0.0014878911077976231,0.964

@@ -1,0 +1,89 @@
+{
+  "captum_output": "/workspace/experiments/revision_1/results/c1_std/captum_fresh/r0",
+  "clean": {
+    "clean_margin_max_abs_diff": 0.21151304244995117,
+    "clean_margin_median_abs_diff": 0.020900487899780273,
+    "correctness_agreement": 0.996,
+    "samples": 1000,
+    "top1_captum": 0.623,
+    "top1_ssat": 0.623
+  },
+  "controls_informational": {
+    "captum_share_z_above": 0.1347875,
+    "captum_unit": "target row per (sample, cell, operator, seed); controls per seed",
+    "ssat_share_z_above": 0.14941666666666667,
+    "ssat_unit": "target anchor per (sample, cell, condition); seed-averaged anchors"
+  },
+  "items": [
+    {
+      "deterministic": true,
+      "max_abs_diff": 0.26566123962402344,
+      "mean_diff": 3.5919778514653445e-05,
+      "median_abs_diff": 0.012111663818359375,
+      "n": 16000,
+      "pearson": 0.9987810549286494,
+      "perturbation": "blur",
+      "spearman": 0.997580596872215
+    },
+    {
+      "deterministic": false,
+      "max_abs_diff": 0.5233832200368246,
+      "mean_diff": -0.0004016113715867203,
+      "median_abs_diff": 0.029300451278686523,
+      "n": 16000,
+      "pearson": 0.915042360018256,
+      "perturbation": "gaussian_noise",
+      "spearman": 0.8781929239418447
+    },
+    {
+      "deterministic": true,
+      "max_abs_diff": 0.25971031188964844,
+      "mean_diff": -6.022434961050749e-05,
+      "median_abs_diff": 0.013131856918334961,
+      "n": 16000,
+      "pearson": 0.999065583157838,
+      "perturbation": "mean_fill",
+      "spearman": 0.9983014018272894
+    }
+  ],
+  "primary_deterministic_rank_order_identical": true,
+  "profile": [
+    {
+      "deterministic": false,
+      "max_abs_cell_mean_diff": 0.0016129778193103017,
+      "perturbation": "all",
+      "profile_spearman": 1.0,
+      "rank_order_identical": true,
+      "top_cell_agreement_per_sample": 0.946,
+      "top_cell_identical": true
+    },
+    {
+      "deterministic": true,
+      "max_abs_cell_mean_diff": 0.0008737626969814172,
+      "perturbation": "blur",
+      "profile_spearman": 1.0,
+      "rank_order_identical": true,
+      "top_cell_agreement_per_sample": 0.963,
+      "top_cell_identical": true
+    },
+    {
+      "deterministic": false,
+      "max_abs_cell_mean_diff": 0.002930002321799595,
+      "perturbation": "gaussian_noise",
+      "profile_spearman": 0.9794117647058824,
+      "rank_order_identical": false,
+      "top_cell_agreement_per_sample": 0.603,
+      "top_cell_identical": true
+    },
+    {
+      "deterministic": true,
+      "max_abs_cell_mean_diff": 0.0014878911077976231,
+      "perturbation": "mean_fill",
+      "profile_spearman": 1.0,
+      "rank_order_identical": true,
+      "top_cell_agreement_per_sample": 0.964,
+      "top_cell_identical": true
+    }
+  ],
+  "ssat_output": "/workspace/experiments/revision_1/results/c1_std/ssat_fresh/r0"
+}

@@ -26,6 +26,7 @@ Provenance written from now on also stores the message in `git.subject`.
 | `960269b` | 2026-09-30 | feat(revision-1): Add post hoc B2 per-group agreement breakdown | `b2_ntu_semantic/summary/group_breakdown.provenance.json` |
 | `8ef7b49` | 2026-10-01 | docs(revision-1): Record the post hoc C1 planner fix and re-measurement plan (D-012) | `c1_captum/summary_plan_cache/provenance.json` |
 | `1aa063c` | 2026-10-03 | docs(revision-1): Record the post hoc A4 re-measurement (D-013) and a commit map | `a4_scaling/summary_plan_cache/compare_plan_cache.provenance.json` |
+| `78da294` | 2026-10-05 | docs(revision-1): Pre-register C1-std ImageNet comparison and add the Captum ImageNet workflow | `c1_captum/summary_std/provenance.json` |
 
 Several of these hashes are no longer on the branch. On 2026-10-03, while
 those commits were still in the local object store, each was checked against
