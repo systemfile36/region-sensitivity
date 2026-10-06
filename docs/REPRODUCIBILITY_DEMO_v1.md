@@ -2,9 +2,9 @@
 
 ## What this reproduces
 
-The pre-registered Q1-Q5 verdicts from
-`docs/internal/L3_Synthetic-Shortcut Experiment Report.md` (crop-free
-preprocessing): a `squeezenet1_0` classifier trained on CIFAR-10 with a
+The pre-registered Q1-Q5 verdicts of the synthetic-shortcut experiment
+(crop-free preprocessing; the original experiment report is an internal
+document and is not distributed with the repository): a `squeezenet1_0` classifier trained on CIFAR-10 with a
 synthetic patch shortcut baked into one class (`M_shortcut`), audited
 region-by-region and compared against a clean control model (`M_normal`),
 to check whether region-sensitivity auditing actually finds the shortcut.
@@ -62,8 +62,8 @@ cache hit in CI) finishes the whole sequence in under a minute.
 
 ## Why not `ssat run examples/reproduce_q1_q5.yaml`
 
-The original high-level submission plan
-(`docs/internal/IMPLE_PLAN_SOFTWAREX_SUBMISSION_v1.md`, Phase 4) sketched a
+The original high-level submission plan (an internal document, Phase 4)
+sketched a
 single-YAML `ssat run examples/reproduce_q1_q5.yaml --output <dir>`
 invocation before this experiment's actual architecture was known. The
 real Q1-Q5 audit is a 7-run sweep across (model, dataset, fill-strategy)

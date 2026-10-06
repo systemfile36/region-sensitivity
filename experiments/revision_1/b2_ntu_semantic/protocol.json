@@ -13,7 +13,7 @@
     "scale": {"0": "not involved", "1": "supporting", "2": "core"},
     "annotators": ["A", "B"],
     "single_annotator_fallback": "--annotators A, reported as a limitation",
-    "blind": "action names only; sheets committed unchanged before ssat_part_scores.py runs (enforced by the scripts)",
+    "blind": "action name and original (unperturbed) NTU RGB+D clips of the class, no SSAT outputs; sheets committed unchanged before ssat_part_scores.py runs (enforced by the scripts)",
     "consensus": "mean rating; relevant >= 1; primary == 2"
   },
   "inputs_sha256": {

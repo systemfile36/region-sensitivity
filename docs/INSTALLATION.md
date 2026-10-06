@@ -13,7 +13,7 @@ docker compose exec region-sensitivity-workspace pytest -q
 docker compose exec region-sensitivity-workspace ssat --help
 ```
 
-The image build already installs the packaged copy of SSAT and all requirements. The editable install makes the bind-mounted working tree authoritative after source changes.
+The image build already installs the packaged copy of SSAT and all requirements. The editable install makes the bind-mounted working tree authoritative after source changes. Run it again after the package version changes: `ssat --version` and the `code_version` that every run manifest records come from the installed package metadata, which an older editable install does not update.
 
 `compose.yaml` requests all available GPUs and 32 GiB of shared memory. On a CPU-only machine, remove or override the service's `gpus: all` setting. The committed quickstart configuration explicitly uses `device: cpu`.
 

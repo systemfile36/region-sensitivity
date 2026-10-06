@@ -49,10 +49,10 @@
   },
   "git": {
     "branch": "revision-1",
-    "describe": "v1.0.0-33-g960269b",
+    "describe": "v1.0.0-33-g33d79b2",
     "dirty": false,
     "dirty_files": [],
-    "sha": "960269b7aac0637eb97d205cae227a6f4cb17cfb"
+    "sha": "33d79b27e9ed633200bd461ca98f0b4ce4d27e10"
   },
   "inputs": {
     "scores": {

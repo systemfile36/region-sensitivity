@@ -2,20 +2,19 @@
 
 ## Setup
 
-- **Pre-registration:** `protocol.md` and `protocol.json` (commit
-  "docs(revision-1): Pre-register B2 NTU semantic validation and add
-  annotation sheets", before any annotation).
+- **Pre-registration:** `protocol.md` and `protocol.json` (commit `cdacf0d`,
+  before any annotation).
 - **Annotation:** one annotator (A) rated the 5 body-part groups of all 60
-  NTU-60 classes as 0 / 1 / 2 from the action names only. The sheet was
-  committed ("feat(revision-1): Add manual annotation for NTU-RGB+D based B2
-  experiments") before any SSAT score was computed; the scripts enforce this
-  order.
+  NTU-60 classes as 0 / 1 / 2 from the action names and original
+  NTU RGB+D clips of each class. The sheet was
+  committed (`c5884cc`) before any SSAT score was computed; the scripts
+  enforce this order.
 - **SSAT scores:** the stored case-study runs (TSM-R50; 1,200 x-sub test
   videos, 20 per class; margin drop over mean fill, blur, and Gaussian
   noise). There is no new inference.
 - **Reproducibility:** all summaries were generated from clean trees: the
-  pre-registered outputs at "feat(revision-1): Add manual annotation for
-  NTU-RGB+D based B2 experiments", the post hoc breakdown at the next commit.
+  pre-registered outputs at `c5884cc`, the post hoc breakdown at the next
+  commit (`33d79b2`).
 - **Deviations:** D-011 (single annotator, empty annotator metadata, one
   post hoc analysis).
 
@@ -41,8 +40,11 @@ show that it is wrong (experiment plan section 9.7).
 
 - **Agreement.** Annotator agreement (weighted kappa) cannot be computed
   with one annotator.
-- **Blind status.** `annotators.csv` was not filled in, so the report does
-  not record whether annotator A had seen SSAT's NTU results before (D-011).
+- **Blind status.** `annotators.csv` was empty when the analysis ran. It
+  was filled in post hoc (2026-10-06, D-011 addendum): annotator A is a
+  third party, not an author, who received only the rating criteria and saw
+  no SSAT result; an author checked the file format only and made no change
+  to the ratings.
 
 ## 2. Primary result (`alignment_summary.json`, `alignment_by_class.csv`, `fig_b2_alignment.pdf`)
 
@@ -137,7 +139,7 @@ separates the classes that rate it relevant from those that do not.
 
 - **Supported.**
   - SSAT's class-level body-part profile agrees with relevance ratings made
-    from action names alone, beyond chance. The mean class AUROC is 0.69,
+    from action names and original clips, beyond chance. The mean class AUROC is 0.69,
     and every group separates relevant from non-relevant classes.
   - The result is stable across preprocessing, sample filtering, area
     adjustment, and single-person classes.
@@ -149,8 +151,8 @@ separates the classes that rate it relevant from those that do not.
     classes.
   - Agreement is weak for fine hand-object actions such as reading and
     writing, and strong for leg-dominant ones.
-  - One annotator, with no recorded blind status, cannot establish
-    inter-rater reliability.
+  - One annotator (a third party blind to SSAT's results; blind status
+    recorded post hoc, D-011) cannot establish inter-rater reliability.
   - Human relevance is not causal ground truth, so none of this shows that
     SSAT's attributions are correct.
 
@@ -160,7 +162,7 @@ separates the classes that rate it relevant from those that do not.
 
 > To quantify the body-part interpretation, an annotator rated each NTU-60
 > class's relevance for five body-part groups (head, torso, arms, hands,
-> legs; 0/1/2) from the action name alone, before SSAT scores were
+> legs; 0/1/2) from the action name and original clips, before SSAT scores were
 > computed. SSAT's class-level body-part sensitivity (z-scored across
 > classes) ranked relevant groups above non-relevant ones with a mean class
 > AUROC of 0.69 (95% CI 0.60-0.77; permutation p < 0.001), consistently for

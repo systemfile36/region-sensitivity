@@ -46,10 +46,10 @@
   "extra": {},
   "git": {
     "branch": "revision-1",
-    "describe": "v1.0.0-36-g8ef7b49",
+    "describe": "v1.0.0-36-g1d0b19a",
     "dirty": false,
     "dirty_files": [],
-    "sha": "8ef7b49651a6beda231b6d472ca5debcd43f8a4d"
+    "sha": "1d0b19abb6adbbed7e07e766381975aca3a180d3"
   },
   "inputs": {
     "captum_measured_results": {

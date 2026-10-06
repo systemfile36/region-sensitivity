@@ -33,12 +33,12 @@
   "extra": {},
   "git": {
     "branch": "revision-1",
-    "describe": "v1.0.0-15-g0b285e1-dirty",
+    "describe": "v1.0.0-15-gdd77385-dirty",
     "dirty": true,
     "dirty_files": [
       "M experiments/revision_1/phase0/summary/imagenet_images.provenance.json"
     ],
-    "sha": "0b285e1ff3330f7714cc50266e13e7fa93c91833"
+    "sha": "dd773856ed26ac243af2465c6ebb373696fa0ce1"
   },
   "inputs": {
     "control_mean_convergence": {

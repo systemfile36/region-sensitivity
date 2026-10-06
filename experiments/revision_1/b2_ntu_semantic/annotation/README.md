@@ -14,8 +14,9 @@ version of this guide follows below.
   This covers `experiments/real_dataset_case_study/results/ntu60_*`, the
   HTML reports, the paper's NTU figures or heatmaps, `../summary/`, and
   the other annotator's sheet.
-- **Use only the action name** (`action_name`, the official NTU RGB+D 60
-  name). Do not watch the videos.
+- **Use the action name and original clips.** Read the action name
+  (`action_name`, the official NTU RGB+D 60 name) and watch any original
+  (unperturbed) NTU RGB+D clips of the class as needed.
 - **Work independently.** Do not discuss ratings with the other annotator
   until both sheets are committed.
 - **Record your exposure.** In `annotators.csv`, record whether you have
@@ -91,7 +92,7 @@ Body parts (left and right together):
 ## 시작 전 (blind 규칙)
 
 - **본인 시트를 커밋하기 전에는 NTU에 대한 SSAT 결과를 보지 않습니다.** `experiments/real_dataset_case_study/results/ntu60_*`, HTML report, 논문의 NTU 그림과 heatmap, `../summary/`, 다른 annotator의 시트가 모두 해당됩니다.
-- **action 이름(`action_name`, NTU RGB+D 60 공식 이름)만 보고 판단합니다.** 영상은 보지 않습니다.
+- **action 이름과 원본 영상을 보고 판단합니다.** action 이름(`action_name`, NTU RGB+D 60 공식 이름)을 보고, 필요하면 해당 class의 원본(교란하지 않은) NTU RGB+D 영상을 봅니다.
 - **각자 독립적으로 작성합니다.** 두 시트가 모두 커밋될 때까지 서로 평점을 상의하지 않습니다.
 - **노출 여부를 기록합니다.** SSAT의 NTU 결과를 이전에 본 적이 있는지(예: 논문 저자) `annotators.csv`에 적습니다.
 

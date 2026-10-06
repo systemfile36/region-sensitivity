@@ -1,8 +1,7 @@
 # B1 report: ImageNet preprocessing confound
 
-Pre-registered settings: `protocol.json` (commit "docs(revision-1):
-Pre-register B1 preprocessing confound protocol", before any B1 table was
-computed). Additions made after the first area table are listed in
+Pre-registered settings: `protocol.json` (commit `fdde68b`, before any B1
+table was computed). Additions made after the first area table are listed in
 `../deviations.md` D-004. B1-1 to B1-3 use only the stored K=3 runs; B1-4
 (P_exact with effective-area-matched controls) uses the A2 K=20 runs on their
 2,000-sample subset. Primary metric: `margin_drop`. All B1-1 to B1-3 numbers

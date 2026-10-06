@@ -20,7 +20,7 @@ The command-line interface and Python API share the same `AuditApplication` serv
 - Built-in item, sample, region, spatial, and class-level metrics.
 - Control/stability analysis, reliability grading, HTML reports, and risk-label export.
 
-SSAT is currently alpha software. The Phase-3 recipe has completed full audits on an NTU60 XSub manifest with a native TSM checkpoint and on ImageNet-1k validation with two `timm` MobileNetV2 variants (official and crop-free preprocessing each) — see [Real dataset case study](docs/REAL_DATASET_CASE_STUDY_v1.md) for the full six-run matrix and results. The Kinetics provider retains its production-data warning until a complete audit is recorded.
+SSAT is currently alpha software. The Phase-3 recipe has completed full audits on an NTU60 XSub manifest with a native TSM checkpoint and on ImageNet-1k validation with two `timm` MobileNetV2 variants (official and crop-free preprocessing each) — see [Real dataset case study](docs/REAL_DATASET_CASE_STUDY_v1.md) for the full six-run matrix and results. The [revision-1 validation experiments](docs/VALIDATION_REVISION_1.md) add ConvNeXt-T and DeiT-S, reliability-threshold and control-count sensitivity, a scaling study, a preprocessing-confound analysis, an NTU semantic check, and a second Captum comparison. The Kinetics provider retains its production-data warning until a complete audit is recorded.
 
 ## Quick start
 
@@ -186,6 +186,8 @@ SSAT records the resolved configuration, source-manifest hash, adapter identity,
 
 These controls do not make every third-party model or GPU kernel deterministic. Set `deterministic: true`, keep `runtime.allow_nondeterministic: false`, pin the software environment, and inspect warnings and per-item statuses. A spatial perturbation audit measures model sensitivity under the configured interventions; it does not by itself establish causal feature use, model fairness, robustness to arbitrary distribution shifts, or deployment safety.
 
+Reliability grades depend on the study design: with a fixed z threshold, few matched controls inflate the share of HIGH grades (about twice as many with three controls as with 20 on ImageNet), so use ten or more controls when anchor-level grades matter. The audit pipeline is CPU-bound: every item is perturbed and preprocessed on the CPU, which keeps all region kinds and adapters on one path but leaves the GPU mostly idle, and a purpose-built GPU-batched Captum workflow was 2.8-7.2 times faster. See [Revision 1 validation](docs/VALIDATION_REVISION_1.md).
+
 The above is about software-level provenance guarantees. For a concrete, third-party-reproducible scientific result built on top of them, see [Reproducibility demo (Q1-Q5)](docs/REPRODUCIBILITY_DEMO_v1.md).
 
 ## Documentation
@@ -199,9 +201,9 @@ The above is about software-level provenance guarantees. For a concrete, third-p
 - [Reference comparison (Captum)](docs/REFERENCE_COMPARISON_CAPTUM_v1.md)
 - [Reproducibility demo (Q1-Q5)](docs/REPRODUCIBILITY_DEMO_v1.md)
 - [Runtime/storage performance benchmark](docs/BENCHMARK_v1.md)
+- [Revision 1 validation experiments](docs/VALIDATION_REVISION_1.md)
 - [Contributing](CONTRIBUTING.md)
 
-The previous Korean documentation is retained under `docs/internal/`.
 
 ## Testing
 

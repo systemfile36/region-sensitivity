@@ -28,7 +28,6 @@ never on the host. Scripts are run from the repository root.
 | `phase0/` | yes | Baseline freeze and verification scripts (P0-1 to P0-7) |
 | `phase0/summary/` | yes | Small JSON outputs of Phase 0, each with a `*.provenance.json` |
 | `deviations.md` | yes | Every departure from the pre-registered plan, with timing |
-| `COMMIT_MAP.md` | yes | Commit message for each `git.sha` recorded in a provenance file (documents cite commits by message only) |
 | `<experiment>/protocol.json` | yes | Pre-registered settings, committed before the experiment runs |
 | `results/` | no (`results*/`) | Dumps, recomputed stores, logs, and other large intermediates |
 
@@ -188,7 +187,8 @@ The post hoc re-measurement of four settings after the planner fix
 
 Pre-registered in `b2_ntu_semantic/protocol.md` and `protocol.json`
 (Route A). Each annotator rates the 5 body-part groups (head, torso, arms,
-hands, legs) of all 60 NTU classes as 0 / 1 / 2 from the action name only.
+hands, legs) of all 60 NTU classes as 0 / 1 / 2 from the action name and
+original NTU RGB+D clips of the class.
 The ratings are compared with the stored NTU runs' class x group SSAT
 scores; there is no new inference. The score and alignment scripts refuse
 to run until every annotator sheet is complete and committed unchanged

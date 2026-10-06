@@ -42,10 +42,10 @@
   "extra": {},
   "git": {
     "branch": "revision-1",
-    "describe": "v1.0.0-19-ged63a16",
+    "describe": "v1.0.0-19-ga47ef0e",
     "dirty": false,
     "dirty_files": [],
-    "sha": "ed63a163ca410ccff0f238d47de35530dff174d7"
+    "sha": "a47ef0e8b0e5f75aade71478f31e560100cd9991"
   },
   "inputs": {
     "cross_model": {

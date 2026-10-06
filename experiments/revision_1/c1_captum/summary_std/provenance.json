@@ -42,10 +42,10 @@
   "extra": {},
   "git": {
     "branch": "revision-1",
-    "describe": "v1.0.0-44-g78da294",
+    "describe": "v1.0.0-44-g4f55840",
     "dirty": false,
     "dirty_files": [],
-    "sha": "78da2941ceefaf130e67cca98640a0940f91bdf2",
+    "sha": "4f5584080388e8a0e14bbde15fdc6a1a09deab39",
     "subject": "docs(revision-1): Pre-register C1-std ImageNet comparison and add the Captum ImageNet workflow"
   },
   "inputs": {

@@ -93,9 +93,8 @@ clean top-1 accuracy, so the gate passed).
 These numbers were measured with **one** matched control per target region
 (`controls[0].n_samples: 1`, config SHA-256
 `0abaa1e60387a9a5c123a7c71409ef74f950228d296bea9b748062c166fc781d`, commit
-"chore: Run benchmark"); the config was later raised to three controls per
-target (commit "chore: Update real data case study configuration file and
-report"), which roughly doubles the item count to 3,210,000.
+`bb6b0af`); the config was later raised to three controls per target
+(commit `486007a`), which roughly doubles the item count to 3,210,000.
 
 | phase | wall time | peak host RSS (GiB) |
 | --- | ---: | ---: |
@@ -191,5 +190,12 @@ work to a crash and having to redo it would be the alternative.
   already documents for the "exact" variant, not a defect introduced by
   this benchmark; see
   [Real dataset case study](REAL_DATASET_CASE_STUDY_v1.md) and
-  `docs/internal/CONTROL_STABILITY_DESIGN_v1.md` for why both "exact" and
-  "crop_free" variants exist.
+  [Revision 1 validation](VALIDATION_REVISION_1.md) (B1) for why both
+  "exact" and "crop_free" variants exist and how much they differ.
+- **Measured before the 1.0.1 planner fix.** The numbers above come from
+  1.0.0. The revision-1 scaling study (41 timed audits, then four settings
+  re-measured after the fix) is the more complete cost reference: 3.6 ms
+  per model evaluation for `ssat run` and 4.5 ms end to end, linear in the
+  number of evaluations, CPU-bound with GPU utilization below 5 %, and
+  limited by host memory ([Revision 1 validation](VALIDATION_REVISION_1.md),
+  A4; `experiments/revision_1/a4_scaling/A4_REPORT.md`).

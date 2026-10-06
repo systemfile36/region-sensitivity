@@ -1,8 +1,7 @@
 # C1 report: Captum comparison, resource measurement (C1-min) and second setting (C1-std)
 
 Sections 1-4 are C1-min. Pre-registered: `protocol.json` and
-`command_map.md` (commit "docs(revision-1): Pre-register C1 resource
-comparison and add measurement script", before any measurement). Scope: the
+`command_map.md` (commit `5c5e334`, before any measurement). Scope: the
 existing synthetic-shortcut comparison
 (`docs/REFERENCE_COMPARISON_CAPTUM_v1.md`) with runtime, memory, GPU, and
 storage added. Section 5 is C1-std, the second setting on ImageNet, which the
@@ -121,15 +120,13 @@ This section was added after the results of section 1 were seen.
     items; S-1 built 64 for 32.
   - Planner time alone, on two P-cores, was 2.78 ms per item for S-4 and
     0.06 ms for S-1. This matches the S-4 / S-5 vs S-1 gap in section 1.
-- **Fix** ("fix(plan): Recompute a sample's work items once per sample in
-  materialize"): a one-entry per-sample cache. Afterwards the same S-4 run
-  builds 1,440 work items. Item ids, chunk ids, and logits are identical
-  before and after the fix.
+- **Fix** (`d0fcca8`): a one-entry per-sample cache. Afterwards the same
+  S-4 run builds 1,440 work items. Item ids, chunk ids, and logits are
+  identical before and after the fix.
 
 **Re-measurement.** Both workflows were measured with the same scripts,
 commands, settings, and checks: 3 alternating repeats on 2026-10-01 from
-11:00Z to 11:27Z, at "docs(revision-1): Record the post hoc C1 planner fix and
-re-measurement plan (D-012)" (clean tree). Mean of 3 repeats (range in
+11:00Z to 11:27Z, at `1d0b19a` (clean tree). Mean of 3 repeats (range in
 parentheses).
 
 | Measure | Captum, section 1 | Captum, post hoc | SSAT, section 1 | SSAT, post hoc |
@@ -204,8 +201,7 @@ parentheses).
 ## 5. Second setting on ImageNet (C1-std, `summary_std/`)
 
 Pre-registered: `protocol_std.json` and `command_map_std.md` (commit
-"docs(revision-1): Pre-register C1-std ImageNet comparison and add the Captum
-ImageNet workflow", before the measurement).
+`4f55840`, before the measurement).
 
 - **Setting.** 1,000 ImageNet validation images (1 per class, salt
   `rev1-c1`), `mobilenetv2_050.lamb_in1k`, crop-free squash to 224x224, 4x4
@@ -438,19 +434,14 @@ process, batch 32). The text was corrected after the first repeat pair; the
 commands, measurements, and verification did not change.
 
 D-012: after section 1 was seen, a planner inefficiency in `ssat` was found
-and fixed ("fix(plan): Recompute a sample's work items once per sample in
-materialize"), and both workflows were measured again with the same protocol
-(section 2). The section 1 results stay as recorded.
+and fixed (`d0fcca8`), and both workflows were measured again with the same
+protocol (section 2). The section 1 results stay as recorded.
 
 The section 1 summaries (`summary/`) were generated from a clean tree at
-"feat(revision-1): Add C1 resource summaries and verification against stored
-runs"; the section 2 measurement and summaries (`summary_plan_cache/`) at
-"docs(revision-1): Record the post hoc C1 planner fix and re-measurement plan
-(D-012)".
+`456ccae`; the section 2 measurement and summaries (`summary_plan_cache/`)
+at `1d0b19a`.
 
 C1-std (section 5) has no deviations from `protocol_std.json`. Its parity
 thresholds were set after a 6-sample development smoke test, before the
 pre-registration commit, as the protocol states. The section 5 measurement
-and summaries (`summary_std/`) were made from a clean tree at
-"docs(revision-1): Pre-register C1-std ImageNet comparison and add the
-Captum ImageNet workflow".
+and summaries (`summary_std/`) were made from a clean tree at `4f55840`.

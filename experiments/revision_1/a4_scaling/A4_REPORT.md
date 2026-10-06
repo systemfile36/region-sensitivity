@@ -1,9 +1,8 @@
 # A4 report: computational scaling
 
-Pre-registered settings: `protocol.json` (commit "docs(revision-1):
-Pre-register A4 scaling protocol and add sweep, profiling, and fit scripts",
-before any measurement). Reference workload: mobilenetv2_050, exact
-preprocessing, ImageNet validation images, run settings as in the case study.
+Pre-registered settings: `protocol.json` (commit `2792c33`, before any
+measurement). Reference workload: mobilenetv2_050, exact preprocessing,
+ImageNet validation images, run settings as in the case study.
 Measurements ran from 2026-09-29 05:48Z to 2026-09-30 02:17Z:
 - one component profile;
 - 41 sweep measurements (15.0 M items);
@@ -158,15 +157,13 @@ Predictions from the pooled fits; "measured" values are from section 3.
 ## 6. Post hoc: re-measurement after the planner fix (D-013, `summary_plan_cache/`)
 
 This section was added after sections 1-5 and the C1 re-measurement (D-012)
-were seen. The sweep ran before the planner fix ("fix(plan): Recompute a
-sample's work items once per sample in materialize"), which removed a
+were seen. The sweep ran before the planner fix (`d0fcca8`), which removed a
 per-chunk recomputation of each sample's items in the main process. Four
 settings were measured again with the same scripts, configs, inputs, settings,
-warm-ups, and estimates, on 2026-10-02 from 05:54Z to 12:13Z at
-"feat(revision-1): Add figure 5 generate script and update document" (`ssat/`
-clean). `n500_g4_v5_k0` has one chunk per sample, which the fix cannot change,
-and serves as the drift control between the two sessions. The interpretation
-rule was fixed in D-013 before the run.
+warm-ups, and estimates, on 2026-10-02 from 05:54Z to 12:13Z at `620054c`
+(`ssat/` clean). `n500_g4_v5_k0` has one chunk per sample, which the fix
+cannot change, and serves as the drift control between the two sessions. The
+interpretation rule was fixed in D-013 before the run.
 
 | Setting | Chunks per sample | Repeats | Audit loop, ms per item: sweep | After the fix | Ratio | Ratio / drift control |
 |---|---|---|---|---|---|---|
@@ -269,12 +266,7 @@ D-008 (budget ~20 h instead of ~10 h; own GPU poller; `--log-file` run split;
 full-pipeline warm-ups; dump write not timed; grid ids) and D-009 (host OOM;
 run-phase RSS semantics; kept outliers; run-phase RSS removed from the
 workload predictions after the first fit output). All summaries were
-regenerated from a clean tree at "fix(revision-1): Label the A4 log-N axes
-with the measured sample counts". `components.json` was produced from a clean
-tree at "docs(revision-1): Pre-register A4 scaling protocol and add sweep,
-profiling, and fit scripts" before the sweep. D-013 (section 6): the post hoc
-re-measurement ran at "feat(revision-1): Add figure 5 generate script and
-update document" (`ssat/` clean), and `summary_plan_cache/` was generated from
-a clean tree at "docs(revision-1): Record the post hoc A4 re-measurement
-(D-013) and a commit map". The `git.sha` in each provenance file maps to its
-commit message in `../COMMIT_MAP.md`.
+regenerated from a clean tree at `a310768`. `components.json` was produced
+from a clean tree at `2792c33` before the sweep. D-013 (section 6): the post
+hoc re-measurement ran at `620054c` (`ssat/` clean), and
+`summary_plan_cache/` was generated from a clean tree at `b22aeb9`.

@@ -465,6 +465,10 @@ controls:
 
 `match_area_of` must name a configured region family and `n_samples` must be positive. For every concrete target region and each configured perturbation/seed combination, planning adds `n_samples` controls. At runtime, each control crops the target mask to its bounding box and translates that exact shape, including interior holes, to a uniformly sampled in-bounds position. Area and shape are therefore preserved while location changes. These controls are deterministic under `runtime.global_seed` and currently require a two-dimensional target mask.
 
+Choosing `n_samples`: the control spread used for `z_vs_control` is estimated from `n_samples` values, and the `exceeds_control` threshold (z > 2) is not adjusted for it. With few controls the z values are noisier and biased upward, so more anchors are graded HIGH. In the revision-1 control-count study, the ImageNet HIGH share was about 14 % with 3 controls, 8 % with 10, and 6-7 % with 20, while region rankings, dataset-level profiles, and the UNRELIABLE share did not change ([Revision 1 validation](VALIDATION_REVISION_1.md), A2). Three controls suffice for dataset-level profiles and screening; use ten or more when anchor-level grades matter. Each control multiplies the number of perturbed items, so cost grows with `1 + n_samples`.
+
+With crop-based preprocessing (for example a timm center crop), a control of the same area in the source image generally covers a different area of the model input. The `area_matched` flag records this; crop-free (`geometry_mode: squash`) preprocessing keeps controls area-matched on the model input.
+
 ## Runtime
 
 ```yaml

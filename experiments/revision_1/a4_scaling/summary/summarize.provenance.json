@@ -42,10 +42,10 @@
   "extra": {},
   "git": {
     "branch": "revision-1",
-    "describe": "v1.0.0-25-g82eba9f",
+    "describe": "v1.0.0-25-ga310768",
     "dirty": false,
     "dirty_files": [],
-    "sha": "82eba9f59740cd1f3411683b422a8059bfb90bba"
+    "sha": "a310768642cfc2f687602ba40f1dc14e3e63d584"
   },
   "inputs": {
     "measurements": {

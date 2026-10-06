@@ -10,6 +10,11 @@ auditing actually finds the shortcut. Current results are reported in
 preprocessing) and `docs/internal/RELIABILITY_THRESHOLD_CALIBRATION_v1.md`
 (reliability-threshold recalibration).
 
+The `docs/internal/` documents referenced in this README are internal design
+and report documents and are not distributed with the repository. The
+public counterparts are [Reproducibility demo (Q1-Q5)](../../docs/REPRODUCIBILITY_DEMO_v1.md)
+and [Reference comparison (Captum)](../../docs/REFERENCE_COMPARISON_CAPTUM_v1.md).
+
 **All commands below run inside the `region-sensitivity-workspace` Docker
 Compose container** (`docker compose exec region-sensitivity-workspace
 bash -lc '...'`), never on the host.

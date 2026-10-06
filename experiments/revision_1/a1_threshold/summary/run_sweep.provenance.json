@@ -54,10 +54,10 @@
   },
   "git": {
     "branch": "revision-1",
-    "describe": "v1.0.0-4-g6ef5dec",
+    "describe": "v1.0.0-4-g571738b",
     "dirty": false,
     "dirty_files": [],
-    "sha": "6ef5decc9a7c36175cc94b2ff79eb3eea1d7fb99"
+    "sha": "571738b6ed8406316cce76b553fbeb9d0216ae7d"
   },
   "inputs": {
     "features:imagenet_mnv2_050_crop_free_k3": {

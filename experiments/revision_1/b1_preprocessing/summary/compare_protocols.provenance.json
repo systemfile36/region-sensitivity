@@ -42,10 +42,10 @@
   "extra": {},
   "git": {
     "branch": "revision-1",
-    "describe": "v1.0.0-9-g7bdd739",
+    "describe": "v1.0.0-9-g28c1254",
     "dirty": false,
     "dirty_files": [],
-    "sha": "7bdd739798f305abf95bac42b065d1fbf786128b"
+    "sha": "28c12547e48d22265e4633d28574cdb7cfbcf605"
   },
   "inputs": {
     "cell_area": {

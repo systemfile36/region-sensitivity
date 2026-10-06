@@ -42,10 +42,10 @@
   "extra": {},
   "git": {
     "branch": "revision-1",
-    "describe": "v1.0.0-20-g688d19a",
+    "describe": "v1.0.0-20-gabee116",
     "dirty": false,
     "dirty_files": [],
-    "sha": "688d19a7416341876fd09ca1f9ccf542131c992b"
+    "sha": "abee116bd2d8afbd8bdd34f8c4deb05521500945"
   },
   "inputs": {
     "a3_imagenet_convnext_tiny_cf:metrics": {

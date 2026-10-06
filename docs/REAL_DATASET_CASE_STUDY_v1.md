@@ -128,3 +128,12 @@ All three accuracy-gated (exact-preprocessing) runs pass their gate.
 The ranking is stable across preprocessing modes, suggesting this native-TSM checkpoint's action classification relies more on upper-body/arm motion than on fine hand or head detail across the NTU60 XSub action set — a plausible, not a surprising, finding, and reproducible re-use is the point rather than the finding itself.
 
 **Known limitation, not staleness:** `experiments/real_dataset_case_study/summary/run_summary.json`'s `mean_region_flip_rate` field is `NaN` for all six runs by construction — it is computed only from `metric_name == "margin_drop"` rows, but `flip_rate` is populated only alongside the flip-style metrics (`pred_changed`, `flip_correct_to_wrong`, `flip_wrong_to_correct`, `topk_exit`), never alongside `margin_drop`. This is a pre-existing `summarize.py` query mismatch (not fixed here, out of this document's scope) rather than a real "zero flips" result; the flip-style metrics themselves are present and non-null in `region_metrics.csv`/`class_metrics.csv` for anyone who wants them.
+
+## Revision 1 extensions
+
+The revision-1 experiments ([Revision 1 validation](VALIDATION_REVISION_1.md)) build on these runs without changing them:
+
+- **Architectures (A3).** The ImageNet configuration was rerun with only the model name changed, for `convnext_tiny.fb_in1k` and `deit_small_patch16_224.fb_in1k` under both preprocessing modes. In all eight ImageNet runs the four center cells rank first, the eight edge cells next, and the four corner cells last. DeiT-S uses its own official crop ratio (0.9), so cross-architecture comparisons use the crop-free runs.
+- **Preprocessing confound (B1).** Under official preprocessing, the within-image ratio of the largest to the smallest effective cell area is 1.78x for a square image and a median of 4.4x across the audited images; 1.15 % of the images have border cells entirely outside the crop, and only 0.7 % of anchors have controls matched in effective area. Dataset-level profiles agree across the two modes, but about half of the anchor grades change.
+- **Control count (A2).** The ImageNet runs use three matched controls per target, with which about 14 % of anchors are graded HIGH; with 20 controls, the HIGH share falls to about 6-7 % on a 2,000-image subset.
+- **NTU60.** The NTU runs have no matched controls (area-matched controls do not support frame-dependent masks), so no NTU anchor can be graded HIGH. A human-rated body-part relevance check of the part profiles gives a mean class AUROC of 0.69 (B2).

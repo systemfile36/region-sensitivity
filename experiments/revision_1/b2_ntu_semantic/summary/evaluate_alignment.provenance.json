@@ -48,10 +48,10 @@
   },
   "git": {
     "branch": "revision-1",
-    "describe": "v1.0.0-32-g3076550",
+    "describe": "v1.0.0-32-gc5884cc",
     "dirty": false,
     "dirty_files": [],
-    "sha": "30765504bfcb8cb4284d57b96139cc1f009b17d0"
+    "sha": "c5884cc43c58555c95293ad4819c8a5d09d0ba23"
   },
   "inputs": {
     "annotator_A": {

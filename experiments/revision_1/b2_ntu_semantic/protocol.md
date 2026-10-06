@@ -7,11 +7,11 @@ plan section 8 and experiment plan section 9. Machine-readable version:
 ## Question and limits
 
 Do the body parts that SSAT scores as most sensitive for an action class
-agree with the parts that people, told only the action name, consider
-relevant to that action? The human ratings are an external semantic
-reference, not causal ground truth. Agreement does not show that SSAT is
-"correct", and disagreement does not show that it is wrong (experiment plan
-section 9.7).
+agree with the parts that people, given the action name and original
+NTU RGB+D clips of the class, consider relevant to that action? The human
+ratings are an external semantic reference, not causal ground truth.
+Agreement does not show that SSAT is "correct", and disagreement does not
+show that it is wrong (experiment plan section 9.7).
 
 ## Data (no new inference)
 
@@ -50,8 +50,9 @@ section 9.7).
   recognize the action without seeing the part), one per class x group
   cell. Definitions and rules are in `annotation/README.md`.
 - **Blind conditions.**
-  - Annotators see only the action names: no videos, no SSAT outputs, no
-    paper figures, no other annotator's sheet.
+  - Annotators see the action name and may watch any original
+    (unperturbed) NTU RGB+D clips of the class. They see no SSAT outputs,
+    no paper figures, and no other annotator's sheet.
   - Each sheet is committed before any SSAT score is computed, and the
     commit time is the record.
   - `ssat_part_scores.py` and `evaluate_alignment.py` refuse to run unless
@@ -116,6 +117,6 @@ section 9.7).
 - **Two-person classes.** SSAT regions may belong to the non-acting person
   in these classes; this is checked in the single-person robustness
   analysis.
-- **The ratings are coarse.** They are made from action names and describe
-  typical relevance for the action, not what is visible in these 20 videos
-  per class.
+- **The ratings are coarse.** They are made from the action name and
+  example clips and describe typical relevance for the action, not a rating
+  of each of the 20 audited videos per class.

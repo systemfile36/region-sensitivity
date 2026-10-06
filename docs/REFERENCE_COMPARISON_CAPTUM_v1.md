@@ -99,6 +99,61 @@ identity, and resume conflict handling.
   (about 1.5% relative to SSAT), but both values are far above the fixed
   threshold.
 
+## Runtime, memory, and storage (revision 1)
+
+Measured for the revision (pre-registered, three alternating runs per
+workflow; [`experiments/revision_1/c1_captum/C1_REPORT.md`](../experiments/revision_1/c1_captum/C1_REPORT.md)
+sections 1-2). The SSAT side is the seven experiment scripts counted above.
+Times are after the 1.0.1 planner fix; before it, SSAT took 1,207 s.
+
+| Measure | Captum reference | SSAT |
+|---|---:|---:|
+| Perturbed model evaluations | 291,200 | 310,400 |
+| End-to-end wall time | 141 s | 389 s |
+| Mean GPU utilization, audit stage | 82 % | 13 % |
+| Peak GPU memory above idle | 3.8 GiB | 3.2 GiB |
+| Stored output | 58.9 MB | 70.7 MB |
+
+SSAT stores full logits, the resolved configuration, provenance, reliability
+grades, and an HTML report; the Captum workflow stores one scalar row per
+item, so another metric needs new model evaluations.
+
+## Second setting: ImageNet (revision 1)
+
+A second comparison audits 1,000 ImageNet validation images (one per class)
+with `mobilenetv2_050.lamb_in1k`, crop-free preprocessing, a 4x4 grid, mean
+fill, blur, and Gaussian noise (three seeds), and three matched controls per
+cell: 320,000 perturbed evaluations in each workflow. The Captum workflow
+([`experiments/revision_1/c1_captum/imagenet_workflow/`](../experiments/revision_1/c1_captum/imagenet_workflow/README.md))
+is a copy of the synthetic one adapted to ImageNet; SSAT uses the case-study
+configuration with a different sample list
+([C1_REPORT.md](../experiments/revision_1/c1_captum/C1_REPORT.md) section 5).
+
+| Measure | Captum-based workflow | SSAT |
+|---|---:|---:|
+| Code or configuration for this setting | 1,023 lines | 31-line config |
+| Changed from the synthetic setting | 419 lines added or changed | 2 config lines |
+| End-to-end wall time (mean of 3) | 185 s | 1,334 s |
+| Mean GPU utilization, audit stage | 67 % | 4 % |
+| Peak GPU memory above idle | 11.4 GiB | 1.5 GiB |
+| Peak host RSS, summed process tree | 12.0 GiB | 34.7 GiB |
+| Stored output | 76 MB | 1,346 MB (1,000-class logits) |
+
+- **Same results.** For mean fill and blur, the item-level Pearson
+  correlation is 0.999 and the dataset-level 16-cell rankings are identical;
+  clean top-1 is 62.3 % in both. The remaining differences come from the
+  resize implementation (GPU bicubic in the Captum workflow, PIL in SSAT).
+- **Speed is a limitation of SSAT's design.** SSAT is 7.2x slower here
+  (2.8x in the synthetic setting). It perturbs each item in source space on
+  the CPU and applies the model's preprocessing per item, through one
+  pipeline shared by every region kind (including frame-dependent skeleton
+  body parts), operator, and adapter. The purpose-built workflows composite
+  regions and resize on the GPU. Region masks, including skeleton masks,
+  could be batched on the GPU as well; a GPU pipeline, as the default or as
+  an option where the regions, operators, and adapter allow it, is planned.
+- Setup time was not measured, because it depends on the implementer; code
+  size, changes, and capabilities are reported instead.
+
 ## Interpretation
 
 Captum provides the low-level region-ablation operation. Dataset iteration,
@@ -107,7 +162,11 @@ multi-level aggregation, preprocessing and area validation, raw schemas,
 cache/resume, provenance, and reporting remain workflow code that the user
 must design and maintain. The comparison therefore concerns an occlusion
 primitive versus a reproducible intervention-audit protocol, not competing
-attribution algorithms.
+attribution algorithms. In both settings each workflow has one
+implementation, so the code counts are indicators rather than a general
+measure of engineering effort, and SSAT is not the faster option.
 
 Machine-readable measurements are stored in
-`experiments/reference_comparison/captum_baseline/measured_results.json`.
+`experiments/reference_comparison/captum_baseline/measured_results.json`,
+`experiments/revision_1/c1_captum/summary_plan_cache/`, and
+`experiments/revision_1/c1_captum/summary_std/`.

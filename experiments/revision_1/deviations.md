@@ -61,7 +61,7 @@ direct inputs.
   `source_run_manifest_hash` no longer matches. The dump fragments are
   unchanged since 2026-08-21.
 - All four analyses predate the last change to `ssat/analysis`
-  ("feat(analysis): Improve analysis logic by vectorize modules").
+  (`145e5e1`, analysis vectorization).
 
 **Change.** New step P0-7 (`phase0/recompute_small_baselines.py`) reruns
 `ssat metrics` and `ssat analyze` with default settings on the unchanged
@@ -262,11 +262,10 @@ and verification criteria did not change.
 ## D-011 (2026-09-30, Phase 5 B2): single annotator, empty annotator metadata, post hoc group breakdown
 
 - **One annotator.** Only `annotator_A.csv` was completed and committed
-  ("feat(revision-1): Add manual annotation for NTU-RGB+D based B2
-  experiments"); `annotator_B.csv` is blank. The analysis ran with
-  `--annotators A`, the pre-registered single-annotator fallback. No annotator
-  agreement can be reported, and the `annotator_*_only` robustness variants do
-  not apply.
+  (`c5884cc`); `annotator_B.csv` is blank. The analysis ran with
+  `--annotators A`, the pre-registered single-annotator fallback. No
+  annotator agreement can be reported, and the `annotator_*_only`
+  robustness variants do not apply.
 - **Annotator metadata.** `annotation/annotators.csv` (role, prior exposure
   to SSAT's NTU results, times) was still empty when the analysis ran.
   The report therefore does not state whether the rating was blind to
@@ -275,6 +274,13 @@ and verification criteria did not change.
   classes, top-group counts) was added after the pre-registered results
   were seen. It is labelled post hoc and used only to explain the
   pre-registered results.
+- **Addendum (2026-10-06): annotator metadata.** The authors stated that
+  annotator A is a third party, not an author, who had not seen SSAT's NTU
+  results: the annotator received only the rating criteria, including the
+  extent of each body-part group, and was shown no SSAT result. An author checked the sheet's file format only and made no
+  change to the ratings. This was recorded post hoc in
+  `annotation/annotators.csv`; start and finish times were not recorded.
+  The rating sheet (`c5884cc`) and every B2 result are unchanged.
 
 ## D-012 (2026-10-01, Phase 6 C1-min): post hoc SSAT planner fix and re-measurement
 
@@ -291,10 +297,9 @@ Recorded after the C1-min results were seen, before the re-measurement ran.
   - Planner time alone, on two P-cores: 2.78 ms per item for S-4 and
     0.06 ms for S-1. C1-min measured 3.76-3.97 ms and 0.94-1.07 ms per
     item in total.
-- **Fix.** "fix(plan): Recompute a sample's work items once per sample in
-  materialize" adds a one-entry per-sample cache. Item ids, chunk ids, and
-  dumps do not change: in 2-sample S-1 and S-4 runs before and after the fix,
-  the item ids are identical and the logits differ by 0.
+- **Fix.** `d0fcca8` adds a one-entry per-sample cache. Item ids, chunk ids,
+  and dumps do not change: in 2-sample S-1 and S-4 runs before and after
+  the fix, the item ids are identical and the logits differ by 0.
 - **Re-measurement (post hoc).** Both workflows are measured again on the
   fixed code. Everything else is the same as C1-min: scripts, commands,
   execution settings, 3 alternating repeats, and verification criteria.
@@ -309,9 +314,8 @@ Recorded after the C1-min results were seen, before the re-measurement ran.
 
 Recorded after the A4 and C1 results were seen, before the re-measurement ran.
 
-- **Why.** The A4 sweep ran before the planner fix of D-012 ("fix(plan):
-  Recompute a sample's work items once per sample in materialize"). The
-  revised manuscript cites the fixed code, but its cost figures (3.8 ms
+- **Why.** The A4 sweep ran before the planner fix of D-012 (`d0fcca8`).
+  The revised manuscript cites the fixed code, but its cost figures (3.8 ms
   per evaluation, linearity, the Sec. 3.2 prediction, the `ssat estimate`
   accuracy) come from the sweep. Before the fix, the main
   process rebuilt a sample's items once per chunk, so the overhead per item
@@ -358,8 +362,7 @@ Recorded after the A4 and C1 results were seen, before the re-measurement ran.
   with it. Chrome and VS Code were open during the re-measurement, which
   they were not during the original sweep's K=20 runs.
 - **Result** (added after the re-measurement; `A4_REPORT.md` section 6).
-  The ten measurements ran from 2026-10-02 05:54Z to 12:13Z at
-  "feat(revision-1): Add figure 5 generate script and update document"
+  The ten measurements ran from 2026-10-02 05:54Z to 12:13Z at `620054c`
   (`ssat/` clean; uncommitted changes only in the revision scripts and
   documents). No further OOM event occurred.
   - Drift control `n500_g4_v5_k0`: ratio 1.015, inside 0.95-1.05, so the
@@ -371,3 +374,23 @@ Recorded after the A4 and C1 results were seen, before the re-measurement ran.
     fit (3.58 ms per item for the audit loop, 3.62 ms for `ssat run`,
     4.52 ms end to end), and the pre-registered sweep is reported next to
     it in the Response.
+
+## D-014 (2026-10-06, release preparation): `code_version` in run manifests reads 0.1.0
+
+Found while preparing the 1.0.1 release, after every experiment had run.
+
+- **Finding.** Every SSAT run manifest written in the workspace container,
+  the stored case-study baselines and all revision runs, records
+  `code_version: 0.1.0`. `ssat` reads its version from the installed package
+  metadata, and the container's editable install dated from 0.1.0; it was not
+  re-run after the version was raised to 1.0.0 (`f5aac71`).
+- **Effect.** None on results. `code_version` is used only to refuse resuming
+  a dump with different code; `metrics` and `analyze` do not read it. The code
+  that produced each revision output is identified by the git SHA in its
+  provenance file, and the planner fix (D-012) left item IDs and dumps
+  unchanged.
+- **Action.** The editable install was refreshed (`pip install --no-deps -e .`),
+  so `ssat --version` now reports 1.0.1. Stored dumps keep 0.1.0 and cannot be
+  resumed by 1.0.1, which is the intended guard; none needs resuming.
+  `docs/INSTALLATION.md` now says to re-run the editable install after a
+  version change.

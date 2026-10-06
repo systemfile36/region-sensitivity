@@ -9,7 +9,7 @@ torchvision>=0.23.0
 
 # Data
 # Bounds below pin the major/minor line last verified by the full test
-# suite (see docs/internal/SOFTWARE_MATURITY_AUDIT_v1.md SS3.2) and allow
+# suite (see the internal software-maturity audit, SS3.2; not distributed) and allow
 # patch/minor upgrades within it while blocking untested major bumps.
 numpy~=2.3
 pandas~=3.0

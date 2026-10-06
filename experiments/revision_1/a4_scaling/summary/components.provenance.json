@@ -43,10 +43,10 @@
   "extra": {},
   "git": {
     "branch": "revision-1",
-    "describe": "v1.0.0-22-g43edc7d",
+    "describe": "v1.0.0-22-g2792c33",
     "dirty": false,
     "dirty_files": [],
-    "sha": "43edc7da5e3185555ec63ca410a917a1c275bc1b"
+    "sha": "2792c3337a64e07fe86ecebd2591ae18482fd8d6"
   },
   "inputs": {
     "config": {
