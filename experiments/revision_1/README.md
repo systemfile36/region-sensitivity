@@ -5,7 +5,16 @@ reliability-threshold sensitivity, matched-control count, architecture
 coverage, computational scaling, ImageNet preprocessing confound, NTU
 semantic validation, and the Captum comparison). Code for all of them lives
 here; the `ssat/` package keeps its v1.0.0 defaults and behavior throughout
-the revision.
+the revision. The one package change is the 1.0.1 planner performance fix
+(`deviations.md` D-012), which leaves item IDs and dumps unchanged. A public
+summary of the results is in
+[`docs/VALIDATION_REVISION_1.md`](../../docs/VALIDATION_REVISION_1.md).
+
+The experiment and implementation plans that the protocols and reports cite
+(`docs/internal/revision_1/...`) and the manuscript source that Phase 0's
+P0-2 check reads (`docs/internal/paper/manuscript.tex`) are internal and are
+not distributed. Each `protocol.json`, report, and summary is self-contained;
+P0-2 can be re-run only with the manuscript source.
 
 **All commands run inside the `region-sensitivity-workspace` Docker Compose
 container** (`docker compose exec region-sensitivity-workspace bash -lc '...'`),
@@ -232,6 +241,11 @@ and qualitative indicators only (`protocol_std.json` decisions.setup_time).
 | Summaries and checks | `python experiments/revision_1/c1_captum/summarize_std.py` | `summary_std/{measurements,runs,resources,storage}.csv`, `summary_std/{parity_items,parity_profile}.csv`, `summary_std/{parity,verification,engineering}.json` | ~1 min |
 | Tests | `python -m pytest -q tests/unit/test_rev1_c1_std.py` | – | seconds |
 
+The measurement took 76 min (2026-10-05). Results are in
+`c1_captum/C1_REPORT.md` section 5: all checks pass, the deterministic
+operators give the same 16-cell rankings in both workflows, and SSAT is
+7.2x slower (22.2 vs 3.1 min).
+
 The post hoc re-measurement after the planner fix (`deviations.md` D-012)
 uses the same scripts with other output locations:
 `measure_resources.py --repeats 3 --output-root results/c1_plan_cache`,
@@ -282,6 +296,7 @@ Filled in as experiments complete.
 | Control / perturbation count vs cost | `fig_a4_controls.pdf`, `fig_a4_perturbations.pdf`, `reference_points.csv` | `a4_scaling/summary/` |
 | Peak GPU / host memory by workload size; cost breakdown | `fig_a4_memory.pdf`, `components.csv`, `workload_table.csv`, `coarse_to_fine.csv`, `estimate_accuracy.csv` | `a4_scaling/summary/` |
 | Cost after the planner fix (post hoc, D-013) | `comparison.csv`, `fits.csv`, `estimate_accuracy.csv`, `A4_REPORT.md` section 6 | `a4_scaling/summary_plan_cache/` |
-| Captum comparison: runtime / memory / storage | `resources.csv`, `runs.csv`, `storage.csv`, `verification.json` | `c1_captum/summary/` |
-| Captum comparison: claim narrowing (engineering burden) | `C1_REPORT.md` (draft wording) | `c1_captum/` |
+| Captum comparison: runtime / memory / storage | `resources.csv`, `runs.csv`, `storage.csv`, `verification.json` | `c1_captum/summary/`, `c1_captum/summary_plan_cache/` |
+| Captum comparison: second setting (ImageNet) | `resources.csv`, `storage.csv`, `parity_items.csv`, `parity_profile.csv`, `parity.json`, `verification.json`, `engineering.json` | `c1_captum/summary_std/` |
+| Captum comparison: claim narrowing (engineering burden), speed limitation | `C1_REPORT.md` (draft wording; section 5.3) | `c1_captum/` |
 | NTU quantitative semantic validation | `alignment_summary.json`, `alignment_by_class.csv`, `robustness.csv`, `group_breakdown.csv` (post hoc), `fig_b2_alignment.pdf`, `fig_b2_examples.pdf`; `annotator_agreement.csv` once a second annotator is added | `b2_ntu_semantic/summary/` |
