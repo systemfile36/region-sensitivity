@@ -34,8 +34,6 @@ from collections.abc import Sequence
 from datetime import datetime, timezone
 from pathlib import Path
 
-import psutil
-
 from experiments.revision_1.a4_scaling.run_scaling import GpuPoller, load_benchmark_module
 from experiments.revision_1.common.provenance import write_provenance
 from experiments.revision_1.common.runs import REPO_ROOT, REVISION_RESULTS_DIR, SYNTHETIC_DIR
@@ -107,6 +105,9 @@ class TreeRssPoller:
         self._thread = threading.Thread(target=self._poll, daemon=True)
 
     def _poll(self) -> None:
+        # Imported here so the module's other helpers work without the ``reference`` extra.
+        import psutil
+
         me = psutil.Process(os.getpid())
         while not self._stop.is_set():
             total, count = 0, 0

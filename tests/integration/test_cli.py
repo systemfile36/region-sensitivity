@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import importlib.metadata
 import json
 import shutil
 from pathlib import Path
@@ -547,7 +548,7 @@ def test_cli_help_and_version() -> None:
     assert runner.invoke(app, ["--help"]).exit_code == 0
     version = runner.invoke(app, ["--version"])
     assert version.exit_code == 0
-    assert version.stdout.strip() == "0.1.0"
+    assert version.stdout.strip() == importlib.metadata.version("ssat")
 
 
 def test_cli_confirmation_and_yes_only_control_prompt(tmp_path: Path) -> None:

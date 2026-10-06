@@ -15,6 +15,8 @@ jobs:
           cache: pip
       - run: pip install --index-url https://download.pytorch.org/whl/cpu torch==2.8.0 torchvision==0.23.0
       - run: pip install -r requirements.txt
+      # The Captum reference workflows and their tests need the `reference` extra.
+      - run: pip install "captum==0.9.0" "psutil>=5.9"
       - run: pip install --no-deps -e .
       - run: pytest -q
       - run: ssat --help
